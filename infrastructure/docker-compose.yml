@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    ports:
+      - "3000:8080"
+    volumes:
+      - open-webui-data:/app/backend/data
+      - ${CODE_DIR:-/home/mgilbert/Code}:/app/code:ro
+      - ${DROP_ZONE:-./drop-zone}:/app/drop-zone:ro
+    environment:
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - SCARF_NO_ANALYTICS=true
+      - DO_NOT_TRACK=true
+      - ANONYMIZED_TELEMETRY=false
+      # SearXNG web search integration
+      - ENABLE_RAG_WEB_SEARCH=true
+      - RAG_WEB_SEARCH_ENGINE=searxng
+      - SEARXNG_QUERY_URL=http://searxng:8080/search?q=<query>
+      - RAG_WEB_SEARCH_RESULT_COUNT=5
+      - RAG_WEB_SEARCH_CONCURRENT_REQUESTS=10
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - clood-net
+    depends_on:
+      - searxng
+
+  searxng:
+    image: searxng/searxng
+    container_name: searxng
+    restart: unless-stopped
+    ports:
+      - "8888:8080"
+    volumes:
+      - ./configs/searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8888/
+    networks:
+      - clood-net
+
+networks:
+  clood-net:
+    driver: bridge
+
+volumes:
+  open-webui-data:

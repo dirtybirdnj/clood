@@ -1,0 +1,22 @@
+# Drop zone - local staging area for files, not committed
+drop-zone/*
+!drop-zone/.gitkeep
+
+# SSL certs - generated locally
+infrastructure/ssl/*.pem
+infrastructure/ssl/*.key
+infrastructure/ssl/*.crt
+
+# Secrets
+.env
+*.env.local
+credentials.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp files
+*.tmp
+*.bak
+/tmp/
