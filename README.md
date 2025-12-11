@@ -1,6 +1,6 @@
 # clood
 
-We want Claude! Too bad, you get clood.
+We want Claude! Too bad, we're out of tokens. We have clood instead.
 
 Local LLM agent toolkit for when you run out of tokens or want to keep things on your own hardware.
 
