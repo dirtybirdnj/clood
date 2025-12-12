@@ -35,6 +35,85 @@ A dream layout for monitoring Ollama and system performance on ubuntu25.
 
 ---
 
+## Temperature Monitoring
+
+### Required Package
+
+```bash
+sudo apt install lm-sensors
+sudo sensors-detect  # Run once to detect sensors, say YES to all
+```
+
+### What Can Be Monitored
+
+| Component | Tool | Command |
+|-----------|------|---------|
+| CPU temp | lm-sensors | `sensors` |
+| CPU per-core | lm-sensors | `sensors coretemp-*` |
+| GPU temp (AMD) | nvtop, radeontop | `cat /sys/class/drm/card*/device/hwmon/hwmon*/temp1_input` |
+| Motherboard/Chipset | lm-sensors | `sensors` (shows all detected) |
+| NVMe/SSD | smartctl | `sudo smartctl -a /dev/nvme0n1 \| grep Temp` |
+| RAM | Usually not exposed | (rarely available on consumer boards) |
+
+### Quick Temperature Commands
+
+```bash
+# All sensors at once
+sensors
+
+# Watch temps live (updates every 2 sec)
+watch -n 2 sensors
+
+# Just CPU package temp
+sensors | grep -E "Package|Core"
+
+# GPU temp (AMD)
+cat /sys/class/drm/card1/device/hwmon/hwmon*/temp1_input | awk '{print $1/1000"°C"}'
+
+# NVMe temp
+sudo nvme smart-log /dev/nvme0n1 | grep temperature
+```
+
+### TUI Tools with Temperature
+
+| Tool | Shows Temps? | Notes |
+|------|--------------|-------|
+| **btop** | ✅ CPU temps | Built-in, shows per-core |
+| **nvtop** | ✅ GPU temp | Shows AMD/NVIDIA temps |
+| **s-tui** | ✅ CPU temp + freq | Best for CPU stress testing |
+| **glances** | ✅ All sensors | Most comprehensive |
+| **sensors** | ✅ Everything | CLI, use with `watch` |
+
+### Adding Temps to Dashboard
+
+For a temp-focused dashboard pane, add:
+
+```bash
+# In ollama-dashboard.sh, add a pane with:
+watch -n 2 'sensors | grep -E "Package|Core|temp1|fan"'
+```
+
+### Temperature Thresholds (i7-8086K)
+
+| State | Temp | Action |
+|-------|------|--------|
+| Idle | 30-40°C | Normal |
+| Light load | 40-60°C | Normal |
+| Heavy load | 60-80°C | Normal, monitor |
+| Throttling | 80-100°C | CPU slows down to protect itself |
+| Critical | >100°C | Auto-shutdown |
+
+### GPU Temperature (RX 590)
+
+| State | Temp | Notes |
+|-------|------|-------|
+| Idle | 35-45°C | Normal |
+| Load | 60-75°C | Normal for Vulkan inference |
+| Hot | 75-85°C | Consider fan curve adjustment |
+| Throttle | >85°C | GPU will clock down |
+
+---
+
 ## LLM-Specific Watch Commands
 
 ```bash
@@ -97,6 +176,15 @@ tmux attach -t $SESSION
 
 Goal: Boot ubuntu25 into text mode with tmux dashboard auto-starting, no GUI rendering overhead.
 
+### Understanding Systemd Targets
+
+Ubuntu uses **systemd targets** to determine boot mode:
+
+| Target | What It Does | GPU Usage |
+|--------|--------------|-----------|
+| `graphical.target` | Full desktop (GNOME/KDE) | ~200-500MB VRAM for compositing |
+| `multi-user.target` | Text mode, no GUI, all services | 0 - GPU free for Ollama |
+
 ### Option 1: Boot to Multi-User Target (No GUI)
 
 ```bash
@@ -109,6 +197,40 @@ sudo systemctl start gdm
 # To revert to GUI boot permanently
 sudo systemctl set-default graphical.target
 ```
+
+### Switching Without Reboot
+
+```bash
+# Drop from desktop to CLI (kills GNOME, frees GPU)
+sudo systemctl isolate multi-user.target
+
+# Start desktop from CLI
+sudo systemctl isolate graphical.target
+# or just: sudo systemctl start gdm
+```
+
+### One-Time Boot Mode from GRUB
+
+1. Hold `Shift` during boot → GRUB menu appears
+2. Press `e` to edit the selected entry
+3. Find the line starting with `linux`
+4. Add `3` or `systemd.unit=multi-user.target` at the end
+5. Press `Ctrl+X` to boot with that option
+
+### Recommended Workflow
+
+Keep `graphical.target` as default (for when you're at the workstation):
+
+1. **For max performance (remote):**
+   - SSH in from another machine
+   - Run `sudo systemctl isolate multi-user.target`
+   - Run `~/bin/ollama-dashboard.sh`
+   - GPU fully dedicated to Ollama
+
+2. **For local work:**
+   - Use desktop normally
+   - Open terminal, run `~/bin/ollama-dashboard.sh`
+   - Slight overhead from compositor but convenient
 
 ### Option 2: Auto-Start Tmux Dashboard on Login
 
