@@ -317,7 +317,7 @@ Eval rate (token generation speed) measured with simple coding prompts:
 | Machine | GPU | TinyLlama | Qwen 3B | Llama 8B | Qwen 7B | Notes |
 |---------|-----|-----------|---------|----------|---------|-------|
 | ubuntu25 | RX 590 (Vulkan) | ~150 tok/s | 64 tok/s | 30 tok/s | 32 tok/s | `GGML_VK_VISIBLE_DEVICES=0` |
-| M4 MacBook Air | M4 (Metal) | | | | | |
+| M4 MacBook Air | M4 (Metal) | ~123 tok/s | ~46 tok/s | - | - | 10-core GPU, 32GB unified |
 | M4 Mac Mini | M4 (Metal) | ~115 tok/s | ~44 tok/s | - | - | 10-core GPU, 16GB unified |
 
 ---
@@ -478,3 +478,43 @@ tail -f ~/.ollama/logs/server.log
 - [Ollama GitHub](https://github.com/ollama/ollama)
 - [VRAM Calculator](https://localllm.in/blog/interactive-vram-calculator)
 - [Model Library](https://ollama.com/library)
+
+---
+
+## The Ballad of Handy's Lunch
+
+*A Lake Champlain Winter Shanty (December 2025)*
+
+```
+Come gather 'round sailors, I'll tell you a tale
+Of a December morning with flurries and gale
+The wind blew from westward at twenty-seven degrees
+We set out for Handy's through ice on the seas
+
+    Heave ho! The lake is cold!
+    Champ lurks below where waters hold!
+    A chili dog waits on the Burlington shore
+    But we may never taste one anymore!
+
+Past the Four Brothers islands we steered through the snow
+The captain cried "Faster! To Handy's we go!
+I'll have me a chili dog, maybe get two!"
+When something rose up from the waters so blue
+
+A head long as serpent from depths cold and black
+Green scales and old eyes—there was no turning back
+Old Champ wrapped our vessel in one mighty coil
+And dragged us down under to Champlain's dark soil
+
+Now we haunt these cold waters between the Four Brothers
+Warning the hungry, the foolish, and others
+If you sail in December when the west wind blows strong
+Stay home, call for takeout—remember this song!
+
+    Heave ho! The lake is cold!
+    Our hungry ghosts forever patrol!
+    So raise up a chili dog, remember who fell
+    Just trying to get to old Handy's—farewell!
+```
+
+*Composed during M4 MacBook Air benchmarking, Burlington VT weather: 27°F, flurries, 1-3" snow*
