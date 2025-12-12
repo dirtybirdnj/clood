@@ -1,5 +1,11 @@
 # ubuntu25 Performance Optimization Guide
 
+```
+Old silicon dreams
+Tokens flow through copper veins
+Speed from careful hands
+```
+
 Deep optimization techniques for maximizing LLM inference performance beyond basic settings.
 
 **Hardware:** i7-8086K (6C/12T, AVX2) + RX 590 8GB (Vulkan) + 64GB DDR4 + NVMe
