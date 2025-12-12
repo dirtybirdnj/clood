@@ -178,6 +178,58 @@ nvme0n1p3    92 GB   /
 
 ---
 
+## Network
+
+### Interfaces
+
+| Interface | Type | Status | Speed |
+|-----------|------|--------|-------|
+| eno1 | Intel GbE | DOWN (no cable) | 1000 Mbit/s capable |
+| wlp4s0 | Intel WiFi (AX200?) | UP | RX: 390 Mbit/s, TX: 527 Mbit/s |
+
+### Current Connection (WiFi)
+
+```
+SSID: thatwifi
+Frequency: 5580 MHz (5GHz band)
+Signal: -64 dBm (decent)
+Link Speed: ~400-500 Mbit/s
+```
+
+### Bottleneck Analysis
+
+**Primary limitation: WiFi instead of Ethernet**
+
+- Gigabit ethernet = 1000 Mbit/s, stable, low latency
+- Current WiFi = ~450 Mbit/s average, variable latency
+- **Fix: Plug in ethernet cable to eno1**
+
+### TCP Buffer Settings
+
+Current (default):
+```
+net.core.rmem_max = 212992 (208 KB)
+net.core.wmem_max = 212992 (208 KB)
+```
+
+Recommended for bulk transfers:
+```bash
+sudo sysctl -w net.core.rmem_max=134217728
+sudo sysctl -w net.core.wmem_max=134217728
+sudo sysctl -w net.ipv4.tcp_rmem="4096 87380 134217728"
+sudo sysctl -w net.ipv4.tcp_wmem="4096 65536 134217728"
+```
+
+### Optimized rsync Command
+
+```bash
+rsync -avz --compress-level=1 --progress --inplace \
+  -e "ssh -T -c aes128-gcm@openssh.com -o Compression=no" \
+  source/ destination/
+```
+
+---
+
 ## Optimization Checklist
 
 ### Immediate (Software)
