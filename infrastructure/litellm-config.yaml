@@ -14,14 +14,14 @@ model_list:
   - model_name: "fast/tinyllama"
     litellm_params:
       model: "ollama/tinyllama"
-      api_base: "http://ubuntu25:11434"  # Change to your IP
+      api_base: "http://localhost:11434"
     model_info:
       description: "Ultra-fast for search queries and routing decisions"
 
   - model_name: "fast/llama3.2-3b"
     litellm_params:
       model: "ollama/llama3.2:3b"
-      api_base: "http://ubuntu25:11434"
+      api_base: "http://localhost:11434"
     model_info:
       description: "Fast with tool support"
 
@@ -31,21 +31,21 @@ model_list:
   - model_name: "code/deepseek-6.7b"
     litellm_params:
       model: "ollama/deepseek-coder:6.7b"
-      api_base: "http://ubuntu25:11434"
+      api_base: "http://localhost:11434"
     model_info:
       description: "Code specialist"
 
   - model_name: "code/mistral-7b"
     litellm_params:
       model: "ollama/mistral:7b"
-      api_base: "http://ubuntu25:11434"
+      api_base: "http://localhost:11434"
     model_info:
       description: "General reasoning"
 
   - model_name: "tools/groq-8b"
     litellm_params:
       model: "ollama/llama3-groq-tool-use:8b"
-      api_base: "http://ubuntu25:11434"
+      api_base: "http://localhost:11434"
     model_info:
       description: "Tool calling specialist"
 
