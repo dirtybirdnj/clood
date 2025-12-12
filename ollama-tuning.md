@@ -314,11 +314,18 @@ ollama run llama3-groq-tool-use:8b "List files in current directory" --verbose 2
 
 Eval rate (token generation speed) measured with simple coding prompts:
 
-| Machine | GPU | TinyLlama | Qwen 3B | Llama 8B | Qwen 7B | Notes |
-|---------|-----|-----------|---------|----------|---------|-------|
-| ubuntu25 | RX 590 (Vulkan) | ~150 tok/s | 64 tok/s | 30 tok/s | 32 tok/s | `GGML_VK_VISIBLE_DEVICES=0` |
+| Machine | GPU | TinyLlama | Qwen 3B | Groq 8B | Qwen 7B | Notes |
+|---------|-----|-----------|---------|---------|---------|-------|
+| ubuntu25 | RX 590 (Vulkan) | 184 tok/s | 64 tok/s | 37 tok/s | 32 tok/s | 2025-12-12, `OLLAMA_NUM_THREAD=6` |
 | M4 MacBook Air | M4 (Metal) | ~123 tok/s | ~46 tok/s | - | - | 10-core GPU, 32GB unified |
 | M4 Mac Mini | M4 (Metal) | ~115 tok/s | ~44 tok/s | - | - | 10-core GPU, 16GB unified |
+
+### Thread Optimization Notes (2025-12-12)
+
+Tested `OLLAMA_NUM_THREAD=6` vs auto-detected threads on ubuntu25:
+- **Result:** No significant difference for GPU-bound workloads
+- When models fit in VRAM, the GPU is the bottleneck, not CPU threads
+- Thread count matters more for models that spill to CPU (>8GB)
 
 ---
 

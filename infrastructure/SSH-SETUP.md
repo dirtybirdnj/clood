@@ -8,7 +8,7 @@ Passwordless SSH setup between clood machines for file transfer and remote acces
 |------|----------|-----|---------|
 | ubuntu25 | ubuntu25 | 192.168.4.63 | Workstation (RX 590, Ollama server) |
 | macbook-air | Mathews-MacBook-Air | DHCP | M4 MacBook Air |
-| mac-mini | TBD | TBD | M4 Mac Mini |
+| mac-mini | Mats-Mac-mini.local | 192.168.4.41 | M4 Mac Mini (clood primary) |
 
 ---
 
