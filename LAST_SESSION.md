@@ -1,147 +1,123 @@
-# Last Session - 2025-12-12
+# Last Session - 2025-12-12 (Afternoon)
 
 ## What We Did
 
-### 1. Fixed Ollama GPU Acceleration (RX 590)
-- **Problem**: Ollama was running on CPU only despite ROCm being installed
-- **Root cause**: ROCm 6.x dropped gfx803 (Polaris/RX 590) support entirely - no kernels exist
-- **Solution**: Switched to Vulkan backend which has broader GPU support via Mesa RADV
-- **Result**: GPU now utilized, 46% VRAM usage, ~70 tok/s on Qwen 7B (was ~10 tok/s on CPU)
+### 1. Created CLAUDE.md Agent Guidelines
+- Added rule: **Always ask before installing software** (brew, apt, pip, etc.)
+- Added benchmarking guidelines with creative elements (haiku/shanty)
+- Location: `/Users/mgilbert/Code/clood/CLAUDE.md`
 
-### 2. Abandoned Open WebUI
-- Tool calling is broken, documentation is garbage, version changes break everything
-- Decided to focus on **Crush** (charmbracelet) as the local Claude Code alternative
+### 2. SSH Multi-Machine Setup
+- Created comprehensive SSH setup guide: `infrastructure/SSH-SETUP.md`
+- Generated project-specific SSH key on MacBook Air: `~/.ssh/clood_ed25519`
+- Configured `~/.ssh/config` with ubuntu25 host (IP: **192.168.4.63** - changed from .62 due to DHCP)
+- SSH now working between MacBook Air and ubuntu25
 
-### 3. Configured Crush with MCP Servers
-Set up three MCP (Model Context Protocol) servers for tool capabilities:
+### 3. ASCII Login Prompt Guide
+- Created `infrastructure/ascii-login-prompt.md`
+- Covers dynamic MOTD, system stats, Champ ASCII art
+- Includes Ubuntu Pro ad removal commands
 
-| Server | Package | Purpose |
-|--------|---------|---------|
-| filesystem | @modelcontextprotocol/server-filesystem | Read/write ~/Code |
-| searxng | @kevinwatt/mcp-server-searxng | Web search via local SearXNG |
-| github | any-cli-mcp-server | Full gh CLI access |
+### 4. Ollama Model Sync (IN PROGRESS)
+- Rsync running: `rsync -av --progress ubuntu25:/home/ollama-models/ ~/.ollama/models/`
+- Models on ubuntu25 were moved to `/home/ollama-models/` (disk space issue)
+- Transfer speed: ~30MB/s over local network
+- Total size: ~20GB
+- **Status: Still running when session paused**
 
-### 4. Installed Node.js
-- Required for MCP servers (they run via npx)
-- `sudo apt install nodejs npm`
+### 5. Sea Shanty: The Ballad of Handy's Lunch
+Created a Lake Champlain winter sea shanty about:
+- Sailing to Handy's for a chili dog
+- Passing the Four Brothers islands
+- Getting sunk by Champ
 
-### 5. Updated Documentation
-- crush.md now has complete MCP configuration guide
-- infrastructure/configs/crush/crush.json updated with MCP config
+## Weather Check
+Burlington VT (Dec 12, 2025): 27°F, flurries, west winds 13mph, 1-3" snow tonight
 
-## Final Ollama Config (Tuned)
+## Pending Tasks
 
-`/etc/systemd/system/ollama.service.d/override.conf`:
-```ini
-[Service]
-Environment="OLLAMA_HOST=0.0.0.0:11434"
-Environment="OLLAMA_VULKAN=true"
-Environment="HIP_VISIBLE_DEVICES="
-Environment="OLLAMA_FLASH_ATTENTION=1"
-Environment="OLLAMA_KV_CACHE_TYPE=q8_0"
-Environment="OLLAMA_NUM_PARALLEL=1"
-Environment="OLLAMA_KEEP_ALIVE=30m"
-Environment="GGML_VK_VISIBLE_DEVICES=0"
-```
+1. **Wait for rsync to complete** - check with `ollama list` on MacBook Air
+2. **Run benchmarks on M4 MacBook Air** (32GB):
+   ```bash
+   ollama run tinyllama "Write hello world in Python" --verbose 2>&1 | grep "eval rate"
+   ollama run qwen2.5-coder:3b "Write fizzbuzz in Python" --verbose 2>&1 | grep "eval rate"
+   ```
+3. **Add benchmark results to ollama-tuning.md** with sea shanty
 
-**Critical finding:** `GGML_VK_VISIBLE_DEVICES=0` is essential - without it, Ollama splits models across RX 590 AND Intel iGPU, causing 7x slowdown on smaller models.
+## ubuntu25 Tasks (Disk Was Full)
 
-## Benchmarked Performance (RX 590 + Vulkan)
+SSH server installed, but ollama needs to point to moved models:
 
-| Model | Eval Speed | Prompt Speed | Notes |
-|-------|------------|--------------|-------|
-| TinyLlama | ~150 tok/s | ~200 tok/s | Quick queries |
-| Qwen 3B | **64 tok/s** | 222 tok/s | Best balance |
-| Qwen 7B | 32 tok/s | 105 tok/s | Complex tasks |
-| DeepSeek 6.7B | ~30 tok/s | ~100 tok/s | Coding focus |
-
-**Recommendation:** Use Qwen 3B for most Crush tasks - it's 2x faster than 7B with good quality.
-
-## Crush Config Location
-
-- Global: `~/.config/crush/crush.json`
-- Project: `.crush.json` in project root
-
-Current config includes:
-- Local Ollama provider with 7 models
-- 3 MCP servers (filesystem, searxng, github)
-
-## To Test on Laptop/Mac Mini
-
-1. Install Crush: `brew install charmbracelet/tap/crush` (macOS) or from GitHub releases
-2. Install Node.js + npm
-3. Install and auth gh CLI: `gh auth login`
-4. Copy crush.json from repo, adjust paths:
-   - Change `/home/mgilbert/Code` to local path
-   - Change SearXNG URL to `http://192.168.4.62:8888` (workstation IP)
-   - Change Ollama base_url to `http://192.168.4.62:11434/v1/`
-
-## Features Ready to Test
-
-1. **Read code**: "List files in the clood project"
-2. **Web search**: "Search for Python asyncio best practices"
-3. **GitHub**: "Show my repos" / "Create a PR for these changes"
-4. **Full workflow**: Search → Read code → Make changes → Create PR
-
-## Terminal Improvement (Next)
-
-Installing Kitty terminal for Mac-like copy/paste:
 ```bash
-sudo apt install kitty
+# Edit override.conf
+sudo nano /etc/systemd/system/ollama.service.d/override.conf
+
+# Add this line:
+Environment="OLLAMA_MODELS=/home/ollama-models"
+
+# Reload
+sudo systemctl daemon-reload
+sudo systemctl restart ollama
+ollama list
 ```
 
-Config for `~/.config/kitty/kitty.conf`:
+Also clean up stray SSH key in models folder:
+```bash
+sudo rm /home/ollama-models/id_ed25519 /home/ollama-models/id_ed25519.pub
 ```
-map ctrl+c copy_or_interrupt
-map ctrl+v paste_from_clipboard
-```
+
+## IP Addresses (Current)
+
+| Machine | IP | Notes |
+|---------|-----|-------|
+| ubuntu25 | 192.168.4.63 | Changed from .62 (DHCP) |
+| MacBook Air | DHCP | M4, 32GB |
 
 ## Files Changed This Session
 
-- `crush.md` - Added MCP server documentation
-- `infrastructure/configs/crush/crush.json` - Added MCP configuration
-- `/etc/systemd/system/ollama.service.d/override.conf` - Vulkan backend
-- `~/.config/crush/crush.json` - Live config with MCP servers
+- `CLAUDE.md` - NEW - Agent guidelines
+- `infrastructure/SSH-SETUP.md` - NEW - Multi-machine SSH setup
+- `infrastructure/ascii-login-prompt.md` - NEW - Login customization
+- `~/.ssh/config` - Updated with ubuntu25 host
+- `~/.ssh/clood_ed25519` - NEW - Project SSH key
 
-## Benchmarking Commands
+## Background Task Running
 
-Run these on each machine to compare performance:
-
-```bash
-# Quick benchmark - run each model and note the eval rate
-ollama run tinyllama "Write hello world in Python" --verbose 2>&1 | grep "eval rate"
-ollama run qwen2.5-coder:3b "Write fizzbuzz in Python" --verbose 2>&1 | grep "eval rate"
-ollama run qwen2.5-coder:7b "Write a function to reverse a string" --verbose 2>&1 | grep "eval rate"
+```
+Task ID: bcfc186
+Command: rsync models from ubuntu25
+Status: Running (~56% when last checked)
+Output: /tmp/claude/tasks/bcfc186.output
 ```
 
-**Record results here:**
+To check if done:
+```bash
+ollama list  # Should show models when sync complete
+```
 
-| Machine | TinyLlama | Qwen 3B | Qwen 7B |
-|---------|-----------|---------|---------|
-| ubuntu25 (RX 590) | ~150 tok/s | 64 tok/s | 32 tok/s |
-| M4 MacBook Air | | | |
-| M4 Mac Mini | | | |
+## Resume Commands
 
-## Vi Cheat Sheet
+When you come back:
+```bash
+# Check if sync finished
+ollama list
 
-For editing config files:
+# If models present, run benchmarks
+ollama serve &  # Start ollama if not running
+ollama run tinyllama "Hello" --verbose 2>&1 | grep "eval rate"
+ollama run qwen2.5-coder:3b "Write fizzbuzz" --verbose 2>&1 | grep "eval rate"
+```
 
-| Step | Keys | Action |
-|------|------|--------|
-| 1 | `gg` | Go to top |
-| 2 | `dG` | Delete all content |
-| 3 | `i` | Enter insert mode |
-| 4 | Paste | |
-| 5 | `Esc` | Exit insert mode |
-| 6 | `:wq` Enter | Save and quit |
+## The Ballad of Handy's Lunch (For Reference)
 
-Bail out without saving: `Esc` then `:q!` Enter
+*(A Lake Champlain Winter Shanty)*
 
-## Key Discoveries
+**Chorus:**
+*Heave ho! The lake is cold!*
+*Champ lurks below where waters hold!*
+*A chili dog waits on the Burlington shore*
+*But we may never taste one anymore!*
 
-1. **ROCm 6.x has no gfx803 support** - HSA_OVERRIDE_GFX_VERSION trick doesn't work when kernels don't exist
-2. **Vulkan works great** for older AMD GPUs via Mesa RADV driver
-3. **Crush supports MCP** - can extend local models with tools just like Claude Code
-4. **SearXNG is ideal** for AI search - self-hosted means traffic looks human (single residential IP)
-5. **Disable Intel iGPU** - `GGML_VK_VISIBLE_DEVICES=0` prevents slow multi-GPU splits
-6. **Qwen 3B is the sweet spot** - 64 tok/s vs 32 tok/s for 7B, good quality for most tasks
+Key verse:
+> Past the Four Brothers islands we steered through the snow
+> The captain cried "Faster! To Handy's we go!"
