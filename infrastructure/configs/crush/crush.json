@@ -51,5 +51,31 @@
         }
       ]
     }
+  },
+  "mcp": {
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/mgilbert/Code"],
+      "timeout": 120,
+      "disabled": false
+    },
+    "searxng": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@nicholasoxford/server-searxng"],
+      "timeout": 60,
+      "disabled": false,
+      "env": {
+        "SEARXNG_URL": "http://localhost:8888"
+      }
+    },
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "any-cli-mcp-server", "gh"],
+      "timeout": 120,
+      "disabled": false
+    }
   }
 }

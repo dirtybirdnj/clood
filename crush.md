@@ -215,8 +215,132 @@ ssh -L 11434:localhost:11434 mgilbert@192.168.4.62 -N &
 - [ ] Laptop: Install Crush, create crush.json
 - [ ] Mac Mini: Install Crush, create crush.json
 
+## MCP Server Configuration
+
+Crush supports Model Context Protocol (MCP) servers for extended capabilities. The following MCP servers are configured:
+
+### Prerequisites
+
+```bash
+# Install Node.js and npm (required for MCP servers)
+sudo apt install nodejs npm
+
+# Verify gh CLI is authenticated
+gh auth status
+```
+
+### Configured MCP Servers
+
+| Server | Purpose | Package |
+|--------|---------|---------|
+| `filesystem` | Read/write files in ~/Code | @modelcontextprotocol/server-filesystem |
+| `searxng` | Web search via local SearXNG | @nicholasoxford/server-searxng |
+| `github` | Full gh CLI access (repos, PRs, issues) | any-cli-mcp-server |
+
+### MCP Configuration in crush.json
+
+Add to `~/.config/crush/crush.json`:
+
+```json
+{
+  "mcp": {
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/mgilbert/Code"],
+      "timeout": 120,
+      "disabled": false
+    },
+    "searxng": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@nicholasoxford/server-searxng"],
+      "timeout": 60,
+      "disabled": false,
+      "env": {
+        "SEARXNG_URL": "http://localhost:8888"
+      }
+    },
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "any-cli-mcp-server", "gh"],
+      "timeout": 120,
+      "disabled": false
+    }
+  }
+}
+```
+
+### MCP Server Details
+
+**Filesystem Server**
+- Provides: read_file, write_file, list_directory, create_directory, move_file, search_files, get_file_info
+- Scoped to `/home/mgilbert/Code` for security
+- [Documentation](https://www.npmjs.com/package/@modelcontextprotocol/server-filesystem)
+
+**SearXNG Server**
+- Provides: web_search tool
+- Uses local SearXNG instance at http://localhost:8888
+- Privacy-preserving metasearch
+
+**GitHub CLI Server**
+- Wraps the `gh` CLI tool via any-cli-mcp-server
+- Provides access to all gh subcommands: repo, pr, issue, gist, etc.
+- Requires `gh auth login` to be completed first
+- [Documentation](https://github.com/eirikb/any-cli-mcp-server)
+
+### Remote Workstation MCP Config
+
+For laptop/Mac Mini connecting to ubuntu25's Ollama but using local filesystem:
+
+```json
+{
+  "mcp": {
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "$HOME/Code"],
+      "timeout": 120
+    },
+    "searxng": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@nicholasoxford/server-searxng"],
+      "timeout": 60,
+      "env": {
+        "SEARXNG_URL": "http://192.168.4.62:8888"
+      }
+    },
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "any-cli-mcp-server", "gh"],
+      "timeout": 120
+    }
+  }
+}
+```
+
+### Disabling Individual Tools
+
+You can disable specific tools within an MCP server:
+
+```json
+{
+  "mcp": {
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "any-cli-mcp-server", "gh"],
+      "disabled_tools": ["repo delete", "pr close"]
+    }
+  }
+}
+```
+
 ## Future Improvements
 
 - [ ] mDNS/avahi for `ubuntu25.local` hostname resolution
-- [ ] MCP server for SearXNG integration with Crush
 - [ ] Pull larger models (deepseek-coder, codellama, etc.)
+- [ ] Test MCP servers on laptop and Mac Mini
