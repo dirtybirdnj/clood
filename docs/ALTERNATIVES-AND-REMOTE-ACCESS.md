@@ -71,7 +71,73 @@ oterm
 
 ---
 
-### 2. gptme - CLI Agent with Tools
+### 2. Crush - Charm's AI Coding Agent
+
+**What it is:** A glamorous terminal-based AI coding agent from Charmbracelet that integrates LLMs directly into your development workflow.
+
+**Key Features:**
+- **Multi-model support** - OpenAI, Anthropic, Ollama, or any OpenAI-compatible API
+- **Switch LLMs mid-session** - Change models while preserving context
+- **LSP integration** - Uses Language Server Protocol for deep code understanding
+- **MCP support** - Extensible via Model Context Protocol (stdio, HTTP, SSE)
+- **Session management** - Multiple work sessions per project
+- **Built-in tools** - File viewing, editing, bash commands, searching
+- **Permission system** - Asks before running tool calls (can override)
+- **Cross-platform** - macOS, Linux, Windows, BSD
+
+**Install:**
+```bash
+# macOS
+brew install charmbracelet/tap/crush
+
+# Go install
+go install github.com/charmbracelet/crush@latest
+
+# Or download from releases
+```
+
+**Configuration (.crush.json):**
+```json
+{
+  "providers": {
+    "ollama": {
+      "type": "openai",
+      "baseURL": "http://localhost:11434/v1",
+      "models": ["qwen2.5-coder:7b", "llama3.1:8b"]
+    }
+  },
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+    }
+  }
+}
+```
+
+**Usage:**
+```bash
+crush                    # Start interactive session
+crush "explain this code"  # One-shot query
+```
+
+**Pros:**
+- Beautiful TUI from Charm (makers of bubbletea, lipgloss)
+- First-class MCP and LSP support
+- Model-agnostic (works with local and cloud)
+- Active development, polished UX
+
+**Cons:**
+- Newer project (less battle-tested)
+- Requires Go or Homebrew to install
+
+**Links:**
+- [GitHub](https://github.com/charmbracelet/crush)
+- [Charm](https://charm.sh/)
+
+---
+
+### 3. gptme - CLI Agent with Tools
 
 **What it is:** A CLI agent that can execute code, manipulate files, browse the web, and use vision.
 
@@ -122,7 +188,7 @@ gptme "read the README and summarize it"
 
 ---
 
-### 3. aider - AI Pair Programming
+### 4. aider - AI Pair Programming
 
 **What it is:** AI pair programming in your terminal. Git-aware, designed for coding.
 
@@ -173,7 +239,7 @@ Ollama defaults to 2k context, which is too small. Aider auto-adjusts but you sh
 
 ---
 
-### 4. LobeChat - Modern Web UI
+### 5. LobeChat - Modern Web UI
 
 **What it is:** Open-source ChatGPT alternative with modern design, plugins, and Ollama support.
 
@@ -212,7 +278,7 @@ Works with models like `qwen2.5` that support function calling. Enable plugins i
 
 ---
 
-### 5. LibreChat - Multi-Provider Platform
+### 6. LibreChat - Multi-Provider Platform
 
 **What it is:** Enhanced ChatGPT clone with extensive features and MCP support.
 
@@ -263,7 +329,7 @@ endpoints:
 
 ---
 
-### 6. AnythingLLM - Local RAG + Agents
+### 7. AnythingLLM - Local RAG + Agents
 
 **What it is:** All-in-one Desktop & Docker AI application with built-in RAG and AI agents.
 
@@ -536,8 +602,9 @@ curl http://ubuntu-ip:11434/api/generate -d '{
 | Use Case | Recommended Tool |
 |----------|-----------------|
 | Quick local chat | `ollama run` or `oterm` |
-| Coding assistance | `aider` |
-| Agent with tools | `gptme` or `oterm` with MCP |
+| Coding assistance | `aider` or `crush` |
+| Agent with tools | `gptme`, `crush`, or `oterm` with MCP |
+| Beautiful TUI + MCP | `crush` (Charm) |
 | Document Q&A | AnythingLLM |
 | Web UI needed | LobeChat or LibreChat |
 | Mac → Ubuntu dev | VS Code Remote SSH |
@@ -547,6 +614,7 @@ curl http://ubuntu-ip:11434/api/generate -d '{
 
 ## Next Steps
 
+- [ ] Try crush (Charm's new AI coding agent)
 - [ ] Install oterm and configure MCP filesystem server
 - [ ] Test gptme with local Ollama models
 - [ ] Try aider for coding tasks
@@ -561,6 +629,10 @@ curl http://ubuntu-ip:11434/api/generate -d '{
 - [GitHub - ggozad/oterm](https://github.com/ggozad/oterm)
 - [oterm MCP Documentation](https://ggozad.github.io/oterm/mcp/)
 - [Terminal Trove - oterm](https://terminaltrove.com/oterm/)
+
+### Crush
+- [GitHub - charmbracelet/crush](https://github.com/charmbracelet/crush)
+- [Charm](https://charm.sh/)
 
 ### gptme
 - [gptme.org](https://gptme.org/)
