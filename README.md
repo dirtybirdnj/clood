@@ -21,6 +21,15 @@ clood is a framework for running local LLMs with:
 
 See [START-HERE.md](START-HERE.md) for the complete setup checklist.
 
+### Verify Your Setup
+
+After setup, run the verification script:
+```bash
+./scripts/verify-setup.sh
+```
+
+This checks Ollama, SearXNG, GPU, CPU governor, and Crush configuration.
+
 ### TL;DR
 
 ```bash
@@ -107,6 +116,7 @@ clood/
 │   └── tests/              # Test generation templates
 │
 ├── scripts/                # Utility scripts
+│   └── verify-setup.sh     # Test infrastructure is working
 │
 └── drop-zone/              # Local file staging (gitignored)
 ```
@@ -161,6 +171,7 @@ Currently tested on:
 | [model-comparison.md](model-comparison.md) | Model selection |
 | [GPU-SETUP.md](GPU-SETUP.md) | AMD GPU with ROCm/Vulkan |
 | [WORKFLOW.md](WORKFLOW.md) | Claude Code + Crush workflow |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common issues and fixes |
 
 ## TODO
 

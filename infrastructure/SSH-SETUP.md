@@ -6,7 +6,7 @@ Passwordless SSH setup between clood machines for file transfer and remote acces
 
 | Host | Hostname | IP | Purpose |
 |------|----------|-----|---------|
-| ubuntu25 | ubuntu25 | 192.168.4.62 | Workstation (RX 590, Ollama server) |
+| ubuntu25 | ubuntu25 | 192.168.4.63 | Workstation (RX 590, Ollama server) |
 | macbook-air | Mathews-MacBook-Air | DHCP | M4 MacBook Air |
 | mac-mini | TBD | TBD | M4 Mac Mini |
 
@@ -63,7 +63,7 @@ Add to `~/.ssh/config`:
 
 ```
 Host ubuntu25
-    HostName 192.168.4.62
+    HostName 192.168.4.63
     User mgilbert
     IdentityFile ~/.ssh/clood_ed25519
 ```
@@ -77,7 +77,7 @@ After SSH is running on all machines, exchange public keys:
 ### From Mac → ubuntu25
 
 ```bash
-ssh-copy-id -i ~/.ssh/clood_ed25519.pub mgilbert@192.168.4.62
+ssh-copy-id -i ~/.ssh/clood_ed25519.pub mgilbert@192.168.4.63
 ```
 
 ### From ubuntu25 → Mac
@@ -169,7 +169,7 @@ chmod 644 ~/.ssh/clood_ed25519.pub
 
 Remote host key changed (reinstall, new machine):
 ```bash
-ssh-keygen -R 192.168.4.62
+ssh-keygen -R 192.168.4.63
 ```
 
 ---
