@@ -234,7 +234,7 @@ gh auth status
 | Server | Purpose | Package |
 |--------|---------|---------|
 | `filesystem` | Read/write files in ~/Code | @modelcontextprotocol/server-filesystem |
-| `searxng` | Web search via local SearXNG | @nicholasoxford/server-searxng |
+| `searxng` | Web search via local SearXNG | @kevinwatt/mcp-server-searxng |
 | `github` | Full gh CLI access (repos, PRs, issues) | any-cli-mcp-server |
 
 ### MCP Configuration in crush.json
@@ -254,7 +254,7 @@ Add to `~/.config/crush/crush.json`:
     "searxng": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@nicholasoxford/server-searxng"],
+      "args": ["-y", "@kevinwatt/mcp-server-searxng"],
       "timeout": 60,
       "disabled": false,
       "env": {
@@ -306,7 +306,7 @@ For laptop/Mac Mini connecting to ubuntu25's Ollama but using local filesystem:
     "searxng": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@nicholasoxford/server-searxng"],
+      "args": ["-y", "@kevinwatt/mcp-server-searxng"],
       "timeout": 60,
       "env": {
         "SEARXNG_URL": "http://192.168.4.62:8888"

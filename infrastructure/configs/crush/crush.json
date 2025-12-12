@@ -63,7 +63,7 @@
     "searxng": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@nicholasoxford/server-searxng"],
+      "args": ["-y", "@kevinwatt/mcp-server-searxng"],
       "timeout": 60,
       "disabled": false,
       "env": {
