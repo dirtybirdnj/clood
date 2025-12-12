@@ -5,9 +5,9 @@
 # ┌─────────────────────────────┬─────────────────────────────┐
 # │          btop               │          nvtop              │
 # │   CPU/RAM/Disk/Network      │     GPU/VRAM utilization    │
+# ├─────────────────────────────┼─────────────────────────────┤
+# │  journalctl -u ollama -f    │   sensors (temps/fans)      │
 # ├─────────────────────────────┴─────────────────────────────┤
-# │                  journalctl -u ollama -f                  │
-# ├───────────────────────────────────────────────────────────┤
 # │  watch -n1 'curl -s localhost:11434/api/ps | jq'         │
 # └───────────────────────────────────────────────────────────┘
 #
@@ -43,12 +43,17 @@ tmux send-keys 'btop' C-m
 tmux split-window -h
 tmux send-keys 'nvtop' C-m
 
-# Bottom left: Ollama logs
+# Middle left: Ollama logs
 tmux select-pane -t 0
 tmux split-window -v
 tmux send-keys 'journalctl -u ollama -f' C-m
 
-# Bottom right: Model status watcher
+# Middle right: Temperature monitoring
+tmux select-pane -t 2
+tmux split-window -v
+tmux send-keys "watch -n 2 'sensors | grep -E \"Package|Core|temp|fan\"'" C-m
+
+# Bottom: Model status watcher (full width)
 tmux select-pane -t 2
 tmux split-window -v
 tmux send-keys "watch -n 1 'curl -s http://localhost:11434/api/ps | jq'" C-m

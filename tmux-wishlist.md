@@ -4,21 +4,22 @@ A dream layout for monitoring Ollama and system performance on ubuntu25.
 
 ---
 
-## Ideal Layout
+## Current Layout (Implemented!)
 
 ```
 ┌─────────────────────────────┬─────────────────────────────┐
 │          btop               │          nvtop              │
 │   CPU/RAM/Disk/Network      │     GPU/VRAM utilization    │
-│                             │                             │
+├─────────────────────────────┼─────────────────────────────┤
+│  journalctl -u ollama -f    │   sensors (temps/fans)      │
+│  (token flow, errors)       │   (CPU/GPU temperatures)    │
 ├─────────────────────────────┴─────────────────────────────┤
-│                  journalctl -u ollama -f                  │
-│          (live token flow, layer loading, errors)         │
-├───────────────────────────────────────────────────────────┤
 │  watch -n1 'curl -s localhost:11434/api/ps | jq'         │
 │          (loaded models, VRAM per model)                  │
 └───────────────────────────────────────────────────────────┘
 ```
+
+**Status:** ✅ Implemented in `scripts/ollama-dashboard.sh`
 
 ---
 
@@ -132,32 +133,39 @@ ollama run tinyllama "hi" --verbose 2>&1 | tail -5
 
 ---
 
-## Tmux Session Script (Future)
+## Tmux Navigation Cheatsheet
+
+All tmux commands start with `Ctrl+b` (the prefix), then release and press the next key:
+
+| Keys | Action |
+|------|--------|
+| `Ctrl+b` then `d` | **Detach** - exit tmux but keep session running |
+| `Ctrl+b` then `arrow keys` | Move between panes |
+| `Ctrl+b` then `z` | **Zoom** - make current pane fullscreen (toggle) |
+| `Ctrl+b` then `x` | Kill current pane (with confirmation) |
+| `Ctrl+b` then `[` | Scroll mode (use arrows/PgUp/PgDn, `q` to exit) |
+| `Ctrl+b` then `?` | Show all keybindings |
+
+**Quick tips:**
+- `tmux attach -t ollama-dash` - reattach to detached session
+- `tmux kill-session -t ollama-dash` - destroy session completely
+- Inside btop/nvtop: press `q` to quit that tool
+
+---
+
+## Dashboard Script
+
+See `scripts/ollama-dashboard.sh` for the implementation.
 
 ```bash
-#!/bin/bash
-# ollama-dashboard.sh - launch monitoring dashboard
+# Start the dashboard
+./scripts/ollama-dashboard.sh
 
-SESSION="ollama-dash"
+# Reattach to existing session
+tmux attach -t ollama-dash
 
-tmux new-session -d -s $SESSION -n 'dashboard'
-
-# Top left: btop
-tmux send-keys 'btop' C-m
-
-# Top right: nvtop
-tmux split-window -h
-tmux send-keys 'nvtop' C-m
-
-# Bottom: Ollama logs
-tmux split-window -v -t 0
-tmux send-keys 'journalctl -u ollama -f' C-m
-
-# Bottom right: model watcher
-tmux split-window -v -t 1
-tmux send-keys "watch -n 1 'curl -s http://localhost:11434/api/ps | jq'" C-m
-
-tmux attach -t $SESSION
+# Kill the session
+./scripts/ollama-dashboard.sh -k
 ```
 
 ---
