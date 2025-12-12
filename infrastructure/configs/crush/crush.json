@@ -14,33 +14,9 @@
           "default_max_tokens": 4096
         },
         {
-          "name": "🔧 Qwen3 8B (tools)",
-          "id": "qwen3:8b",
-          "context_window": 32768,
-          "default_max_tokens": 8192
-        },
-        {
           "name": "🔧 Llama 3.2 3B (fast+tools)",
           "id": "llama3.2:3b",
           "context_window": 131072,
-          "default_max_tokens": 8192
-        },
-        {
-          "name": "🔧 Llama 3.1 8B (tools)",
-          "id": "llama3.1:8b",
-          "context_window": 128000,
-          "default_max_tokens": 8192
-        },
-        {
-          "name": "⚡ Qwen 2.5 Coder 3B (fast)",
-          "id": "qwen2.5-coder:3b",
-          "context_window": 32768,
-          "default_max_tokens": 8192
-        },
-        {
-          "name": "⚡ Qwen 2.5 Coder 7B",
-          "id": "qwen2.5-coder:7b",
-          "context_window": 32768,
           "default_max_tokens": 8192
         },
         {
@@ -50,22 +26,10 @@
           "default_max_tokens": 4096
         },
         {
-          "name": "🐇 TinyLlama (tiny/fast)",
-          "id": "tinyllama:latest",
-          "context_window": 2048,
-          "default_max_tokens": 2048
-        },
-        {
-          "name": "🐢 Qwen 2.5 Coder 14B (slow)",
-          "id": "qwen2.5-coder:14b",
+          "name": "⚡ Mistral 7B",
+          "id": "mistral:7b",
           "context_window": 32768,
           "default_max_tokens": 8192
-        },
-        {
-          "name": "🐢 DeepSeek Coder 33B (slow)",
-          "id": "deepseek-coder:33b",
-          "context_window": 16384,
-          "default_max_tokens": 4096
         }
       ]
     }
