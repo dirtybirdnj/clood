@@ -4,6 +4,11 @@
 > *CUDA flows where Vulkan fought*
 > *Green joins the garden*
 
+> *For Jon:*
+> *Miles don't matter much*
+> *When an old friend shares his card*
+> *NYC to VT*
+
 **Status:** Hypothetical - documenting options for potential RTX 2080 acquisition
 
 ---
