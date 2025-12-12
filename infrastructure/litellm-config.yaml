@@ -1,0 +1,77 @@
+# LiteLLM Proxy Configuration
+# Routes requests to multiple Ollama instances across your server garden
+#
+# Usage:
+#   pip install litellm[proxy]
+#   litellm --config litellm-config.yaml
+#
+# Then point Crush/Aider at: http://localhost:4000
+
+model_list:
+  # ============================================
+  # TIER 1: Fast/Tiny Models (Search & Routing)
+  # ============================================
+  - model_name: "fast/tinyllama"
+    litellm_params:
+      model: "ollama/tinyllama"
+      api_base: "http://localhost:11434"
+    model_info:
+      description: "Ultra-fast for search queries and routing decisions"
+
+  - model_name: "fast/llama3.2-3b"
+    litellm_params:
+      model: "ollama/llama3.2:3b"
+      api_base: "http://localhost:11434"
+    model_info:
+      description: "Fast with tool support"
+
+  # ============================================
+  # TIER 2: Medium Models (Code & Reasoning)
+  # ============================================
+  - model_name: "code/deepseek-6.7b"
+    litellm_params:
+      model: "ollama/deepseek-coder:6.7b"
+      api_base: "http://localhost:11434"
+    model_info:
+      description: "Code specialist"
+
+  - model_name: "code/mistral-7b"
+    litellm_params:
+      model: "ollama/mistral:7b"
+      api_base: "http://localhost:11434"
+    model_info:
+      description: "General reasoning"
+
+  - model_name: "tools/groq-8b"
+    litellm_params:
+      model: "ollama/llama3-groq-tool-use:8b"
+      api_base: "http://localhost:11434"
+    model_info:
+      description: "Tool calling specialist"
+
+  # ============================================
+  # TIER 3: Large Models (on Mac with more VRAM)
+  # Uncomment when Macs are set up
+  # ============================================
+  # - model_name: "heavy/qwen-14b"
+  #   litellm_params:
+  #     model: "ollama/qwen2.5-coder:14b"
+  #     api_base: "http://macbook-air:11434"
+  #   model_info:
+  #     description: "Large coding model on Mac"
+
+  # - model_name: "heavy/deepseek-33b"
+  #   litellm_params:
+  #     model: "ollama/deepseek-coder:33b"
+  #     api_base: "http://mac-mini:11434"
+  #   model_info:
+  #     description: "Largest model on Mac Mini"
+
+# General settings
+litellm_settings:
+  drop_params: true  # Ignore unsupported params
+  set_verbose: false
+
+# Optional: Add routing rules
+# router_settings:
+#   routing_strategy: "least-busy"  # or "simple-shuffle", "latency-based"
