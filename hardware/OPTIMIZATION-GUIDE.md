@@ -4,6 +4,30 @@
 Old silicon dreams
 Tokens flow through copper veins
 Speed from careful hands
+
+Kernel whispers low
+Swappiness falls to zero
+Memory stays close
+
+No queue for the drive
+NVMe speaks directly now
+Latency dissolves
+
+Six cores stand alone
+Threads pinned to silicon beds
+No wandering tasks
+
+Huge pages unfold
+Two megabytes at a time
+TLB finds its peace
+
+XMP awakens
+DDR4 runs at full stride
+BIOS knows the way
+
+Twenty-seven percent
+Wrung from aging copper paths
+Clood runs swift tonight
 ```
 
 Deep optimization techniques for maximizing LLM inference performance beyond basic settings.
