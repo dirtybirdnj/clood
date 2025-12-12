@@ -1,6 +1,45 @@
 # Model Comparison Guide
 
-Hardware reference: **RX 590 (8GB VRAM)** / **64GB System RAM**
+A comprehensive guide to model selection and workload distribution across the clood server garden.
+
+---
+
+## The Server Garden
+
+| Machine | GPU/Chip | VRAM/Memory | Strengths | Weaknesses |
+|---------|----------|-------------|-----------|------------|
+| **ubuntu25** | RX 590 8GB (Vulkan) | 64GB RAM | Dedicated VRAM, image gen, large models | Older GPU arch |
+| **MacBook Air** | M4 10-core | 32GB unified | Fast prompts, portable, cool/quiet | Shared memory bandwidth |
+| **Mac Mini** | M4 10-core | 16GB unified | Always-on server, compact | Less memory for big models |
+
+---
+
+## Workload Routing Matrix
+
+| Task | Best Machine | Model | Why |
+|------|--------------|-------|-----|
+| **Quick coding questions** | MacBook Air | qwen2.5-coder:3b | 46 tok/s, fast prompt processing |
+| **Complex code generation** | ubuntu25 | qwen2.5-coder:7b | 32 tok/s, better quality |
+| **Tool calling / MCP** | ubuntu25 | llama3-groq-tool-use:8b | Best tool support |
+| **Image generation** | ubuntu25 | Stable Diffusion | Dedicated 8GB VRAM |
+| **Vision / image analysis** | ubuntu25 | llama3.2-vision:11b | Needs VRAM headroom |
+| **Embeddings / RAG** | Any | nomic-embed-text | Tiny, runs anywhere |
+| **Large context (32K+)** | MacBook Air | Any 7B | 32GB unified handles it |
+| **Background/batch jobs** | Mac Mini | Any | Always-on, won't interrupt work |
+
+---
+
+## Benchmark Results (December 2025)
+
+| Machine | TinyLlama 1B | Qwen 3B | Qwen 7B | Llama 8B |
+|---------|--------------|---------|---------|----------|
+| ubuntu25 (RX 590) | **150 tok/s** | **64 tok/s** | 32 tok/s | 30 tok/s |
+| MacBook Air (M4 32GB) | 123 tok/s | 46 tok/s | - | - |
+| Mac Mini (M4 16GB) | 115 tok/s | 44 tok/s | - | - |
+
+**Key insight:** RX 590 with dedicated VRAM beats Apple Silicon on eval rate, but M4 has faster prompt processing (760 tok/s vs ~200 tok/s for cached prompts).
+
+---
 
 ## Currently Installed Models
 
@@ -165,6 +204,7 @@ Use `OLLAMA_KV_CACHE_TYPE=q8_0` to extend context by ~50%.
 - Best: 7-8B models at Q4
 - `GGML_VK_VISIBLE_DEVICES=0` required (disable Intel iGPU)
 - Sweet spot: `qwen2.5-coder:3b` (64 tok/s) or `llama3.1:8b` (30 tok/s)
+- **Image gen capable:** Can run Stable Diffusion, ComfyUI, AUTOMATIC1111
 
 ### M4 Mac Mini (16GB unified)
 - Metal acceleration, 10-core GPU
@@ -172,7 +212,103 @@ Use `OLLAMA_KV_CACHE_TYPE=q8_0` to extend context by ~50%.
 - Slower eval rate than RX 590 but faster prompt processing
 - Can run 14B+ models in unified memory without spillover
 - Sweet spot: `qwen2.5-coder:3b` (44 tok/s) for quick tasks
+- Good for: always-on server, background jobs
 
-### M4 MacBook Air
-- Similar to Mac Mini but may thermal throttle
-- Test under sustained load before relying on speeds
+### M4 MacBook Air (32GB unified)
+- **Benchmarked (2025-12-12):** TinyLlama ~123 tok/s, Qwen 3B ~46 tok/s
+- Slightly faster than Mac Mini (more unified memory bandwidth)
+- Best prompt processing: 760 tok/s (hot cache)
+- Can handle 14B+ models comfortably with 32GB
+- Good for: primary coding workstation, portable development
+- Image gen: Use Draw Things or DiffusionBee (native macOS apps)
+
+---
+
+## Image Generation Options
+
+### ubuntu25 (Recommended for quality/speed)
+
+| Tool | VRAM | Speed | Notes |
+|------|------|-------|-------|
+| **ComfyUI** | 4-6GB | ~30s/img | Node-based, most flexible |
+| **AUTOMATIC1111** | 4-6GB | ~30s/img | Feature-rich WebUI |
+| **Fooocus** | 4GB | ~45s/img | Simplest, Midjourney-like |
+
+```bash
+# Docker install for AUTOMATIC1111
+docker run -d --name sd-webui \
+  -p 7860:7860 \
+  -v ~/sd-models:/models \
+  --device /dev/dri \
+  ghcr.io/automattic1111/stable-diffusion-webui
+```
+
+### Apple Silicon (MacBook Air / Mac Mini)
+
+| Tool | Memory | Speed | Notes |
+|------|--------|-------|-------|
+| **Draw Things** | 4-8GB | ~15s/img | Native macOS, very fast on M4 |
+| **DiffusionBee** | 4-8GB | ~20s/img | Simple UI, good for beginners |
+| **MLX Stable Diffusion** | 4-8GB | ~10s/img | Apple's optimized library |
+
+**Note:** M4 Macs are actually faster for image gen than RX 590 due to Metal optimization!
+
+---
+
+## Recommended Model Priority
+
+### For Coding Agents (Claude comparison)
+
+```bash
+# On ubuntu25 - pull these in order:
+ollama pull qwen2.5-coder:7b         # Best coding quality
+ollama pull llama3-groq-tool-use:8b  # Tool calling champion
+ollama pull deepseek-coder:6.7b      # Alternative coding focus
+ollama pull codellama:13b            # If you need bigger
+```
+
+### For Tool Calling / MCP
+
+```bash
+ollama pull llama3-groq-tool-use:8b  # #1 choice
+ollama pull qwen3:8b                 # Good alternative
+ollama pull llama3.2:3b              # Fast + tools
+```
+
+### For Vision
+
+```bash
+ollama pull llama3.2-vision:11b      # Can see and describe images
+ollama pull llava:13b                # Alternative vision model
+```
+
+### For Embeddings/RAG
+
+```bash
+ollama pull nomic-embed-text         # Only 274MB, essential
+```
+
+---
+
+## Coding Agent Comparison Setup
+
+To compare local models vs Claude:
+
+| Agent Tool | Works With | Best For |
+|------------|------------|----------|
+| **Aider** | Ollama, OpenAI, Claude | Git-aware coding, file editing |
+| **Crush + MCP** | Ollama | Tool calling, web search |
+| **Continue.dev** | Ollama, any API | IDE integration (VSCode/JetBrains) |
+| **Open Interpreter** | Ollama, OpenAI | Code execution, system control |
+
+```bash
+# Aider setup (recommended for Claude comparison)
+pip install aider-chat
+cd ~/Code/your-project
+aider --model ollama/qwen2.5-coder:7b
+```
+
+Compare same tasks between:
+1. `aider --model ollama/qwen2.5-coder:7b` (local)
+2. `aider --model claude-3-5-sonnet` (Claude)
+3. `claude` (Claude Code CLI)
