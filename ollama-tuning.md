@@ -74,9 +74,48 @@ ollama list
 
 ## Machine-Specific Configurations
 
-### ubuntu25 (AMD RX 590 + Vulkan)
+### ubuntu25 (AMD RX 590 + Vulkan + i7-8086K)
 
-**Hardware:** RX 590 8GB VRAM, Intel i7, 64GB RAM
+**Hardware:**
+- **CPU:** Intel Core i7-8086K @ 4.0GHz (turbo 5.0GHz) - 6 cores / 12 threads
+- **GPU:** AMD RX 590 8GB VRAM (Vulkan backend)
+- **RAM:** 64GB DDR4
+
+**CPU Specifications:**
+| Spec | Value |
+|------|-------|
+| Architecture | Coffee Lake (14nm) |
+| Physical Cores | 6 |
+| Logical Threads | 12 (Hyper-Threading) |
+| Base Clock | 4.0 GHz |
+| Max Turbo | 5.0 GHz (single core) |
+| L3 Cache | 12 MB |
+| AVX2 | ✅ Supported |
+| AVX-512 | ❌ Not supported |
+
+#### CPU Governor Optimization
+
+**CRITICAL:** Ubuntu defaults to `powersave` governor, throttling your 5GHz CPU to ~3.2GHz!
+
+```bash
+# Check current governor
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+
+# Switch to performance (temporary)
+echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+
+# Make permanent - install cpupower
+sudo apt install linux-tools-common linux-tools-$(uname -r)
+sudo cpupower frequency-set -g performance
+
+# Verify frequencies
+cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq | sort -u
+# Should show ~4000000-5000000 instead of ~3200000
+```
+
+**Expected improvement:** 10-30% faster inference after switching to performance governor.
+
+#### Ollama Config
 
 **Config:** `/etc/systemd/system/ollama.service.d/override.conf`
 
@@ -92,13 +131,39 @@ Environment="OLLAMA_KEEP_ALIVE=30m"
 Environment="GGML_VK_VISIBLE_DEVICES=0"
 ```
 
-**Critical:** `GGML_VK_VISIBLE_DEVICES=0` disables Intel iGPU, preventing slow multi-GPU splits.
+**Critical settings explained:**
+- `GGML_VK_VISIBLE_DEVICES=0` - Disables Intel iGPU, prevents slow multi-GPU splits
+- `OLLAMA_KV_CACHE_TYPE=q8_0` - Reduces VRAM usage by 50%
+- `OLLAMA_FLASH_ATTENTION=1` - Faster attention computation
+
+#### CPU Thread Optimization (for CPU-bound workloads)
+
+When models spill to CPU (larger than 8GB), thread count matters:
+
+```ini
+# Add to override.conf for CPU-heavy workloads
+Environment="OLLAMA_NUM_THREAD=6"
+```
+
+**Why 6 threads?** llama.cpp uses lockstep threading - all threads must sync after each operation. Using physical cores (6) instead of logical threads (12) avoids hyper-threading contention.
 
 **Apply changes:**
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl restart ollama
 ```
+
+#### Memory Optimization
+
+With 64GB RAM, you can run larger models that spill to CPU:
+
+| Model | GPU Layers | CPU Layers | Approx Speed |
+|-------|-----------|------------|--------------|
+| 7B Q4 | 29/29 | 0 | 30-64 tok/s |
+| 14B Q4 | ~20/40 | ~20 | 15-20 tok/s |
+| 33B Q4 | ~10/60 | ~50 | 5-8 tok/s |
+
+The 64GB RAM provides runway for CPU offload without swapping.
 
 ### M4 MacBook Air / M4 Mac Mini (Apple Silicon)
 
