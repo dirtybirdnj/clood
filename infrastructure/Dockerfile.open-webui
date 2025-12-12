@@ -1,0 +1,9 @@
+# Custom Open WebUI image with additional packages
+# Pinned to v0.6.10 - tool calling is broken in 0.6.13+
+FROM ghcr.io/open-webui/open-webui:v0.6.10
+
+# Install hf_xet for faster HuggingFace downloads (Xet storage support)
+RUN pip install --no-cache-dir hf_xet
+
+# Add any other packages needed for custom tools here
+# RUN pip install --no-cache-dir some-package

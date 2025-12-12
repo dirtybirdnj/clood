@@ -115,6 +115,35 @@ System prompts in `skills/prompts/` work with any LLM.
 - **SearXNG** - Privacy-respecting metasearch, port 8888
 - **Ollama** - Model serving, port 11434
 
+## Important: Open WebUI Version
+
+**Pinned to v0.6.10** - Tool calling is broken in versions 0.6.13+. See:
+- [Issue #14577](https://github.com/open-webui/open-webui/issues/14577)
+- [Discussion #14492](https://github.com/open-webui/open-webui/discussions/14492)
+
+If you need to run open-webui manually (outside docker-compose):
+
+```bash
+docker run -d \
+  --name open-webui \
+  --restart unless-stopped \
+  -p 3000:8080 \
+  -v open-webui-data:/app/backend/data \
+  -v /home/mgilbert/Code:/app/code:ro \
+  -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
+  -e SCARF_NO_ANALYTICS=true \
+  -e DO_NOT_TRACK=true \
+  -e ANONYMIZED_TELEMETRY=false \
+  -e ENABLE_RAG_WEB_SEARCH=true \
+  -e RAG_WEB_SEARCH_ENGINE=searxng \
+  -e "SEARXNG_QUERY_URL=http://searxng:8080/search?q=<query>" \
+  -e RAG_WEB_SEARCH_RESULT_COUNT=5 \
+  -e RAG_WEB_SEARCH_CONCURRENT_REQUESTS=10 \
+  --add-host=host.docker.internal:host-gateway \
+  --network webui-net \
+  ghcr.io/open-webui/open-webui:v0.6.10
+```
+
 ## Rebuilding from Scratch
 
 ```bash
