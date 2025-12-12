@@ -9,6 +9,10 @@
 > *When an old friend shares his card*
 > *NYC to VT*
 
+> *Good friends, spare GPUs*
+> *Worth their weight in tensor cores*
+> *Priceless, like Jon's gift*
+
 **Status:** Hypothetical - documenting options for potential RTX 2080 acquisition
 
 ---
