@@ -4,10 +4,13 @@ Guide for enabling GPU acceleration with AMD Radeon cards.
 
 ## Current Hardware
 
-- **GPU:** AMD Radeon RX 570/580 (8GB VRAM)
+- **GPU:** AMD Radeon RX 590 (8GB VRAM) - gfx803 (Polaris)
 - **CPU:** Intel i7-8086K (6 cores / 12 threads)
 - **RAM:** 64GB
 - **OS:** Ubuntu 25.10
+- **ROCm:** 6.3.1
+
+**Important:** The RX 590 uses gfx803 architecture which was dropped from official ROCm 6.x support. It still works with the `HSA_OVERRIDE_GFX_VERSION` workaround below.
 
 ## Check GPU Status
 
@@ -54,26 +57,36 @@ rocm-smi
 # Shows GPU stats
 ```
 
-### For Older GPUs (RX 580, etc.)
+### For Polaris GPUs (RX 570/580/590 - gfx803)
 
-If Ollama doesn't detect the GPU, force compatibility:
+ROCm 6.x dropped official support for gfx803, but it still works with an override. **This is required for Ollama to use the GPU.**
 
 ```bash
-# Add to /etc/systemd/system/ollama.service.d/override.conf
-sudo systemctl edit ollama
-```
+# Create override directory
+sudo mkdir -p /etc/systemd/system/ollama.service.d
 
-Add:
-```ini
+# Create override file
+sudo tee /etc/systemd/system/ollama.service.d/override.conf << 'EOF'
 [Service]
-Environment="OLLAMA_HOST=0.0.0.0:11434"
-Environment="HSA_OVERRIDE_GFX_VERSION=9.0.0"
-```
+Environment="HSA_OVERRIDE_GFX_VERSION=8.0.3"
+Environment="HIP_VISIBLE_DEVICES=0"
+EOF
 
-Then:
-```bash
+# Reload and restart
 sudo systemctl daemon-reload
 sudo systemctl restart ollama
+```
+
+**What these do:**
+- `HSA_OVERRIDE_GFX_VERSION=8.0.3` - Tells ROCm to treat gfx803 as compatible
+- `HIP_VISIBLE_DEVICES=0` - Explicitly points to GPU device 0
+
+Verify GPU is being used:
+```bash
+# Run a model and watch GPU utilization
+ollama run qwen2.5-coder:7b "hello" &
+watch -n1 rocm-smi
+# GPU% should spike during inference
 ```
 
 ## Option 2: Docker with ROCm
@@ -136,22 +149,19 @@ cat /sys/class/drm/card0/device/mem_info_vram_total
 
 ## Optimized Ollama Config
 
-Once GPU is working, update systemd config:
+Once GPU is working, you can add more options to the override:
 
 ```bash
-sudo systemctl edit ollama
-```
-
-```ini
+sudo tee /etc/systemd/system/ollama.service.d/override.conf << 'EOF'
 [Service]
+Environment="HSA_OVERRIDE_GFX_VERSION=8.0.3"
+Environment="HIP_VISIBLE_DEVICES=0"
 Environment="OLLAMA_HOST=0.0.0.0:11434"
-Environment="HSA_OVERRIDE_GFX_VERSION=9.0.0"
 Environment="OLLAMA_NUM_PARALLEL=4"
 Environment="OLLAMA_FLASH_ATTENTION=1"
 Environment="OLLAMA_KV_CACHE_TYPE=q8_0"
-```
+EOF
 
-```bash
 sudo systemctl daemon-reload
 sudo systemctl restart ollama
 ```
@@ -171,13 +181,17 @@ sudo systemctl restart ollama
 
 ```bash
 # Check ROCm sees GPU
-rocminfo | grep -i "name"
+rocminfo | grep -E "Name:|Marketing Name:|Device Type:"
 
-# Check Ollama logs
+# Check Ollama logs for GPU detection
 journalctl -u ollama -f
 
-# Try HSA override
-export HSA_OVERRIDE_GFX_VERSION=9.0.0
+# Verify systemd override is applied
+systemctl cat ollama | grep HSA
+
+# Test manually with override
+export HSA_OVERRIDE_GFX_VERSION=8.0.3
+export HIP_VISIBLE_DEVICES=0
 ollama serve
 ```
 
