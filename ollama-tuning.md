@@ -165,9 +165,21 @@ With 64GB RAM, you can run larger models that spill to CPU:
 
 The 64GB RAM provides runway for CPU offload without swapping.
 
-### M4 MacBook Air / M4 Mac Mini (Apple Silicon)
+### M4 Mac Mini (Apple Silicon)
 
-**Hardware:** M4 chip with unified memory, Metal acceleration
+**Hardware:**
+- **Chip:** Apple M4 (10-core CPU: 4P + 6E, 10-core GPU)
+- **Memory:** 16GB unified (shared CPU/GPU)
+- **Neural Engine:** 16-core
+- **Metal:** Metal 3 support
+
+**Observed Performance (2025-12-12):**
+| Model | Eval Rate | Prompt Rate (hot) |
+|-------|-----------|------------------|
+| TinyLlama 1B | ~115 tok/s | ~1200 tok/s |
+| Qwen 2.5 3B | ~44 tok/s | ~460 tok/s |
+
+**Note:** Slower than RX 590 for eval rate. The M4's GPU shares memory bandwidth with CPU, while the RX 590 has dedicated 8GB GDDR5. However, the M4 has much faster prompt processing when models are cached.
 
 **Config:** Ollama uses Metal by default on macOS. No special config needed.
 
@@ -184,6 +196,10 @@ Or set environment variables in `~/.zshrc`:
 export OLLAMA_KEEP_ALIVE=30m
 export OLLAMA_NUM_PARALLEL=2
 ```
+
+### M4 MacBook Air (Apple Silicon)
+
+**Hardware:** M4 chip with unified memory, Metal acceleration. Similar to Mac Mini but may thermal throttle under sustained load.
 
 ### NVIDIA GPU Systems
 
@@ -296,13 +312,13 @@ ollama run llama3-groq-tool-use:8b "List files in current directory" --verbose 2
 
 ## Benchmark Results Table
 
-Fill in after running benchmarks on each machine:
+Eval rate (token generation speed) measured with simple coding prompts:
 
 | Machine | GPU | TinyLlama | Qwen 3B | Llama 8B | Qwen 7B | Notes |
 |---------|-----|-----------|---------|----------|---------|-------|
 | ubuntu25 | RX 590 (Vulkan) | ~150 tok/s | 64 tok/s | 30 tok/s | 32 tok/s | `GGML_VK_VISIBLE_DEVICES=0` |
 | M4 MacBook Air | M4 (Metal) | | | | | |
-| M4 Mac Mini | M4 (Metal) | | | | | |
+| M4 Mac Mini | M4 (Metal) | ~115 tok/s | ~44 tok/s | - | - | 10-core GPU, 16GB unified |
 
 ---
 

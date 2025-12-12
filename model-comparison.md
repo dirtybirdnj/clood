@@ -166,7 +166,13 @@ Use `OLLAMA_KV_CACHE_TYPE=q8_0` to extend context by ~50%.
 - `GGML_VK_VISIBLE_DEVICES=0` required (disable Intel iGPU)
 - Sweet spot: `qwen2.5-coder:3b` (64 tok/s) or `llama3.1:8b` (30 tok/s)
 
-### M4 MacBook Air / M4 Mac Mini
-- Metal acceleration, unified memory
-- Can run larger models (14B+) efficiently
-- Test and record speeds in LAST_SESSION.md
+### M4 Mac Mini (16GB unified)
+- Metal acceleration, 10-core GPU
+- **Benchmarked (2025-12-12):** TinyLlama ~115 tok/s, Qwen 3B ~44 tok/s
+- Slower eval rate than RX 590 but faster prompt processing
+- Can run 14B+ models in unified memory without spillover
+- Sweet spot: `qwen2.5-coder:3b` (44 tok/s) for quick tasks
+
+### M4 MacBook Air
+- Similar to Mac Mini but may thermal throttle
+- Test under sustained load before relying on speeds
