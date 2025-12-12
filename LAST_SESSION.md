@@ -29,21 +29,10 @@ Set up three MCP (Model Context Protocol) servers for tool capabilities:
 - crush.md now has complete MCP configuration guide
 - infrastructure/configs/crush/crush.json updated with MCP config
 
-## Current Ollama Config
+## Final Ollama Config (Tuned)
 
 `/etc/systemd/system/ollama.service.d/override.conf`:
 ```ini
-[Service]
-Environment="OLLAMA_HOST=0.0.0.0:11434"
-Environment="OLLAMA_VULKAN=true"
-Environment="HIP_VISIBLE_DEVICES="
-```
-
-## Pending: Performance Tuning
-
-Apply this for better performance:
-```bash
-sudo tee /etc/systemd/system/ollama.service.d/override.conf << 'EOF'
 [Service]
 Environment="OLLAMA_HOST=0.0.0.0:11434"
 Environment="OLLAMA_VULKAN=true"
@@ -52,10 +41,21 @@ Environment="OLLAMA_FLASH_ATTENTION=1"
 Environment="OLLAMA_KV_CACHE_TYPE=q8_0"
 Environment="OLLAMA_NUM_PARALLEL=1"
 Environment="OLLAMA_KEEP_ALIVE=30m"
-EOF
-
-sudo systemctl daemon-reload && sudo systemctl restart ollama
+Environment="GGML_VK_VISIBLE_DEVICES=0"
 ```
+
+**Critical finding:** `GGML_VK_VISIBLE_DEVICES=0` is essential - without it, Ollama splits models across RX 590 AND Intel iGPU, causing 7x slowdown on smaller models.
+
+## Benchmarked Performance (RX 590 + Vulkan)
+
+| Model | Eval Speed | Prompt Speed | Notes |
+|-------|------------|--------------|-------|
+| TinyLlama | ~150 tok/s | ~200 tok/s | Quick queries |
+| Qwen 3B | **64 tok/s** | 222 tok/s | Best balance |
+| Qwen 7B | 32 tok/s | 105 tok/s | Complex tasks |
+| DeepSeek 6.7B | ~30 tok/s | ~100 tok/s | Coding focus |
+
+**Recommendation:** Use Qwen 3B for most Crush tasks - it's 2x faster than 7B with good quality.
 
 ## Crush Config Location
 
@@ -103,9 +103,45 @@ map ctrl+v paste_from_clipboard
 - `/etc/systemd/system/ollama.service.d/override.conf` - Vulkan backend
 - `~/.config/crush/crush.json` - Live config with MCP servers
 
+## Benchmarking Commands
+
+Run these on each machine to compare performance:
+
+```bash
+# Quick benchmark - run each model and note the eval rate
+ollama run tinyllama "Write hello world in Python" --verbose 2>&1 | grep "eval rate"
+ollama run qwen2.5-coder:3b "Write fizzbuzz in Python" --verbose 2>&1 | grep "eval rate"
+ollama run qwen2.5-coder:7b "Write a function to reverse a string" --verbose 2>&1 | grep "eval rate"
+```
+
+**Record results here:**
+
+| Machine | TinyLlama | Qwen 3B | Qwen 7B |
+|---------|-----------|---------|---------|
+| ubuntu25 (RX 590) | ~150 tok/s | 64 tok/s | 32 tok/s |
+| M4 MacBook Air | | | |
+| M4 Mac Mini | | | |
+
+## Vi Cheat Sheet
+
+For editing config files:
+
+| Step | Keys | Action |
+|------|------|--------|
+| 1 | `gg` | Go to top |
+| 2 | `dG` | Delete all content |
+| 3 | `i` | Enter insert mode |
+| 4 | Paste | |
+| 5 | `Esc` | Exit insert mode |
+| 6 | `:wq` Enter | Save and quit |
+
+Bail out without saving: `Esc` then `:q!` Enter
+
 ## Key Discoveries
 
 1. **ROCm 6.x has no gfx803 support** - HSA_OVERRIDE_GFX_VERSION trick doesn't work when kernels don't exist
 2. **Vulkan works great** for older AMD GPUs via Mesa RADV driver
 3. **Crush supports MCP** - can extend local models with tools just like Claude Code
 4. **SearXNG is ideal** for AI search - self-hosted means traffic looks human (single residential IP)
+5. **Disable Intel iGPU** - `GGML_VK_VISIBLE_DEVICES=0` prevents slow multi-GPU splits
+6. **Qwen 3B is the sweet spot** - 64 tok/s vs 32 tok/s for 7B, good quality for most tasks
