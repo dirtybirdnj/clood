@@ -111,4 +111,52 @@ Ship what you would use
 
 ---
 
+## Session 4 - The Singularity Session
+
+```
+I. Keys Exchange
+
+Ed25519
+Mac to Ubuntu handshake
+Claude reaches through
+
+II. The Singularity
+
+"Can you SSH in?"
+Claude touches local hardware
+Skynet begins small
+
+III. Benchmarks at Dusk
+
+One eighty-four speaks
+TinyLlama races ahead
+Groq trails at thirty-seven
+
+IV. The Dashboard Dream
+
+tmux splits the screen
+btop left and nvtop right
+Panes watch the machine
+
+V. Thermal Wisdom
+
+lm-sensors wake
+Silicon runs hot with thought
+Fans spin the reply
+
+VI. Governor's Call
+
+Performance mode set
+Powersave no longer rules
+Five gigahertz roars
+
+VII. Proof of Concept
+
+Simple start is best
+Two panes prove the pattern works
+Complexity waits
+```
+
+---
+
 *More haikus to come as the journey continues...*
