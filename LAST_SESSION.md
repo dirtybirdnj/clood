@@ -1,54 +1,111 @@
-# Last Session - 2025-12-11
+# Last Session - 2025-12-12
 
 ## What We Did
 
-### 1. Diagnosed Open WebUI Tool Calling Issues
-- Discovered tool calling is **broken in Open WebUI v0.6.13+**
-- Found GitHub issues confirming this: [#14577](https://github.com/open-webui/open-webui/issues/14577), [#14492](https://github.com/open-webui/open-webui/discussions/14492)
-- Models would describe tools instead of calling them
-- Web search was also broken - qwen was dumping entire prompts as search queries
+### 1. Fixed Ollama GPU Acceleration (RX 590)
+- **Problem**: Ollama was running on CPU only despite ROCm being installed
+- **Root cause**: ROCm 6.x dropped gfx803 (Polaris/RX 590) support entirely - no kernels exist
+- **Solution**: Switched to Vulkan backend which has broader GPU support via Mesa RADV
+- **Result**: GPU now utilized, 46% VRAM usage, ~70 tok/s on Qwen 7B (was ~10 tok/s on CPU)
 
-### 2. Downgraded to v0.6.10
-- Pinned Open WebUI to v0.6.10 (last version with working tools)
-- Updated docker-compose.yml to use custom Dockerfile
-- Created `infrastructure/Dockerfile.open-webui` with hf_xet pre-installed
+### 2. Abandoned Open WebUI
+- Tool calling is broken, documentation is garbage, version changes break everything
+- Decided to focus on **Crush** (charmbracelet) as the local Claude Code alternative
 
-### 3. Database Issues
-- Had to wipe volumes multiple times due to schema incompatibility between versions
-- Final clean state achieved
+### 3. Configured Crush with MCP Servers
+Set up three MCP (Model Context Protocol) servers for tool capabilities:
 
-### 4. Infrastructure Changes
-- Fixed network name: `webui-net` (not `clood-net`)
-- Added hf_xet package to suppress HuggingFace download warnings
-- Documented manual docker run command in README
+| Server | Package | Purpose |
+|--------|---------|---------|
+| filesystem | @modelcontextprotocol/server-filesystem | Read/write ~/Code |
+| searxng | @kevinwatt/mcp-server-searxng | Web search via local SearXNG |
+| github | any-cli-mcp-server | Full gh CLI access |
 
-## Current State
+### 4. Installed Node.js
+- Required for MCP servers (they run via npx)
+- `sudo apt install nodejs npm`
 
-- **Open WebUI**: v0.6.10 running fresh (no data)
-- **Volumes**: Wiped clean, new `open-webui-data` volume
-- **Next step**: Create admin account, add Code Directory Reader tool, test tool calling
+### 5. Updated Documentation
+- crush.md now has complete MCP configuration guide
+- infrastructure/configs/crush/crush.json updated with MCP config
 
-## Files Changed
+## Current Ollama Config
 
-- `README.md` - Added version pinning documentation and manual run command
-- `infrastructure/docker-compose.yml` - Updated to build from Dockerfile, fixed network name
-- `infrastructure/Dockerfile.open-webui` - New file, extends v0.6.10 with hf_xet
+`/etc/systemd/system/ollama.service.d/override.conf`:
+```ini
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0:11434"
+Environment="OLLAMA_VULKAN=true"
+Environment="HIP_VISIBLE_DEVICES="
+```
 
-## To Resume
+## Pending: Performance Tuning
 
-1. Go to http://localhost:3000
-2. Create admin account
-3. Go to Workspace → Tools → + Create
-4. Paste contents of `skills/open-webui/code-directory-reader.py`
-5. Save and test with qwen2.5-coder:7b
+Apply this for better performance:
+```bash
+sudo tee /etc/systemd/system/ollama.service.d/override.conf << 'EOF'
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0:11434"
+Environment="OLLAMA_VULKAN=true"
+Environment="HIP_VISIBLE_DEVICES="
+Environment="OLLAMA_FLASH_ATTENTION=1"
+Environment="OLLAMA_KV_CACHE_TYPE=q8_0"
+Environment="OLLAMA_NUM_PARALLEL=1"
+Environment="OLLAMA_KEEP_ALIVE=30m"
+EOF
 
-## Tool Code Location
+sudo systemctl daemon-reload && sudo systemctl restart ollama
+```
 
-The Code Directory Reader tool is at:
-- `skills/open-webui/code-directory-reader.py` (Tool version - LLM calls it)
-- `skills/open-webui/code-directory-reader-function.py` (Pipe version - acts as fake model)
+## Crush Config Location
 
-## Known Issues
+- Global: `~/.config/crush/crush.json`
+- Project: `.crush.json` in project root
 
-- Version display in admin panel may show wrong version (cached/db issue) - ignore it, container logs show correct version
-- hf_xet needs to be installed after container creation (or build custom image)
+Current config includes:
+- Local Ollama provider with 7 models
+- 3 MCP servers (filesystem, searxng, github)
+
+## To Test on Laptop/Mac Mini
+
+1. Install Crush: `brew install charmbracelet/tap/crush` (macOS) or from GitHub releases
+2. Install Node.js + npm
+3. Install and auth gh CLI: `gh auth login`
+4. Copy crush.json from repo, adjust paths:
+   - Change `/home/mgilbert/Code` to local path
+   - Change SearXNG URL to `http://192.168.4.62:8888` (workstation IP)
+   - Change Ollama base_url to `http://192.168.4.62:11434/v1/`
+
+## Features Ready to Test
+
+1. **Read code**: "List files in the clood project"
+2. **Web search**: "Search for Python asyncio best practices"
+3. **GitHub**: "Show my repos" / "Create a PR for these changes"
+4. **Full workflow**: Search → Read code → Make changes → Create PR
+
+## Terminal Improvement (Next)
+
+Installing Kitty terminal for Mac-like copy/paste:
+```bash
+sudo apt install kitty
+```
+
+Config for `~/.config/kitty/kitty.conf`:
+```
+map ctrl+c copy_or_interrupt
+map ctrl+v paste_from_clipboard
+```
+
+## Files Changed This Session
+
+- `crush.md` - Added MCP server documentation
+- `infrastructure/configs/crush/crush.json` - Added MCP configuration
+- `/etc/systemd/system/ollama.service.d/override.conf` - Vulkan backend
+- `~/.config/crush/crush.json` - Live config with MCP servers
+
+## Key Discoveries
+
+1. **ROCm 6.x has no gfx803 support** - HSA_OVERRIDE_GFX_VERSION trick doesn't work when kernels don't exist
+2. **Vulkan works great** for older AMD GPUs via Mesa RADV driver
+3. **Crush supports MCP** - can extend local models with tools just like Claude Code
+4. **SearXNG is ideal** for AI search - self-hosted means traffic looks human (single residential IP)
