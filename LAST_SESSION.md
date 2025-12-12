@@ -1,123 +1,170 @@
-# Last Session - 2025-12-12 (Afternoon)
+# Last Session - 2025-12-12 (Late Night)
 
-## What We Did
+## Context Dump: BIOS Optimization for i7-8086K
 
-### 1. Created CLAUDE.md Agent Guidelines
-- Added rule: **Always ask before installing software** (brew, apt, pip, etc.)
-- Added benchmarking guidelines with creative elements (haiku/shanty)
-- Location: `/Users/mgilbert/Code/clood/CLAUDE.md`
+### Your Motherboard (Confirmed in Repo)
 
-### 2. SSH Multi-Machine Setup
-- Created comprehensive SSH setup guide: `infrastructure/SSH-SETUP.md`
-- Generated project-specific SSH key on MacBook Air: `~/.ssh/clood_ed25519`
-- Configured `~/.ssh/config` with ubuntu25 host (IP: **192.168.4.63** - changed from .62 due to DHCP)
-- SSH now working between MacBook Air and ubuntu25
+**Gigabyte Z390 AORUS PRO WIFI-CF** (not 380 - it's Z390)
+- BIOS Version: F11 (dated 10/15/2019)
+- Source: `hardware/ubuntu25-profile.md`
 
-### 3. ASCII Login Prompt Guide
-- Created `infrastructure/ascii-login-prompt.md`
-- Covers dynamic MOTD, system stats, Champ ASCII art
-- Includes Ubuntu Pro ad removal commands
+### BIOS Settings We Were About to Configure
 
-### 4. Ollama Model Sync (IN PROGRESS)
-- Rsync running: `rsync -av --progress ubuntu25:/home/ollama-models/ ~/.ollama/models/`
-- Models on ubuntu25 were moved to `/home/ollama-models/` (disk space issue)
-- Transfer speed: ~30MB/s over local network
-- Total size: ~20GB
-- **Status: Still running when session paused**
+Enter BIOS: Press `DEL` during POST
 
-### 5. Sea Shanty: The Ballad of Handy's Lunch
-Created a Lake Champlain winter sea shanty about:
-- Sailing to Handy's for a chili dog
-- Passing the Four Brothers islands
-- Getting sunk by Champ
+---
 
-## Weather Check
-Burlington VT (Dec 12, 2025): 27°F, flurries, west winds 13mph, 1-3" snow tonight
+#### 1. Intel Turbo Boost
+**Path:** `M.I.T.` → `Advanced Frequency Settings` → `Advanced CPU Core Settings`
 
-## Pending Tasks
+| Setting | Recommended |
+|---------|-------------|
+| Intel Turbo Boost | **Enabled** |
+| Turbo Boost Short Power Max | **Disabled** (removes PL2 time limit) |
+| Turbo Boost Power Max | **Disabled** (removes PL1 power limit) |
 
-1. **Wait for rsync to complete** - check with `ollama list` on MacBook Air
-2. **Run benchmarks on M4 MacBook Air** (32GB):
-   ```bash
-   ollama run tinyllama "Write hello world in Python" --verbose 2>&1 | grep "eval rate"
-   ollama run qwen2.5-coder:3b "Write fizzbuzz in Python" --verbose 2>&1 | grep "eval rate"
-   ```
-3. **Add benchmark results to ollama-tuning.md** with sea shanty
+---
 
-## ubuntu25 Tasks (Disk Was Full)
+#### 2. C-States (Disable for Performance)
+**Path:** `M.I.T.` → `Advanced Frequency Settings` → `Advanced CPU Core Settings`
 
-SSH server installed, but ollama needs to point to moved models:
+| Setting | Recommended |
+|---------|-------------|
+| CPU Enhanced Halt (C1E) | **Disabled** |
+| C3 State Support | **Disabled** |
+| C6/C7 State Support | **Disabled** |
+| Package C State Limit | **C0/C1** |
+
+---
+
+#### 3. SpeedStep (EIST)
+**Path:** `M.I.T.` → `Advanced Frequency Settings` → `Advanced CPU Core Settings`
+
+| Setting | Recommended |
+|---------|-------------|
+| Intel Speed Shift Technology | **Disabled** |
+| Enhanced Intel SpeedStep (EIST) | **Disabled** |
+
+---
+
+#### 4. Per-Core Turbo Ratios
+**Path:** `M.I.T.` → `Advanced Frequency Settings` → `Advanced CPU Core Settings` → `CPU Clock Ratio`
+
+| Cores Active | Ratio | Frequency |
+|--------------|-------|-----------|
+| 1-Core | 50 | 5.0 GHz |
+| 2-Core | 50 | 5.0 GHz |
+| 3-Core | 49 | 4.9 GHz |
+| 4-Core | 48 | 4.8 GHz |
+| 5-Core | 47 | 4.7 GHz |
+| 6-Core | 47 | 4.7 GHz |
+
+Or just set **CPU Clock Ratio: 48** (all-core 4.8GHz) as safe starting point.
+
+---
+
+#### 5. LLC (Load Line Calibration)
+**Path:** `M.I.T.` → `Advanced Voltage Settings` → `CPU Core Voltage Control`
+
+| Setting | Recommended |
+|---------|-------------|
+| CPU Vcore Loadline Calibration | **Turbo** (Level 5 of 7) |
+
+Scale: Low → Normal → Standard → High → **Turbo** → Extreme → Ultra Extreme
+
+---
+
+#### 6. CPU Core Ratio
+**Path:** `M.I.T.` → `Advanced Frequency Settings`
+
+| Setting | Safe | Aggressive |
+|---------|------|------------|
+| CPU Clock Ratio | **48** (4.8GHz) | **50** (5.0GHz) |
+| Ring Ratio | **43** | **47** |
+
+---
+
+### Also Enable: XMP
+**Path:** `M.I.T.` → `Advanced Memory Settings`
+
+| Setting | Value |
+|---------|-------|
+| Extreme Memory Profile (X.M.P.) | **Profile 1** |
+
+---
+
+### Quick Reference - Full Settings List
+
+```
+M.I.T. → Advanced Frequency Settings:
+  CPU Clock Ratio: 48 (safe) or 50 (aggressive)
+  Ring Ratio: 43
+
+M.I.T. → Advanced Frequency Settings → Advanced CPU Core Settings:
+  Intel Turbo Boost: Enabled
+  Turbo Boost Short Power Max: Disabled
+  Turbo Boost Power Max: Disabled
+  CPU Enhanced Halt (C1E): Disabled
+  C3/C6/C7 State Support: Disabled
+  Package C State Limit: C0/C1
+  Intel Speed Shift Technology: Disabled
+  Enhanced Intel SpeedStep (EIST): Disabled
+
+M.I.T. → Advanced Voltage Settings → CPU Core Voltage Control:
+  CPU Vcore Loadline Calibration: Turbo
+
+M.I.T. → Advanced Memory Settings:
+  X.M.P.: Profile 1
+```
+
+---
+
+### NOT Touching (Per Your Request)
+- Voltage manipulation (Vcore, VCCIO, VCCSA)
+- CPU voltage override
+- AVX offset
+
+---
+
+### What Already Exists in Repo
+- `hardware/OPTIMIZATION-GUIDE.md` - Software/kernel optimizations (done)
+- `hardware/ubuntu25-profile.md` - Full hardware profile
+- `hardware/i7-8086k.md` - CPU specs and haiku
+
+### Pending
+- Create dedicated BIOS optimization doc? (you asked, I said yes)
+- After BIOS changes: re-benchmark to measure improvement
+
+---
+
+## Previous Session Summary (Earlier Today)
+
+- Mac Mini M4 benchmarking (~126 tok/s TinyLlama, ~44 tok/s Qwen 3B)
+- RTX 2080 integration planning doc
+- WEEKEND-SURVIVAL.md for Claude-free coding
+- fun/bonsai.py stubbed for dogfooding
+- Session 3 haikus (Frankenstein/dogfooding)
+
+---
+
+## Quick Commands Post-Reboot
 
 ```bash
-# Edit override.conf
-sudo nano /etc/systemd/system/ollama.service.d/override.conf
+# Verify CPU frequency (should be higher after BIOS changes)
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
 
-# Add this line:
-Environment="OLLAMA_MODELS=/home/ollama-models"
+# Watch frequencies in real-time
+watch -n1 "cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq | sort -u"
 
-# Reload
-sudo systemctl daemon-reload
-sudo systemctl restart ollama
-ollama list
+# Set governor to performance (if not already)
+echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+
+# Quick Ollama test
+ollama run qwen2.5-coder:7b "Hello" --verbose 2>&1 | grep "eval rate"
 ```
 
-Also clean up stray SSH key in models folder:
-```bash
-sudo rm /home/ollama-models/id_ed25519 /home/ollama-models/id_ed25519.pub
-```
+---
 
-## IP Addresses (Current)
+## Issue That Caused Restart
 
-| Machine | IP | Notes |
-|---------|-----|-------|
-| ubuntu25 | 192.168.4.63 | Changed from .62 (DHCP) |
-| MacBook Air | DHCP | M4, 32GB |
-
-## Files Changed This Session
-
-- `CLAUDE.md` - NEW - Agent guidelines
-- `infrastructure/SSH-SETUP.md` - NEW - Multi-machine SSH setup
-- `infrastructure/ascii-login-prompt.md` - NEW - Login customization
-- `~/.ssh/config` - Updated with ubuntu25 host
-- `~/.ssh/clood_ed25519` - NEW - Project SSH key
-
-## Background Task Running
-
-```
-Task ID: bcfc186
-Command: rsync models from ubuntu25
-Status: Running (~56% when last checked)
-Output: /tmp/claude/tasks/bcfc186.output
-```
-
-To check if done:
-```bash
-ollama list  # Should show models when sync complete
-```
-
-## Resume Commands
-
-When you come back:
-```bash
-# Check if sync finished
-ollama list
-
-# If models present, run benchmarks
-ollama serve &  # Start ollama if not running
-ollama run tinyllama "Hello" --verbose 2>&1 | grep "eval rate"
-ollama run qwen2.5-coder:3b "Write fizzbuzz" --verbose 2>&1 | grep "eval rate"
-```
-
-## The Ballad of Handy's Lunch (For Reference)
-
-*(A Lake Champlain Winter Shanty)*
-
-**Chorus:**
-*Heave ho! The lake is cold!*
-*Champ lurks below where waters hold!*
-*A chili dog waits on the Burlington shore*
-*But we may never taste one anymore!*
-
-Key verse:
-> Past the Four Brothers islands we steered through the snow
-> The captain cried "Faster! To Handy's we go!"
+Mouse scroll wheel injecting garbage into terminal (both macOS Terminal and Kitty affected).
