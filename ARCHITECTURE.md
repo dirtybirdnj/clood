@@ -231,7 +231,7 @@ Current MCP servers in Crush:
 - [x] Documentation framework
 
 ### Phase 2: Project Awareness
-- [ ] Create projects_manifest.json
+- [x] Create projects_manifest.json
 - [ ] Script to auto-generate manifest from ~/Code
 - [ ] Instruct models to read manifest first
 
@@ -262,4 +262,4 @@ Current MCP servers in Crush:
 | `model-comparison.md` | Model selection guide |
 | `hardware/i7-8086k.md` | CPU documentation |
 | `LAST_SESSION.md` | Session continuity |
-| `projects_manifest.json` | Project registry (to create) |
+| `~/Code/projects_manifest.json` | Project registry (created) |

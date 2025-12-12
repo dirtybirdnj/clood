@@ -4,172 +4,180 @@
 
 We want Claude! Too bad, we're out of tokens. We have clood instead.
 
-Local LLM agent toolkit for when you run out of tokens or want to keep things on your own hardware.
+Local LLM toolkit for a Claude-like experience on your own hardware.
 
 ## What is this?
 
-clood is two things:
+clood is a framework for running local LLMs with:
 
-1. **Infrastructure** - Docker setup for running local LLMs with open-webui, Ollama, and SearXNG
-2. **Agent Toolkit** - Portable skills, prompts, and tools that work with any LLM (local or cloud)
+1. **Tiered Model Inference** - Fast models gather context, powerful models do reasoning
+2. **Project Awareness** - Models know about your projects via `projects_manifest.json`
+3. **Tool Integration** - MCP servers for filesystem, web search, and GitHub
+4. **Multi-Machine Support** - Distribute workloads across your hardware
 
-The goal: point any agent at this repo and it can rebuild the entire setup or use any of the captured skills.
+**Primary Interface:** [Crush CLI](https://github.com/charmbracelet/crush) with local Ollama
 
 ## Quick Start
 
-### Prerequisites
-- Docker & Docker Compose
-- Ollama installed on host (`curl -fsSL https://ollama.com/install.sh | sh`)
-- Ubuntu 25 (or similar Linux - YMMV on other distros)
+See [START-HERE.md](START-HERE.md) for the complete setup checklist.
 
-### 1. Start the stack
+### TL;DR
 
 ```bash
-cd infrastructure
-cp .env.example .env  # customize paths if needed
-docker compose up -d
+# 1. Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# 2. Install Crush
+# macOS:
+brew install charmbracelet/tap/crush
+# Linux: download from https://github.com/charmbracelet/crush/releases
+
+# 3. Pull a model
+ollama pull llama3-groq-tool-use:8b
+
+# 4. Start SearXNG (for web search)
+cd infrastructure && docker compose up -d searxng
+
+# 5. Copy Crush config
+mkdir -p ~/.config/crush
+cp infrastructure/configs/crush/crush.json ~/.config/crush/crush.json
+
+# 6. Run Crush
+crush
 ```
 
-### 2. Pull models
+## Architecture
 
-```bash
-ollama pull qwen2.5-coder:7b   # coding tasks
-ollama pull llama3.1:8b        # general purpose
-ollama pull nomic-embed-text   # embeddings for RAG
+```
+User Query
+    │
+    ▼
+┌─────────────────────────┐
+│  TIER 1: Router         │  TinyLlama (~150 tok/s)
+│  Classify query type    │
+└───────────┬─────────────┘
+            │
+    ┌───────┴───────┐
+    ▼               ▼
+┌─────────┐   ┌─────────┐
+│ TIER 2  │   │ TIER 2  │   3B models (~64 tok/s)
+│ Search  │   │ Files   │
+└────┬────┘   └────┬────┘
+     │             │
+     └──────┬──────┘
+            ▼
+┌─────────────────────────┐
+│  Context Assembly       │
+└───────────┬─────────────┘
+            ▼
+┌─────────────────────────┐
+│  TIER 3: Reasoning      │  7-8B models (~30 tok/s)
+│  Generate solution      │
+└─────────────────────────┘
 ```
 
-### 3. Access services
-
-| Service | URL | Purpose |
-|---------|-----|---------|
-| open-webui | http://localhost:3000 | Chat interface |
-| SearXNG | http://localhost:8888 | Web search |
-| Ollama | http://localhost:11434 | Model API |
-
-### 4. Configure web search in open-webui
-
-1. Go to Admin Panel > Settings > Web Search
-2. Enable Web Search
-3. Set Search Engine to "searxng"
-4. Set SearXNG URL to `http://searxng:8080` (container network) or `http://localhost:8888` (host)
+See [ARCHITECTURE.md](ARCHITECTURE.md) for full details.
 
 ## Directory Structure
 
 ```
 clood/
-├── infrastructure/          # Docker configs, SSL, networking
-│   ├── docker-compose.yml   # All services
+├── START-HERE.md           # Setup checklist (start here!)
+├── ARCHITECTURE.md         # System design and tiered model approach
+├── crush.md                # Crush CLI configuration guide
+├── ollama-tuning.md        # Performance optimization
+├── model-comparison.md     # Model selection guide
+│
+├── infrastructure/         # Docker configs, service setup
+│   ├── docker-compose.yml  # SearXNG container
 │   ├── configs/
-│   │   ├── searxng/         # SearXNG settings
-│   │   └── nginx/           # Reverse proxy (optional)
-│   └── ssl/                 # Self-signed certs
+│   │   ├── crush/          # Crush config template
+│   │   └── searxng/        # SearXNG settings
+│   └── SSH-SETUP.md        # Multi-machine SSH config
 │
-├── skills/                  # Portable agent capabilities
-│   ├── open-webui/          # Python tools/functions
-│   ├── claude-code/         # Slash commands, CLAUDE.md templates
-│   └── prompts/             # Reusable system prompts
+├── hardware/               # Machine-specific documentation
+│   ├── i7-8086k.md         # CPU tuning (ubuntu25)
+│   └── rx590.md            # GPU setup (AMD Vulkan)
 │
-├── mcp-servers/             # MCP server configs
+├── skills/                 # Portable agent capabilities
+│   ├── claude-code/        # Slash commands for Claude Code
+│   └── prompts/            # Reusable system prompts
 │
-├── models/                  # Modelfiles, quantization notes
-│   └── ollama/
+├── seeds/                  # Templates and examples
+│   └── tests/              # Test generation templates
 │
-├── scripts/                 # Setup and utility scripts
+├── scripts/                # Utility scripts
 │
-└── drop-zone/               # Local file staging (gitignored)
+└── drop-zone/              # Local file staging (gitignored)
 ```
 
-## The Drop Zone
+## Services
 
-The `drop-zone/` directory is mounted into open-webui at `/app/drop-zone`. Use it to:
-- Stage files for LLM analysis without web fetching
-- Share documents between sessions
-- Provide context that would otherwise be rate-limited
+| Service | URL | Purpose |
+|---------|-----|---------|
+| Ollama | http://localhost:11434 | Model serving |
+| SearXNG | http://localhost:8888 | Web search (MCP) |
+| Crush | CLI | Chat interface with MCP tools |
 
-Files in drop-zone are gitignored - it's a local scratch space.
+## MCP Servers (Tools)
 
-## Skills
+Crush is configured with these MCP servers:
 
-Skills are portable agent capabilities that can be imported into various LLM interfaces.
+| Server | Purpose | Package |
+|--------|---------|---------|
+| filesystem | Read/write ~/Code | @modelcontextprotocol/server-filesystem |
+| searxng | Web search | @kevinwatt/mcp-server-searxng |
+| github | gh CLI commands | any-cli-mcp-server |
 
-### open-webui Tools
+## Recommended Models
 
-Python scripts in `skills/open-webui/` can be imported via:
-- Admin Panel > Workspace > Tools > Import
+| Use Case | Model | Speed | VRAM |
+|----------|-------|-------|------|
+| Tool calling | llama3-groq-tool-use:8b | ~30 tok/s | 6GB |
+| Coding | qwen2.5-coder:7b | ~32 tok/s | 6GB |
+| Fast tasks | qwen2.5-coder:3b | ~64 tok/s | 2.5GB |
+| Router | tinyllama | ~150 tok/s | 1GB |
 
-### Claude Code Commands
+See [model-comparison.md](model-comparison.md) for full comparison.
 
-Slash commands in `skills/claude-code/commands/` can be symlinked to `~/.claude/commands/`
+## Hardware
 
-### Prompts
+Currently tested on:
 
-System prompts in `skills/prompts/` work with any LLM.
+| Machine | GPU | RAM | Role |
+|---------|-----|-----|------|
+| ubuntu25 | RX 590 8GB (Vulkan) | 64GB | Primary server |
+| MacBook Air | M4 16GB | unified | Mobile |
+| Mac Mini | M4 24GB | unified | Large models |
 
-## Current Setup
+## Documentation
 
-### Models (Ollama)
-- `qwen2.5-coder:7b` - Fast coding model
-- `llama3.1:8b` - General purpose
-- `nomic-embed-text` - Embeddings for RAG
-
-### Services
-- **open-webui** - Web interface, port 3000
-- **SearXNG** - Privacy-respecting metasearch, port 8888
-- **Ollama** - Model serving, port 11434
-
-## Important: Open WebUI Version
-
-**Pinned to v0.6.10** - Tool calling is broken in versions 0.6.13+. See:
-- [Issue #14577](https://github.com/open-webui/open-webui/issues/14577)
-- [Discussion #14492](https://github.com/open-webui/open-webui/discussions/14492)
-
-If you need to run open-webui manually (outside docker-compose):
-
-```bash
-docker run -d \
-  --name open-webui \
-  --restart unless-stopped \
-  -p 3000:8080 \
-  -v open-webui-data:/app/backend/data \
-  -v /home/mgilbert/Code:/app/code:ro \
-  -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
-  -e SCARF_NO_ANALYTICS=true \
-  -e DO_NOT_TRACK=true \
-  -e ANONYMIZED_TELEMETRY=false \
-  -e ENABLE_RAG_WEB_SEARCH=true \
-  -e RAG_WEB_SEARCH_ENGINE=searxng \
-  -e "SEARXNG_QUERY_URL=http://searxng:8080/search?q=<query>" \
-  -e RAG_WEB_SEARCH_RESULT_COUNT=5 \
-  -e RAG_WEB_SEARCH_CONCURRENT_REQUESTS=10 \
-  --add-host=host.docker.internal:host-gateway \
-  --network webui-net \
-  ghcr.io/open-webui/open-webui:v0.6.10
-```
-
-## Rebuilding from Scratch
-
-```bash
-# Clone the repo
-git clone https://github.com/dirtybirdnj/clood.git
-cd clood
-
-# Start infrastructure
-cd infrastructure
-docker compose up -d
-
-# Pull models
-ollama pull qwen2.5-coder:7b
-ollama pull llama3.1:8b
-ollama pull nomic-embed-text
-
-# Import any saved skills via open-webui UI
-```
+| Doc | Purpose |
+|-----|---------|
+| [START-HERE.md](START-HERE.md) | First-time setup checklist |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | System design, tiered models |
+| [crush.md](crush.md) | Crush CLI configuration |
+| [ollama-tuning.md](ollama-tuning.md) | Performance optimization |
+| [model-comparison.md](model-comparison.md) | Model selection |
+| [GPU-SETUP.md](GPU-SETUP.md) | AMD GPU with ROCm/Vulkan |
+| [WORKFLOW.md](WORKFLOW.md) | Claude Code + Crush workflow |
 
 ## TODO
 
-- [ ] HTTPS with self-signed cert at https://clood/
-- [ ] nginx reverse proxy config
-- [ ] Document CLI tools (apt, cargo, pip)
-- [ ] tmux dashboard script (lazydocker, btop, terminal)
-- [ ] MCP server for drop zone access
-- [ ] Export/import scripts for open-webui tools
+- [ ] Tiered routing prompts for TinyLlama
+- [ ] Auto-generate projects_manifest.json script
+- [ ] RAG with nomic-embed-text for code search
+- [ ] Multi-machine load balancing
+- [ ] tmux dashboard script
+
+---
+
+## Archived: Open WebUI
+
+Open WebUI was previously used but abandoned due to broken tool calling in v0.6.13+.
+The docker-compose.yml still includes it but Crush is now the recommended interface.
+
+If you want to try Open WebUI anyway:
+- Pin to v0.6.10: `ghcr.io/open-webui/open-webui:v0.6.10`
+- See infrastructure/docker-compose.yml for config
+- Known issues: [#14577](https://github.com/open-webui/open-webui/issues/14577)
