@@ -103,16 +103,38 @@ gh pr create --title "..." --body "..."
 
 ---
 
-## Emergency: If Crush MCP Fails
+## Recommended Tools (Research Summary)
 
-Use Aider as backup (works with Ollama):
+| Tool | Purpose | Install |
+|------|---------|---------|
+| **Aider** | Terminal coding agent + Git | `pip install aider-chat` |
+| **LiteLLM** | Multi-model routing | `pip install litellm` |
+| **Continue.dev** | VSCode extension | VS Code marketplace |
+
+### Aider (Primary Recommendation)
 ```bash
 pip install aider-chat
 cd ~/Code/project
 aider --model ollama/llama3-groq-tool-use:8b
 ```
+- 84.9% benchmark accuracy
+- Native Git integration
+- Works offline with Ollama
+- Human approves before commit
 
-Aider has built-in git, file editing, and works offline.
+### LiteLLM (For Multi-Machine)
+```bash
+pip install litellm
+litellm --model ollama/llama3-groq-tool-use:8b --port 4000
+```
+- Route queries to different machines/models
+- Self-hosted proxy
+- Implements your tiered strategy
+
+### Multi-Machine Distribution
+- **OLOL** (`pip install olol`) - Ollama load balancer
+- **Hive** - Distributed inference framework
+- Both are early-stage but functional
 
 ---
 
