@@ -1,7 +1,6 @@
-# Golden Path - Critical Tasks Before Claude Limit
+# Golden Path - Local LLM Self-Sufficiency
 
-**Status:** 9% weekly limit remaining
-**Goal:** Get clood to feature parity for local work
+**Goal:** Get clood to feature parity for Claude-free local work
 
 ---
 
@@ -81,18 +80,20 @@ gh pr create --title "..." --body "..."
 
 ## What's Working Now
 
-- [x] Ollama + GPU (Vulkan)
-- [x] Crush configured
-- [x] SearXNG running
-- [x] Documentation complete
-- [x] projects_manifest.json created
+- [x] Ollama + GPU (Vulkan on ubuntu25)
+- [x] Crush configured with MCP servers
+- [x] SearXNG running (192.168.4.63:8888)
+- [x] Documentation consolidated
+- [x] BIOS tuning guide created
+- [x] Multi-machine IPs documented
 
-## What Needs Testing
+## What Needs Testing/Verification
 
 - [ ] MCP filesystem in Crush
 - [ ] MCP searxng in Crush
 - [ ] MCP github in Crush
 - [ ] llama3-groq-tool-use:8b tool calling
+- [ ] Post-BIOS benchmark (after applying settings)
 
 ## What Can Wait
 

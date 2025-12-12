@@ -154,11 +154,11 @@ See [model-comparison.md](model-comparison.md) for full comparison.
 
 Currently tested on:
 
-| Machine | GPU | RAM | Role |
-|---------|-----|-----|------|
-| ubuntu25 | RX 590 8GB (Vulkan) | 64GB | Primary server |
-| MacBook Air | M4 16GB | unified | Mobile |
-| Mac Mini | M4 24GB | unified | Large models |
+| Machine | IP | GPU | RAM | Role |
+|---------|-----|-----|-----|------|
+| ubuntu25 | 192.168.4.63 | RX 590 8GB (Vulkan) | 64GB | Primary server |
+| MacBook Air | 192.168.4.47 | M4 10-core | 32GB unified | Mobile/Primary dev |
+| Mac Mini | 192.168.4.41 | M4 | TBD | Always-on server |
 
 ## Documentation
 
@@ -169,9 +169,11 @@ Currently tested on:
 | [crush.md](crush.md) | Crush CLI configuration |
 | [ollama-tuning.md](ollama-tuning.md) | Performance optimization |
 | [model-comparison.md](model-comparison.md) | Model selection |
-| [GPU-SETUP.md](GPU-SETUP.md) | AMD GPU with ROCm/Vulkan |
+| [GPU-SETUP.md](GPU-SETUP.md) | AMD GPU with Vulkan |
 | [WORKFLOW.md](WORKFLOW.md) | Claude Code + Crush workflow |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common issues and fixes |
+| [hardware/OPTIMIZATION-GUIDE.md](hardware/OPTIMIZATION-GUIDE.md) | Deep performance tuning |
+| [hardware/BIOS-TUNING.md](hardware/BIOS-TUNING.md) | BIOS settings for i7-8086K |
 
 ## TODO
 

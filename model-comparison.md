@@ -10,7 +10,7 @@ A comprehensive guide to model selection and workload distribution across the cl
 |---------|----------|-------------|-----------|------------|
 | **ubuntu25** | RX 590 8GB (Vulkan) | 64GB RAM | Dedicated VRAM, image gen, large models | Older GPU arch |
 | **MacBook Air** | M4 10-core | 32GB unified | Fast prompts, portable, cool/quiet | Shared memory bandwidth |
-| **Mac Mini** | M4 10-core | 16GB unified | Always-on server, compact | Less memory for big models |
+| **Mac Mini** | M4 | TBD | Always-on server, compact | Specs TBD |
 
 ---
 

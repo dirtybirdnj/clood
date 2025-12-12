@@ -10,7 +10,7 @@ This document covers configuring Crush to use the workstation's Ollama models lo
 
 ## Current Setup
 
-**Workstation:** ubuntu25 (192.168.4.62)
+**Workstation:** ubuntu25 (192.168.4.63)
 - Ollama running on port 11434 (exposed to network via `OLLAMA_HOST=0.0.0.0`)
 - SearXNG running on port 8888
 - Open WebUI running on port 3000
@@ -125,7 +125,7 @@ cat > ~/.config/crush/crush.json << 'EOF'
   "providers": {
     "ollama": {
       "name": "ubuntu25 Ollama",
-      "base_url": "http://192.168.4.62:11434/v1/",
+      "base_url": "http://192.168.4.63:11434/v1/",
       "type": "openai",
       "api_key": "ollama",
       "models": [
@@ -193,9 +193,8 @@ ssh -L 11434:localhost:11434 mgilbert@192.168.4.62 -N &
 
 | Service | Workstation URL | Purpose |
 |---------|-----------------|---------|
-| Ollama | http://192.168.4.62:11434 | Model API |
-| SearXNG | http://192.168.4.62:8888 | Web search |
-| Open WebUI | http://192.168.4.62:3000 | Web chat interface |
+| Ollama | http://192.168.4.63:11434 | Model API |
+| SearXNG | http://192.168.4.63:8888 | Web search |
 
 ## Crush Config Locations
 
@@ -309,7 +308,7 @@ For laptop/Mac Mini connecting to ubuntu25's Ollama but using local filesystem:
       "args": ["-y", "@kevinwatt/mcp-server-searxng"],
       "timeout": 60,
       "env": {
-        "SEARXNG_URL": "http://192.168.4.62:8888"
+        "SEARXNG_URL": "http://192.168.4.63:8888"
       }
     },
     "github": {

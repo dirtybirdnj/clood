@@ -356,7 +356,7 @@ Tested `OLLAMA_NUM_THREAD=6` vs auto-detected threads on ubuntu25:
 
 From any machine, access ubuntu25's Ollama:
 ```bash
-curl http://192.168.4.62:11434/v1/models
+curl http://192.168.4.63:11434/v1/models
 ```
 
 Crush config for remote Ollama:
@@ -365,7 +365,7 @@ Crush config for remote Ollama:
   "providers": {
     "ollama-remote": {
       "name": "ubuntu25 Ollama",
-      "base_url": "http://192.168.4.62:11434/v1/",
+      "base_url": "http://192.168.4.63:11434/v1/",
       "type": "openai",
       "api_key": "ollama"
     }

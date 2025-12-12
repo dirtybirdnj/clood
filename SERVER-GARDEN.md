@@ -8,7 +8,7 @@ Three machines working together for local AI workloads.
 │                                                              │
 │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐   │
 │  │   ubuntu25   │    │ MacBook Air  │    │  Mac Mini    │   │
-│  │   RX 590     │    │   M4 32GB    │    │   M4 16GB    │   │
+│  │   RX 590     │    │   M4 32GB    │    │   M4 (TBD)   │   │
 │  │              │    │              │    │              │   │
 │  │ • Image gen  │    │ • Primary    │    │ • Always-on  │   │
 │  │ • Big models │    │ • Portable   │    │ • Background │   │
@@ -24,11 +24,11 @@ Three machines working together for local AI workloads.
 
 ## Hardware Specs
 
-| Machine | GPU/Chip | VRAM/Memory | CPU | Storage |
-|---------|----------|-------------|-----|---------|
-| **ubuntu25** | RX 590 8GB (Vulkan) | 64GB DDR4 | i7-8086K 6c/12t | 1TB NVMe + 4TB HDD |
-| **MacBook Air** | M4 10-core GPU | 32GB unified | M4 10-core CPU | 2TB SSD |
-| **Mac Mini** | M4 10-core GPU | 16GB unified | M4 10-core CPU | TBD |
+| Machine | IP | GPU/Chip | VRAM/Memory | CPU | Storage |
+|---------|-----|----------|-------------|-----|---------|
+| **ubuntu25** | 192.168.4.63 | RX 590 8GB (Vulkan) | 64GB DDR4 | i7-8086K 6c/12t | 1TB NVMe + 4TB HDD |
+| **MacBook Air** | 192.168.4.47 | M4 10-core GPU | 32GB unified | M4 10-core CPU | 2TB SSD |
+| **Mac Mini** | 192.168.4.41 | M4 (TBD) | TBD | M4 (TBD) | TBD |
 
 ---
 
@@ -63,9 +63,9 @@ Three machines working together for local AI workloads.
 
 | Machine | IP | Ollama Port | Other Services |
 |---------|-----|-------------|----------------|
-| ubuntu25 | 192.168.4.63 | 11434 | SearXNG :8888, Open WebUI :3000 |
-| MacBook Air | DHCP | 11434 (local) | - |
-| Mac Mini | DHCP | 11434 (local) | - |
+| ubuntu25 | 192.168.4.63 | 11434 | SearXNG :8888 |
+| MacBook Air | 192.168.4.47 | 11434 (local) | - |
+| Mac Mini | 192.168.4.41 | 11434 (local) | - |
 
 **SSH:** Use `ssh ubuntu25` (configured in `~/.ssh/config`)
 

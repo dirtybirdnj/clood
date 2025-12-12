@@ -20,3 +20,6 @@ Thumbs.db
 *.tmp
 *.bak
 /tmp/
+
+# Session-specific notes (ephemeral, not for repo)
+LAST_SESSION.md

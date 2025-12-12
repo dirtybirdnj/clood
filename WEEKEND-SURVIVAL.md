@@ -193,8 +193,8 @@ Try a different model. `llama3-groq-tool-use:8b` is best for tools, but `mistral
 | Machine | IP | Services |
 |---------|-----|----------|
 | ubuntu25 | 192.168.4.63 | Ollama :11434, SearXNG :8888 |
-| Mac Mini | (this machine) | Ollama :11434 (local only) |
-| MacBook Air | DHCP | Ollama :11434 (local only) |
+| MacBook Air | 192.168.4.47 | Ollama :11434 (local) |
+| Mac Mini | 192.168.4.41 | Ollama :11434 (local) |
 
 ---
 

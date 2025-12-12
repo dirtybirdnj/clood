@@ -7,10 +7,10 @@ Guide for enabling GPU acceleration with AMD Radeon cards.
 - **GPU:** AMD Radeon RX 590 (8GB VRAM) - gfx803 (Polaris)
 - **CPU:** Intel i7-8086K (6 cores / 12 threads)
 - **RAM:** 64GB
-- **OS:** Ubuntu 25.10
-- **ROCm:** 6.3.1
+- **OS:** Ubuntu 25.04
+- **Backend:** Vulkan (via Mesa RADV)
 
-**Important:** The RX 590 uses gfx803 architecture which was dropped from official ROCm 6.x support. It still works with the `HSA_OVERRIDE_GFX_VERSION` workaround below.
+**Important:** The RX 590 uses gfx803 (Polaris) architecture. ROCm 6.x dropped support for gfx803, so **Vulkan is the recommended backend** for this GPU. Vulkan provides excellent performance without the ROCm compatibility issues.
 
 ## Check GPU Status
 
@@ -24,42 +24,11 @@ ls /dev/kfd /dev/dri/render*
 # Should show: /dev/kfd, /dev/dri/renderD128, etc.
 ```
 
-## Option 1: Native ROCm Install
+## Option 1: Vulkan Backend (Recommended for RX 590)
 
-ROCm is AMD's GPU compute platform (like CUDA for NVIDIA).
+Vulkan via Mesa RADV is the **recommended backend** for Polaris GPUs (RX 570/580/590). It's simpler to set up and more reliable than ROCm for gfx803 architecture.
 
-### Install ROCm
-
-```bash
-# Download AMD installer (use noble for Ubuntu 24.04+)
-wget https://repo.radeon.com/amdgpu-install/6.3.1/ubuntu/noble/amdgpu-install_6.3.60301-1_all.deb
-sudo dpkg -i amdgpu-install_6.3.60301-1_all.deb
-sudo apt update
-
-# Install ROCm (--no-dkms if kernel module issues)
-sudo amdgpu-install --usecase=rocm --no-dkms
-
-# Add user to required groups
-sudo usermod -aG render $USER
-sudo usermod -aG video $USER
-
-# Reboot
-sudo reboot
-```
-
-### Verify ROCm
-
-```bash
-rocminfo | head -30
-# Should show your GPU
-
-rocm-smi
-# Shows GPU stats
-```
-
-### For Polaris GPUs (RX 570/580/590 - gfx803)
-
-ROCm 6.x dropped official support for gfx803, but it still works with an override. **This is required for Ollama to use the GPU.**
+### Configure Ollama for Vulkan
 
 ```bash
 # Create override directory
@@ -68,8 +37,12 @@ sudo mkdir -p /etc/systemd/system/ollama.service.d
 # Create override file
 sudo tee /etc/systemd/system/ollama.service.d/override.conf << 'EOF'
 [Service]
-Environment="HSA_OVERRIDE_GFX_VERSION=8.0.3"
-Environment="HIP_VISIBLE_DEVICES=0"
+Environment="OLLAMA_HOST=0.0.0.0:11434"
+Environment="OLLAMA_VULKAN=true"
+Environment="HIP_VISIBLE_DEVICES="
+Environment="GGML_VK_VISIBLE_DEVICES=0"
+Environment="OLLAMA_FLASH_ATTENTION=1"
+Environment="OLLAMA_KV_CACHE_TYPE=q8_0"
 EOF
 
 # Reload and restart
@@ -78,55 +51,42 @@ sudo systemctl restart ollama
 ```
 
 **What these do:**
-- `HSA_OVERRIDE_GFX_VERSION=8.0.3` - Tells ROCm to treat gfx803 as compatible
-- `HIP_VISIBLE_DEVICES=0` - Explicitly points to GPU device 0
+- `OLLAMA_VULKAN=true` - Forces Vulkan backend
+- `HIP_VISIBLE_DEVICES=` - Disables ROCm/HIP (empty string)
+- `GGML_VK_VISIBLE_DEVICES=0` - Uses first Vulkan GPU (discrete, not iGPU)
+- `OLLAMA_FLASH_ATTENTION=1` - Faster attention computation
+- `OLLAMA_KV_CACHE_TYPE=q8_0` - Reduces VRAM usage by ~50%
 
-Verify GPU is being used:
+### Verify Vulkan is Working
+
 ```bash
-# Run a model and watch GPU utilization
+# Check GPU utilization during inference
 ollama run qwen2.5-coder:7b "hello" &
-watch -n1 rocm-smi
-# GPU% should spike during inference
+watch -n1 "cat /sys/class/drm/card*/device/gpu_busy_percent 2>/dev/null"
+# Should show >0% when model is running
 ```
 
-## Option 2: Docker with ROCm
+---
 
-Cleaner approach - runs Ollama in a container with ROCm support.
+## Option 2: ROCm (Deprecated for Polaris)
 
-### Stop native Ollama
+**Note:** ROCm 6.x dropped official support for gfx803 (Polaris). Use Vulkan instead.
+
+If you still want to try ROCm (not recommended for RX 590):
 
 ```bash
-sudo systemctl stop ollama
-sudo systemctl disable ollama
+# Create override file with HSA override
+sudo tee /etc/systemd/system/ollama.service.d/override.conf << 'EOF'
+[Service]
+Environment="HSA_OVERRIDE_GFX_VERSION=8.0.3"
+Environment="HIP_VISIBLE_DEVICES=0"
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl restart ollama
 ```
 
-### Run Ollama ROCm container
-
-```bash
-docker run -d \
-  --name ollama-rocm \
-  --device=/dev/kfd \
-  --device=/dev/dri \
-  --group-add video \
-  -p 11434:11434 \
-  -v ollama-data:/root/.ollama \
-  --restart unless-stopped \
-  ollama/ollama:rocm
-```
-
-### Pull models in container
-
-```bash
-docker exec ollama-rocm ollama pull qwen2.5-coder:7b
-docker exec ollama-rocm ollama pull deepseek-coder:6.7b
-```
-
-### Check GPU usage
-
-```bash
-docker exec ollama-rocm ollama ps
-# Should show GPU % instead of CPU
-```
+This is a workaround that may or may not work depending on your system. **Vulkan is more reliable.**
 
 ## Monitoring GPU
 
@@ -166,14 +126,15 @@ sudo systemctl daemon-reload
 sudo systemctl restart ollama
 ```
 
-## Expected Performance
+## Expected Performance (Vulkan on RX 590)
 
-| Model | CPU Only | With GPU |
-|-------|----------|----------|
-| qwen2.5-coder:3b | ~15 tok/s | ~40 tok/s |
-| qwen2.5-coder:7b | ~8 tok/s | ~25 tok/s |
-| deepseek-coder:6.7b | ~7 tok/s | ~20 tok/s |
-| qwen2.5-coder:14b | ~3 tok/s | ~10 tok/s (partial GPU) |
+| Model | CPU Only | With Vulkan GPU |
+|-------|----------|-----------------|
+| tinyllama:latest | ~30 tok/s | ~150-180 tok/s |
+| qwen2.5-coder:3b | ~15 tok/s | ~64 tok/s |
+| qwen2.5-coder:7b | ~8 tok/s | ~32 tok/s |
+| llama3.1:8b | ~7 tok/s | ~30 tok/s |
+| qwen2.5-coder:14b | ~3 tok/s | ~15 tok/s (partial GPU) |
 
 ## Troubleshooting
 
