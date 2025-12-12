@@ -64,4 +64,51 @@ Performance awaits
 
 ---
 
+## Session 3 - Frankenstein & Dogfooding
+
+```
+I. The Monster Lives
+
+Spare parts assembled
+GPUs from different friends
+Lightning brings it life
+
+
+II. The Creator's Burden
+
+I built you from scraps
+Now you answer my questions
+Who teaches whom now?
+
+
+III. It Speaks
+
+"It's alive!" I cry
+But the model just responds:
+"I am an AI"
+
+
+IV. Dogfooding
+
+Eat your own cooking
+Test the tools you build for dogs
+Become the good boy
+
+
+V. The Test Subject
+
+clood tests itself
+Agents modify their home
+Recursion is fun
+
+
+VI. Trust the Process
+
+Break it, fix it, push
+Your own repo bleeds for you
+Ship what you would use
+```
+
+---
+
 *More haikus to come as the journey continues...*
