@@ -6,14 +6,9 @@
 # Usage: ./scripts/verify-setup.sh
 #
 
-set -e
-
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Source common configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/clood-common.sh"
 
 PASS="${GREEN}[PASS]${NC}"
 FAIL="${RED}[FAIL]${NC}"
@@ -29,43 +24,67 @@ echo ""
 ERRORS=0
 WARNINGS=0
 
-# 1. Check Ollama service
-echo -e "${INFO} Checking Ollama service..."
-if systemctl is-active --quiet ollama 2>/dev/null; then
-    echo -e "  ${PASS} Ollama service is running"
+# ==============================================================================
+# CORE SERVICES
+# ==============================================================================
+
+# 1. Check GPU Ollama service
+echo -e "${INFO} Checking GPU Ollama (Tier 2)..."
+if curl -s "$GPU_OLLAMA_URL/api/tags" > /dev/null 2>&1; then
+    echo -e "  ${PASS} GPU Ollama responding on :$GPU_OLLAMA_PORT"
 else
-    echo -e "  ${FAIL} Ollama service is not running"
-    echo "       Fix: sudo systemctl start ollama"
-    ((ERRORS++))
+    # Try systemd on Linux
+    if systemctl is-active --quiet ollama 2>/dev/null; then
+        echo -e "  ${WARN} Ollama service running but API not responding"
+        ((WARNINGS++))
+    else
+        echo -e "  ${FAIL} GPU Ollama not responding on :$GPU_OLLAMA_PORT"
+        echo "       Fix: ollama serve (or systemctl start ollama)"
+        ((ERRORS++))
+    fi
 fi
 
-# 2. Check Ollama API
-echo -e "${INFO} Checking Ollama API..."
-if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
-    echo -e "  ${PASS} Ollama API responding on :11434"
+# 2. Check CPU Ollama (Split Brain)
+echo -e "${INFO} Checking CPU Ollama (Tier 1)..."
+if curl -s "$CPU_OLLAMA_URL/api/tags" > /dev/null 2>&1; then
+    echo -e "  ${PASS} CPU Ollama responding on :$CPU_OLLAMA_PORT"
 else
-    echo -e "  ${FAIL} Ollama API not responding"
-    echo "       Check: curl http://localhost:11434/api/tags"
-    ((ERRORS++))
+    echo -e "  ${WARN} CPU Ollama not running (optional for Split Brain)"
+    echo "       Start: ./scripts/start-cpu-services.sh"
+    ((WARNINGS++))
 fi
 
-# 3. List available models
-echo -e "${INFO} Checking available models..."
-MODELS=$(ollama list 2>/dev/null | tail -n +2 | wc -l)
-if [ "$MODELS" -gt 0 ]; then
-    echo -e "  ${PASS} Found $MODELS model(s):"
-    ollama list 2>/dev/null | tail -n +2 | while read line; do
+# 3. Check Qdrant (Vector DB)
+echo -e "${INFO} Checking Qdrant (Vector DB)..."
+if curl -s "$VECTOR_DB_URL/collections" > /dev/null 2>&1; then
+    echo -e "  ${PASS} Qdrant responding on :$VECTOR_DB_PORT"
+else
+    echo -e "  ${WARN} Qdrant not running (optional for RAG)"
+    echo "       Start: ./scripts/start-cpu-services.sh"
+    ((WARNINGS++))
+fi
+
+# ==============================================================================
+# MODELS
+# ==============================================================================
+
+# 4. List GPU models
+echo -e "${INFO} Checking GPU models..."
+GPU_MODELS=$(OLLAMA_HOST="$GPU_OLLAMA_HOST" ollama list 2>/dev/null | tail -n +2 | wc -l)
+if [ "$GPU_MODELS" -gt 0 ]; then
+    echo -e "  ${PASS} Found $GPU_MODELS GPU model(s):"
+    OLLAMA_HOST="$GPU_OLLAMA_HOST" ollama list 2>/dev/null | tail -n +2 | head -5 | while read line; do
         echo "       - $line"
     done
 else
-    echo -e "  ${WARN} No models found"
+    echo -e "  ${WARN} No GPU models found"
     echo "       Fix: ollama pull llama3-groq-tool-use:8b"
     ((WARNINGS++))
 fi
 
-# 4. Check for tool-capable model
+# 5. Check for tool-capable model
 echo -e "${INFO} Checking for tool-capable model..."
-if ollama list 2>/dev/null | grep -q "llama3-groq-tool-use\|qwen3\|llama3.2"; then
+if OLLAMA_HOST="$GPU_OLLAMA_HOST" ollama list 2>/dev/null | grep -qE "llama3-groq-tool-use|qwen|llama3.2"; then
     echo -e "  ${PASS} Tool-capable model available"
 else
     echo -e "  ${WARN} No tool-capable model found"
@@ -73,7 +92,24 @@ else
     ((WARNINGS++))
 fi
 
-# 5. Check SearXNG
+# 6. Check CPU models (if CPU Ollama running)
+if curl -s "$CPU_OLLAMA_URL/api/tags" > /dev/null 2>&1; then
+    echo -e "${INFO} Checking CPU models..."
+    for model in "$MODEL_ROUTER" "$MODEL_EMBED"; do
+        if OLLAMA_HOST="$CPU_OLLAMA_HOST" ollama list 2>/dev/null | grep -q "$model"; then
+            echo -e "  ${PASS} $model available"
+        else
+            echo -e "  ${WARN} $model not pulled on CPU tier"
+            ((WARNINGS++))
+        fi
+    done
+fi
+
+# ==============================================================================
+# EXTERNAL SERVICES
+# ==============================================================================
+
+# 7. Check SearXNG
 echo -e "${INFO} Checking SearXNG..."
 if curl -s "http://localhost:8888/search?q=test&format=json" | grep -q '"results"' 2>/dev/null; then
     echo -e "  ${PASS} SearXNG responding on :8888"
@@ -83,33 +119,31 @@ else
     ((WARNINGS++))
 fi
 
-# 6. Check GPU (Vulkan)
-echo -e "${INFO} Checking GPU acceleration..."
-if command -v vulkaninfo &> /dev/null; then
-    GPU_NAME=$(vulkaninfo 2>/dev/null | grep "deviceName" | head -1 | cut -d= -f2 | xargs)
-    if [ -n "$GPU_NAME" ]; then
-        echo -e "  ${PASS} Vulkan GPU: $GPU_NAME"
-    else
-        echo -e "  ${WARN} Vulkan available but no GPU detected"
-        ((WARNINGS++))
-    fi
+# 8. Check LiteLLM
+echo -e "${INFO} Checking LiteLLM proxy..."
+if curl -s "$LITELLM_URL/health" > /dev/null 2>&1; then
+    echo -e "  ${PASS} LiteLLM responding on :$LITELLM_PORT"
 else
-    echo -e "  ${WARN} vulkaninfo not installed (apt install vulkan-tools)"
+    echo -e "  ${WARN} LiteLLM not running"
+    echo "       Start: ./scripts/start-litellm.sh"
     ((WARNINGS++))
 fi
 
-# 7. Check CPU governor
-echo -e "${INFO} Checking CPU governor..."
-GOVERNOR=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo "unknown")
-if [ "$GOVERNOR" = "performance" ]; then
-    echo -e "  ${PASS} CPU governor: performance"
+# ==============================================================================
+# TOOLS
+# ==============================================================================
+
+# 9. Check mods CLI
+echo -e "${INFO} Checking mods CLI..."
+if command -v mods &> /dev/null; then
+    echo -e "  ${PASS} mods CLI installed"
 else
-    echo -e "  ${WARN} CPU governor: $GOVERNOR (not performance)"
-    echo "       Fix: echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor"
+    echo -e "  ${WARN} mods CLI not found"
+    echo "       Install: brew install charmbracelet/tap/mods"
     ((WARNINGS++))
 fi
 
-# 8. Check Crush CLI
+# 10. Check Crush CLI
 echo -e "${INFO} Checking Crush CLI..."
 if command -v crush &> /dev/null; then
     echo -e "  ${PASS} Crush CLI installed"
@@ -119,44 +153,56 @@ else
     ((WARNINGS++))
 fi
 
-# 9. Check Crush config
-echo -e "${INFO} Checking Crush configuration..."
-if [ -f ~/.config/crush/crush.json ]; then
-    echo -e "  ${PASS} Crush config exists at ~/.config/crush/crush.json"
+# ==============================================================================
+# HARDWARE
+# ==============================================================================
 
-    # Check MCP servers configured
-    if grep -q "mcp_servers" ~/.config/crush/crush.json 2>/dev/null; then
-        echo -e "  ${PASS} MCP servers configured in crush.json"
+# 11. Check GPU (platform-dependent)
+echo -e "${INFO} Checking GPU acceleration..."
+if [[ "$(uname)" == "Darwin" ]]; then
+    # macOS - check for Metal
+    GPU_INFO=$(system_profiler SPDisplaysDataType 2>/dev/null | grep "Chipset Model" | head -1 | cut -d: -f2 | xargs)
+    if [ -n "$GPU_INFO" ]; then
+        echo -e "  ${PASS} GPU: $GPU_INFO (Metal)"
     else
-        echo -e "  ${WARN} No MCP servers in crush.json"
+        echo -e "  ${WARN} Could not detect GPU"
         ((WARNINGS++))
     fi
 else
-    echo -e "  ${WARN} No Crush config found"
-    echo "       Copy template: cp infrastructure/configs/crush/crush.json ~/.config/crush/"
-    ((WARNINGS++))
+    # Linux - check Vulkan
+    if command -v vulkaninfo &> /dev/null; then
+        GPU_NAME=$(vulkaninfo 2>/dev/null | grep "deviceName" | head -1 | cut -d= -f2 | xargs)
+        if [ -n "$GPU_NAME" ]; then
+            echo -e "  ${PASS} Vulkan GPU: $GPU_NAME"
+        else
+            echo -e "  ${WARN} Vulkan available but no GPU detected"
+            ((WARNINGS++))
+        fi
+    else
+        echo -e "  ${WARN} vulkaninfo not installed"
+        ((WARNINGS++))
+    fi
 fi
 
-# 10. Check disk space
+# 12. Check disk space
 echo -e "${INFO} Checking disk space..."
-ROOT_USED=$(df / | tail -1 | awk '{print $5}' | tr -d '%')
-HOME_USED=$(df /home 2>/dev/null | tail -1 | awk '{print $5}' | tr -d '%' || echo "0")
-
-if [ "$ROOT_USED" -lt 90 ]; then
-    echo -e "  ${PASS} Root partition: ${ROOT_USED}% used"
+if [[ "$(uname)" == "Darwin" ]]; then
+    DISK_USED=$(df -h / | tail -1 | awk '{print $5}' | tr -d '%')
 else
-    echo -e "  ${WARN} Root partition: ${ROOT_USED}% used (low space!)"
+    DISK_USED=$(df / | tail -1 | awk '{print $5}' | tr -d '%')
+fi
+
+if [ "$DISK_USED" -lt 90 ]; then
+    echo -e "  ${PASS} Disk usage: ${DISK_USED}%"
+else
+    echo -e "  ${WARN} Disk usage: ${DISK_USED}% (low space!)"
     ((WARNINGS++))
 fi
 
-if [ "$HOME_USED" != "0" ] && [ "$HOME_USED" -lt 90 ]; then
-    echo -e "  ${PASS} Home partition: ${HOME_USED}% used"
-elif [ "$HOME_USED" != "0" ]; then
-    echo -e "  ${WARN} Home partition: ${HOME_USED}% used (low space!)"
-    ((WARNINGS++))
-fi
+# ==============================================================================
+# SUMMARY
+# ==============================================================================
 
-# Summary
 echo ""
 echo "=========================================="
 echo "              Summary"
@@ -166,9 +212,8 @@ echo ""
 if [ $ERRORS -eq 0 ] && [ $WARNINGS -eq 0 ]; then
     echo -e "${GREEN}All checks passed!${NC}"
     echo ""
-    echo "Ready to use. Test MCP in Crush with:"
-    echo "  crush"
-    echo "  > List files in /home/mgilbert/Code/clood"
+    echo "Ready to use. Test with:"
+    echo "  ./scripts/clood-flow.sh 'Hello, what can you do?'"
     echo ""
 elif [ $ERRORS -eq 0 ]; then
     echo -e "${YELLOW}Passed with $WARNINGS warning(s)${NC}"
@@ -180,19 +225,17 @@ else
     echo ""
 fi
 
-# MCP Test Commands
+# Quick test suggestions
 echo "=========================================="
-echo "         Manual MCP Tests"
+echo "           Quick Tests"
 echo "=========================================="
 echo ""
-echo "In Crush, test these commands:"
+echo "1. Test Split Brain routing:"
+echo "   ./scripts/clood-flow.sh -v 'What is 2+2?'"
 echo ""
-echo "1. Filesystem MCP:"
-echo "   > List files in /home/mgilbert/Code/clood"
+echo "2. Force GPU tier:"
+echo "   ./scripts/clood-flow.sh -t gpu 'Explain recursion'"
 echo ""
-echo "2. SearXNG MCP:"
-echo "   > Search the web for \"ollama vulkan performance\""
-echo ""
-echo "3. GitHub MCP:"
-echo "   > Show recent commits in this repo"
+echo "3. Start CPU services (for full Split Brain):"
+echo "   ./scripts/start-cpu-services.sh"
 echo ""
