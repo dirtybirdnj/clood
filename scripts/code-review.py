@@ -41,11 +41,7 @@ def read_files(path: str, max_size: int = 50000) -> str:
 
     return "".join(content) or "No code files found."
 
-def review(path: str, model: str = MODEL) -> str:
-    """Send code to Ollama for review."""
-    code = read_files(path)
-
-    prompt = f"""Review the following code. Be specific and actionable.
+REVIEW_PROMPT = """Review the following code. Be specific and actionable.
 
 ## Your Task
 1. Give a brief summary of what this code does (2-3 sentences)
@@ -56,6 +52,24 @@ def review(path: str, model: str = MODEL) -> str:
 {code}
 
 ## Your Review"""
+
+PATCH_PROMPT = """You are a code improvement tool. Output ONLY a unified diff patch.
+
+## Rules
+- Output valid unified diff format that can be applied with `patch -p1`
+- Include file paths in the diff headers
+- Make exactly 3 improvements (better error handling, cleaner code, or bug fixes)
+- NO explanations, NO markdown, ONLY the diff
+
+## Code to Improve
+{code}
+
+## Unified Diff Output"""
+
+def review(path: str, model: str = MODEL, patch_mode: bool = False) -> str:
+    """Send code to Ollama for review."""
+    code = read_files(path)
+    prompt = (PATCH_PROMPT if patch_mode else REVIEW_PROMPT).format(code=code)
 
     payload = {
         "model": model,
@@ -80,7 +94,8 @@ if __name__ == "__main__":
     parser.add_argument("path", help="Path to file or directory to review")
     parser.add_argument("-m", "--model", default=MODEL, help=f"Model to use (default: {MODEL})")
     parser.add_argument("-u", "--url", default=OLLAMA_URL, help=f"Ollama URL (default: {OLLAMA_URL})")
+    parser.add_argument("-p", "--patch", action="store_true", help="Output unified diff instead of review")
     args = parser.parse_args()
 
     OLLAMA_URL = args.url
-    print(review(args.path, args.model))
+    print(review(args.path, args.model, patch_mode=args.patch))
