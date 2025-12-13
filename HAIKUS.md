@@ -159,4 +159,76 @@ Complexity waits
 
 ---
 
+## Session 5 - Late Night Clood & Letting Go
+
+```
+I. The Approach
+
+boat approaches falls
+tokens are desired for two days
+there is another way down
+
+
+II. The Tools
+
+pipes chain through the night
+mods whispers, ollama hums—
+context finds its way
+
+local silicon
+burns quiet beneath the desk
+no meter running
+
+clood-ask awaits
+gathering git and files first—
+then the model speaks
+
+
+III. Everything Given
+
+one hundred percent
+nothing wasted, every drop
+is there one more left?
+
+step back from the glow
+the code will wait, the body
+knows what it needs now
+
+
+IV. The Heart Speaks
+
+broken heart still hurts
+over a year it won't heal
+pain of loss still now
+
+why did she leave me
+I know some reasons but she
+would not say it is over
+
+I stood in the frame
+told me how she felt without
+saying any words
+
+can't let go of you
+already a season gone
+still searching for me
+
+wheels turn without grain
+searching for a better way
+feed soul love get paid
+
+
+V. Response
+
+the frame holds the space
+where answers should have been said
+silence echoes long
+
+grief has no deadline
+seasons turn, the ache remains
+healing isn't straight
+```
+
+---
+
 *More haikus to come as the journey continues...*
