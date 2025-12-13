@@ -6,8 +6,8 @@ from pathlib import Path
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 MODEL = os.environ.get("OLLAMA_MODEL", "llama3-groq-tool-use:8b")
 
-EXTENSIONS = {'.py', '.js', '.ts', '.tsx', '.go', '.rs', '.rb', '.sh', '.md', '.json', '.yaml', '.yml'}
-SKIP_DIRS = {'.git', 'node_modules', '__pycache__', 'venv', '.venv', 'dist', 'build'}
+EXTENSIONS = {'.py', '.js', '.ts', '.tsx', '.go', '.rs', '.rb', '.sh', '.md', '.json', '.yaml', '.yml', '.toml', '.html', '.css', '.c', '.h', '.cpp', '.hpp', '.java', '.swift', '.kt'}
+SKIP_DIRS = {'.git', 'node_modules', '__pycache__', 'venv', '.venv', 'dist', 'build', 'target', '.claude'}
 
 def read_files(path: str, max_size: int = 50000) -> str:
     """Read all code files at path into a single string."""
@@ -15,10 +15,16 @@ def read_files(path: str, max_size: int = 50000) -> str:
     content = []
     total = 0
 
+    # Prioritize code over docs
+    CODE_FIRST = {'.rs', '.py', '.js', '.ts', '.go', '.c', '.cpp', '.java', '.rb'}
+
     if p.is_file():
         files = [p]
     else:
-        files = sorted(p.rglob('*'))
+        all_files = list(p.rglob('*'))
+        code_files = [f for f in all_files if f.suffix in CODE_FIRST]
+        other_files = [f for f in all_files if f.suffix not in CODE_FIRST]
+        files = sorted(code_files) + sorted(other_files)
 
     for f in files:
         if any(skip in f.parts for skip in SKIP_DIRS):
