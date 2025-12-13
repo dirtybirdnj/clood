@@ -66,10 +66,33 @@ PATCH_PROMPT = """You are a code improvement tool. Output ONLY a unified diff pa
 
 ## Unified Diff Output"""
 
-def review(path: str, model: str = MODEL, patch_mode: bool = False) -> str:
+EDIT_PROMPT = """You are a code editor. Suggest exactly 3 improvements as search/replace blocks.
+
+## Format (use EXACTLY this format for each change):
+### Change N: Brief description
+
+<<<<<<< SEARCH
+exact code to find (copy verbatim from the file)
+=======
+replacement code
+>>>>>>> REPLACE
+
+## Rules
+- Copy the SEARCH section EXACTLY from the original code (same whitespace, same lines)
+- Each block should be a focused, minimal change
+- Give 3 changes maximum
+- Brief 1-line description before each block
+
+## Code to Improve
+{code}
+
+## Your Changes"""
+
+def review(path: str, model: str = MODEL, mode: str = "review") -> str:
     """Send code to Ollama for review."""
     code = read_files(path)
-    prompt = (PATCH_PROMPT if patch_mode else REVIEW_PROMPT).format(code=code)
+    prompts = {"review": REVIEW_PROMPT, "patch": PATCH_PROMPT, "edit": EDIT_PROMPT}
+    prompt = prompts.get(mode, REVIEW_PROMPT).format(code=code)
 
     payload = {
         "model": model,
@@ -89,13 +112,61 @@ def review(path: str, model: str = MODEL, patch_mode: bool = False) -> str:
         resp = json.loads(r.read())
         return resp.get("message", {}).get("content", "No response")
 
+def apply_edits(path: str, response: str):
+    """Parse SEARCH/REPLACE blocks and apply interactively."""
+    import re
+    blocks = re.findall(
+        r'### Change \d+:([^\n]*)\n+<<<<<<< SEARCH\n(.*?)\n=======\n(.*?)\n>>>>>>> REPLACE',
+        response, re.DOTALL
+    )
+    if not blocks:
+        print("No edit blocks found in response.")
+        return
+
+    filepath = Path(path)
+    if not filepath.is_file():
+        print(f"Can only apply edits to a single file, got: {path}")
+        return
+
+    content = filepath.read_text()
+
+    for i, (desc, search, replace) in enumerate(blocks, 1):
+        print(f"\n{'='*60}")
+        print(f"Change {i}:{desc.strip()}")
+        print(f"{'='*60}")
+        print(f"\033[91m- {search.strip()}\033[0m")
+        print(f"\033[92m+ {replace.strip()}\033[0m")
+        print()
+
+        choice = input("Apply? [y]es [n]o [q]uit: ").lower().strip()
+        if choice == 'q':
+            break
+        if choice == 'y':
+            if search.strip() in content:
+                content = content.replace(search.strip(), replace.strip(), 1)
+                print("✓ Applied")
+            else:
+                print("✗ Could not find exact match in file")
+
+    if input("\nSave changes? [y/n]: ").lower().strip() == 'y':
+        filepath.write_text(content)
+        print(f"Saved {filepath}")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Review code with Ollama")
     parser.add_argument("path", help="Path to file or directory to review")
     parser.add_argument("-m", "--model", default=MODEL, help=f"Model to use (default: {MODEL})")
     parser.add_argument("-u", "--url", default=OLLAMA_URL, help=f"Ollama URL (default: {OLLAMA_URL})")
-    parser.add_argument("-p", "--patch", action="store_true", help="Output unified diff instead of review")
+    parser.add_argument("-p", "--patch", action="store_true", help="Output unified diff")
+    parser.add_argument("-e", "--edit", action="store_true", help="Interactive edit mode (Claude Code style)")
     args = parser.parse_args()
 
     OLLAMA_URL = args.url
-    print(review(args.path, args.model, patch_mode=args.patch))
+    mode = "edit" if args.edit else ("patch" if args.patch else "review")
+    result = review(args.path, args.model, mode=mode)
+
+    if args.edit:
+        print(result)
+        apply_edits(args.path, result)
+    else:
+        print(result)
