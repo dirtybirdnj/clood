@@ -1,123 +1,117 @@
-# Last Session - 2025-12-12 (Late Night)
+# Last Session - 2025-12-12 (Late Night Continued)
 
-## SUCCESS: Aider Installed on ubuntu25!
+## Big Win: Custom Scripts + Mods Working!
+
+### Scripts Created (all in `~/Code/clood/scripts/`)
+
+| Script | Purpose | Usage |
+|--------|---------|-------|
+| `code-review.py` | Review code with Ollama | `python3 code-review.py file.rs` |
+| `code-review.py --edit` | Interactive Claude-style edits | `python3 code-review.py file.rs --edit` |
+| `search-ask.py` | SearXNG search + Ollama answer | `python3 search-ask.py "your question"` |
+| `gh-ask.py` | GitHub context + Ollama | `python3 gh-ask.py "summarize PRs" -r owner/repo` |
+| `tool-proxy.py` | Inject tools into Ollama API | `python3 tool-proxy.py` (port 11435) |
+
+### Mods Configured for Ollama + MCP
+
+Edited `~/Library/Application Support/mods/mods.yml`:
+- default-api: ollama
+- default-model: llama3-groq-tool-use:8b
+- MCP servers: filesystem, github
 
 ```bash
-source ~/.miniconda3/bin/activate aider
-aider --model ollama/llama3-groq-tool-use:8b
+# Basic mods usage (WORKS!)
+echo "hello" | mods "respond"
+git diff | mods "explain"
+cat file.rs | mods "review"
 ```
 
-Installation path: miniconda + conda env with Python 3.12
+MCP with mods may need debugging - Ollama models don't handle tool calls as reliably as Claude.
 
 ---
 
-## Critical Discovery: Crush Does NOT Support Tool Calling
+## Scripts Usage Examples
 
-Despite hours of testing:
-- Models support tool calling (verified via direct Ollama API curl)
-- MCP servers initialize correctly
-- Ollama API returns correct tool_calls when tools are included
-
-**Crush simply omits the `tools` parameter when calling OpenAI-compatible APIs.**
-
-This is a fundamental limitation in Crush - it doesn't pass tools to non-Anthropic providers.
-
----
-
-## Remaining Tasks
-
-### 1. TEST AIDER WITH OLLAMA (Start Here!)
 ```bash
-ssh ubuntu25
-source ~/.miniconda3/bin/activate aider
-cd ~/Code/clood
-aider --model ollama/llama3-groq-tool-use:8b --no-auto-commits
-```
+# Code review (prose)
+python3 ~/Code/clood/scripts/code-review.py ~/Code/rat-king/crates/rat-king-cli/src/main.rs
 
-Ask: "What files are in this directory?"
+# Interactive edit mode (Claude Code style)
+python3 ~/Code/clood/scripts/code-review.py ~/Code/rat-king/src/main.rs --edit
 
-### 2. Mac Mini Ollama Setup
-```bash
-# On Mac Mini (192.168.4.41)
-pkill ollama
-OLLAMA_HOST=0.0.0.0:11434 nohup ollama serve > /tmp/ollama.log 2>&1 &
-launchctl setenv OLLAMA_HOST "0.0.0.0:11434"
-ollama pull qwen2.5-coder:7b
-ollama pull qwen2.5-coder:14b
-```
+# Search + Ask
+python3 ~/Code/clood/scripts/search-ask.py "ollama vulkan performance"
 
-### 3. Start LiteLLM Hub
-```bash
-ssh ubuntu25
-~/Code/clood/scripts/start-litellm.sh
-curl http://localhost:4000/models
-```
+# GitHub context
+python3 ~/Code/clood/scripts/gh-ask.py "what are recent issues" -r dirtybirdnj/clood
 
----
+# Use different model
+python3 ~/Code/clood/scripts/code-review.py file.py -m qwen2.5-coder:3b
 
-## Alternative Ideas If Aider Doesn't Work
-
-### Option A: Direct Python with Ollama API
-The Ollama Python library DOES pass tools correctly:
-```python
-import ollama
-response = ollama.chat(
-    model='llama3-groq-tool-use:8b',
-    messages=[{'role': 'user', 'content': 'List files in current dir'}],
-    tools=[{
-        'type': 'function',
-        'function': {
-            'name': 'execute_bash',
-            'description': 'Run a bash command',
-            'parameters': {
-                'type': 'object',
-                'properties': {'command': {'type': 'string'}},
-                'required': ['command']
-            }
-        }
-    }]
-)
-# Model returns: {'tool_calls': [{'function': {'name': 'execute_bash', 'arguments': {'command': 'ls'}}}]}
-```
-
-### Option B: LangChain + Ollama
-```bash
-pip install langchain langchain-ollama
-```
-LangChain properly passes tools to Ollama.
-
-### Option C: Continue AI (VS Code)
-Open source VS Code extension with native Ollama tool support.
-
-### Option D: OpenRouter
-Use OpenRouter for tool-capable cloud models:
-```bash
-aider --model openrouter/anthropic/claude-3-haiku
+# Use remote Ollama (ubuntu25)
+python3 ~/Code/clood/scripts/search-ask.py "rust async" -o http://192.168.4.63:11434 -m llama3.2:3b
 ```
 
 ---
 
-## Machine Quick Reference
+## Key Discovery: Crush Tool Calling Broken
 
-| Machine | IP | Status | Models |
+- Ollama models DO support tool calling (verified via direct API)
+- Crush does NOT pass tools to OpenAI-compatible APIs
+- Mods has MCP support but Ollama may not handle it well
+- Our custom scripts bypass this by calling Ollama directly
+
+---
+
+## Existing Tools to Explore
+
+| Tool | Install | What it does |
+|------|---------|--------------|
+| **mods** | `brew install charmbracelet/tap/mods` | Pipe anything to LLM (configured!) |
+| **llm** | `pip install llm llm-ollama` | Simon Willison's CLI, has tool support |
+
+---
+
+## Machine Status
+
+| Machine | IP | Ollama | Models |
 |---------|-----|--------|--------|
-| ubuntu25 | 192.168.4.63 | Ready, Aider installed | groq-8b, tinyllama, llama3.2:3b, deepseek:6.7b, mistral:7b |
-| MacBook Air | 192.168.4.47 | Ollama exposed | qwen-3b, tinyllama, groq-8b |
-| Mac Mini | 192.168.4.41 | Needs setup | qwen-7b, qwen-14b |
+| MacBook Air | localhost | ✅ Running | groq-8b, qwen-3b, tinyllama |
+| ubuntu25 | 192.168.4.63 | ✅ Running | groq-8b, llama3.2:3b, deepseek:6.7b, mistral:7b |
+| Mac Mini | 192.168.4.41 | ❌ Needs setup | (see NEXT_SESSION.md) |
 
 ---
 
-## Files Modified This Session
-- `/infrastructure/litellm-config.yaml` - 3 backends configured
-- `~/.config/crush/crush.json` (Mac) - providers and MCP configs
-- `NEXT_SESSION.md` - Mac Mini instructions
+## Commits This Session
 
-## Installed This Session (ubuntu25)
-- miniconda at `~/.miniconda3/`
-- conda env "aider" with Python 3.12
-- aider-chat 0.86.1
-- (also pyenv, but broken due to missing libffi)
+```
+bd15c63 - Add gh-ask.py: GitHub context for Ollama
+364885e - Add -o flag for remote Ollama URL
+5ba261b - Add search-ask.py: SearXNG + Ollama RAG pipeline
+68887bc - Add --edit mode: Claude Code style interactive apply
+bc7e3d4 - Add --patch mode to code-review.py
+7c602e2 - Fix code-review.py: prioritize code over docs
+8d08023 - Add code-review.py - direct Ollama code reviewer
+c093608 - Add tool-injection proxy for Ollama
+```
 
 ---
 
-*Aider ready to test. Good luck!*
+## Next Steps
+
+1. **Test mods MCP** - See if filesystem/github tools work with Ollama
+2. **Try `llm` CLI** - `pip install llm llm-ollama` - has native tool support
+3. **Mac Mini setup** - See NEXT_SESSION.md
+4. **Start LiteLLM hub** - `~/Code/clood/scripts/start-litellm.sh`
+
+---
+
+## Files Modified
+
+- `~/Library/Application Support/mods/mods.yml` - Ollama + MCP config
+- `~/.config/crush/crush.json` - Added supports_tools flags (didn't help)
+- `scripts/` - 5 new Python scripts
+
+---
+
+*Custom scripts work. Mods works. Crush MCP broken. Progress!*
