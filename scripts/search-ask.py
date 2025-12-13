@@ -24,7 +24,7 @@ def search(query: str, num_results: int = 5) -> list:
         })
     return results
 
-def ask(query: str, context: list, model: str = MODEL) -> str:
+def ask(query: str, context: list, model: str = MODEL, ollama_url: str = None) -> str:
     """Ask Ollama with search context."""
     context_text = "\n\n".join([
         f"**{r['title']}**\n{r['url']}\n{r['content']}"
@@ -47,8 +47,9 @@ def ask(query: str, context: list, model: str = MODEL) -> str:
         "stream": False
     }
 
+    url = ollama_url or OLLAMA_URL
     req = urllib.request.Request(
-        f"{OLLAMA_URL}/api/chat",
+        f"{url}/api/chat",
         json.dumps(payload).encode(),
         {"Content-Type": "application/json"}
     )
@@ -62,9 +63,11 @@ if __name__ == "__main__":
     parser.add_argument("query", nargs="+", help="Your question")
     parser.add_argument("-n", "--num", type=int, default=5, help="Number of search results")
     parser.add_argument("-m", "--model", default=MODEL, help=f"Model (default: {MODEL})")
+    parser.add_argument("-o", "--ollama", default=OLLAMA_URL, help="Ollama URL (default: localhost)")
     parser.add_argument("-s", "--search-only", action="store_true", help="Just show search results")
     args = parser.parse_args()
 
+    OLLAMA_URL = args.ollama
     query = " ".join(args.query)
     print(f"🔍 Searching: {query}", file=sys.stderr)
 
@@ -74,5 +77,5 @@ if __name__ == "__main__":
         for r in results:
             print(f"\n{r['title']}\n{r['url']}\n{r['content'][:200]}...")
     else:
-        print(f"🤖 Asking {args.model}...", file=sys.stderr)
-        print(ask(query, results, args.model))
+        print(f"🤖 Asking {args.model} @ {args.ollama}...", file=sys.stderr)
+        print(ask(query, results, args.model, args.ollama))
