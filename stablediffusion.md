@@ -14,22 +14,23 @@ cd stable-diffusion-webui
 
 # 3. Create Configuration File (Optimized for M4/Metal)
 # This creates/overwrites webui-user.sh with necessary flags to prevent black images/NaN errors
-cat <<EOF > webui-user.sh
+
 #!/bin/bash
 
-# Force Homebrew Python 3.10
+# 1. Force Homebrew Python 3.10
+# This matches the path installed by 'brew install python@3.10'
 export python_cmd="/opt/homebrew/opt/python@3.10/libexec/bin/python"
 
-# Optimization Flags:
-# --no-half: Fixes black images on Metal
-# --no-half-vae: Fixes VAE artifacts
-# --opt-sub-quad-attention: Reduces memory usage
-# --skip-torch-cuda-test: Bypasses NVIDIA check
+# 2. Optimization Flags for M4 / Metal
+# --no-half: Essential. Prevents black images/NaN errors on Metal.
+# --no-half-vae: Fixes artifacts during the decoding phase.
+# --opt-sub-quad-attention: Significantly reduces memory usage.
+# --skip-torch-cuda-test: Stops the script from looking for NVIDIA drivers.
 export COMMANDLINE_ARGS="--no-half --no-half-vae --opt-sub-quad-attention --skip-torch-cuda-test"
 
-# Set to "true" if you want auto-updates on launch
+# 3. Updates
+# Set to "true" if you want it to git pull every time you launch.
 export GIT_PULL="false"
-EOF
 
 # 4. Launch
 # First run will take ~10 mins to download PyTorch and the base model.
