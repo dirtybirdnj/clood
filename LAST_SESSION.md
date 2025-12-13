@@ -1,97 +1,40 @@
-# Last Session - 2025-12-12 (Late Night)
+# Last Session - 2025-12-12 (Evening)
 
-## Context Dump: BIOS Optimization for i7-8086K
+## Context: Pre-BIOS Benchmark Baseline
 
-### Your Motherboard (Confirmed in Repo)
+You're about to reboot ubuntu25 for BIOS tuning. Here's the baseline to compare against.
 
-**Gigabyte Z390 AORUS PRO WIFI-CF** (not 380 - it's Z390)
-- BIOS Version: F11 (dated 10/15/2019)
-- Source: `hardware/ubuntu25-profile.md`
+---
 
-### BIOS Settings We Were About to Configure
+## Pre-BIOS Benchmark Results (SAVE THESE!)
+
+| Model | Avg tok/s | Best Test |
+|-------|-----------|-----------|
+| tinyllama | 189.6 | simple_math (200 tok/s) |
+| llama3.2:3b | 64.6 | simple_math (75 tok/s) |
+| deepseek-coder:6.7b | 42.8 | simple_math (43.75 tok/s) |
+| mistral:7b | 32.5 | simple_math (35 tok/s) |
+
+**System state before BIOS changes:**
+- CPU Governor: `powersave`
+- CPU Frequency: 4390 MHz
+- RAM: 57GB available
+
+---
+
+## What We Did This Session
+
+1. **Tested ollama-dashboard.sh** - tmux dashboard working perfectly
+2. **Added temperature monitoring** - new sensors pane in dashboard
+3. **Installed lm-sensors** - `sudo apt install lm-sensors && sudo sensors-detect`
+4. **Loaded sensor modules** - `sudo modprobe coretemp it87`
+5. **Ran full benchmarks** - baseline captured above
+
+---
+
+## BIOS Settings to Configure
 
 Enter BIOS: Press `DEL` during POST
-
----
-
-#### 1. Intel Turbo Boost
-**Path:** `M.I.T.` → `Advanced Frequency Settings` → `Advanced CPU Core Settings`
-
-| Setting | Recommended |
-|---------|-------------|
-| Intel Turbo Boost | **Enabled** |
-| Turbo Boost Short Power Max | **Disabled** (removes PL2 time limit) |
-| Turbo Boost Power Max | **Disabled** (removes PL1 power limit) |
-
----
-
-#### 2. C-States (Disable for Performance)
-**Path:** `M.I.T.` → `Advanced Frequency Settings` → `Advanced CPU Core Settings`
-
-| Setting | Recommended |
-|---------|-------------|
-| CPU Enhanced Halt (C1E) | **Disabled** |
-| C3 State Support | **Disabled** |
-| C6/C7 State Support | **Disabled** |
-| Package C State Limit | **C0/C1** |
-
----
-
-#### 3. SpeedStep (EIST)
-**Path:** `M.I.T.` → `Advanced Frequency Settings` → `Advanced CPU Core Settings`
-
-| Setting | Recommended |
-|---------|-------------|
-| Intel Speed Shift Technology | **Disabled** |
-| Enhanced Intel SpeedStep (EIST) | **Disabled** |
-
----
-
-#### 4. Per-Core Turbo Ratios
-**Path:** `M.I.T.` → `Advanced Frequency Settings` → `Advanced CPU Core Settings` → `CPU Clock Ratio`
-
-| Cores Active | Ratio | Frequency |
-|--------------|-------|-----------|
-| 1-Core | 50 | 5.0 GHz |
-| 2-Core | 50 | 5.0 GHz |
-| 3-Core | 49 | 4.9 GHz |
-| 4-Core | 48 | 4.8 GHz |
-| 5-Core | 47 | 4.7 GHz |
-| 6-Core | 47 | 4.7 GHz |
-
-Or just set **CPU Clock Ratio: 48** (all-core 4.8GHz) as safe starting point.
-
----
-
-#### 5. LLC (Load Line Calibration)
-**Path:** `M.I.T.` → `Advanced Voltage Settings` → `CPU Core Voltage Control`
-
-| Setting | Recommended |
-|---------|-------------|
-| CPU Vcore Loadline Calibration | **Turbo** (Level 5 of 7) |
-
-Scale: Low → Normal → Standard → High → **Turbo** → Extreme → Ultra Extreme
-
----
-
-#### 6. CPU Core Ratio
-**Path:** `M.I.T.` → `Advanced Frequency Settings`
-
-| Setting | Safe | Aggressive |
-|---------|------|------------|
-| CPU Clock Ratio | **48** (4.8GHz) | **50** (5.0GHz) |
-| Ring Ratio | **43** | **47** |
-
----
-
-### Also Enable: XMP
-**Path:** `M.I.T.` → `Advanced Memory Settings`
-
-| Setting | Value |
-|---------|-------|
-| Extreme Memory Profile (X.M.P.) | **Profile 1** |
-
----
 
 ### Quick Reference - Full Settings List
 
@@ -119,52 +62,56 @@ M.I.T. → Advanced Memory Settings:
 
 ---
 
-### NOT Touching (Per Your Request)
-- Voltage manipulation (Vcore, VCCIO, VCCSA)
-- CPU voltage override
-- AVX offset
-
----
-
-### What Already Exists in Repo
-- `hardware/OPTIMIZATION-GUIDE.md` - Software/kernel optimizations (done)
-- `hardware/ubuntu25-profile.md` - Full hardware profile
-- `hardware/i7-8086k.md` - CPU specs and haiku
-
-### Pending
-- Create dedicated BIOS optimization doc? (you asked, I said yes)
-- After BIOS changes: re-benchmark to measure improvement
-
----
-
-## Previous Session Summary (Earlier Today)
-
-- Mac Mini M4 benchmarking (~126 tok/s TinyLlama, ~44 tok/s Qwen 3B)
-- RTX 2080 integration planning doc
-- WEEKEND-SURVIVAL.md for Claude-free coding
-- fun/bonsai.py stubbed for dogfooding
-- Session 3 haikus (Frankenstein/dogfooding)
-
----
-
-## Quick Commands Post-Reboot
+## After Reboot - Verify & Benchmark
 
 ```bash
-# Verify CPU frequency (should be higher after BIOS changes)
-cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+# 1. Check CPU governor (should still be powersave, we'll fix it)
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
 
-# Watch frequencies in real-time
-watch -n1 "cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq | sort -u"
-
-# Set governor to performance (if not already)
+# 2. Set to performance mode
 echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
 
-# Quick Ollama test
-ollama run qwen2.5-coder:7b "Hello" --verbose 2>&1 | grep "eval rate"
+# 3. Verify frequencies are higher
+watch -n1 "cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq | sort -u"
+
+# 4. Check temps are okay
+sensors
+
+# 5. Start the dashboard to monitor during benchmark
+~/Code/clood/scripts/ollama-dashboard.sh
+
+# 6. Run full benchmark (in another terminal or after Ctrl+b d)
+~/Code/clood/scripts/benchmark.sh --all
 ```
 
 ---
 
-## Issue That Caused Restart
+## Tmux Cheatsheet (You Asked!)
 
-Mouse scroll wheel injecting garbage into terminal (both macOS Terminal and Kitty affected).
+| Keys | Action |
+|------|--------|
+| `Ctrl+b` then `d` | **Detach** - exit but keep running |
+| `Ctrl+b` then `arrows` | Move between panes |
+| `Ctrl+b` then `z` | Zoom pane (toggle fullscreen) |
+| `q` | Exit btop/nvtop |
+
+Reattach: `tmux attach -t ollama-dash`
+
+---
+
+## Expected Improvements After BIOS Tuning
+
+With C-states disabled, XMP enabled, and performance governor:
+- tinyllama: 189 → 220+ tok/s
+- llama3.2:3b: 64 → 75+ tok/s
+- deepseek-coder:6.7b: 42 → 50+ tok/s
+- mistral:7b: 32 → 40+ tok/s
+
+---
+
+## NOT Touching (Per Your Request)
+- Voltage manipulation (Vcore, VCCIO, VCCSA)
+- CPU voltage override
+- AVX offset
+
+Good luck in the BIOS!
