@@ -88,6 +88,9 @@ func main() {
 	rootCmd.AddCommand(commands.ContextCmd())
 	rootCmd.AddCommand(commands.SymbolsCmd())
 
+	// Project management commands
+	rootCmd.AddCommand(commands.IssuesCmd())
+
 	// Init command
 	rootCmd.AddCommand(initCmd())
 
