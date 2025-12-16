@@ -1,4 +1,202 @@
-# Last Session - 2025-12-16 (Night Build)
+# Last Session - 2025-12-16 (Canaries & Golden Paths)
+
+## Status: DESIGN SESSION COMPLETE
+
+Created `clood-canaries.md` - patterns for catching LLM failure modes and producing predictable output.
+
+---
+
+## This Session's Focus: Anti-Pattern Detection
+
+### The Bug We Caught
+
+User asked to "walk through" a file that existed on remote but not local. Instead of:
+1. Checking if remote had changes
+2. Suggesting `git pull`
+3. Asking to verify the path
+
+The LLM pivoted to "let me design this for you" - completely missing the intent.
+
+**Root cause:** LLMs fill gaps with helpfulness instead of questioning assumptions.
+
+### Canary System Designed
+
+**Intent Detection:**
+| Keywords | Expectation | If Not Found |
+|----------|-------------|--------------|
+| review, walk through, show me | EXISTS | STOP - verify |
+| create, make, build | CREATE | Proceed |
+
+**Pre-Flight Checks:**
+- Git freshness (is remote ahead?)
+- File existence for referenced paths
+- Intent classification (review vs create)
+
+### Golden Paths Created
+
+Like civit.ai prompts that produce consistent images, clood recipes produce consistent code:
+
+```yaml
+name: "new-cli-command"
+prompt: |
+  Add command `clood {name}` that {description}.
+  Follow patterns from cmd/root.go...
+expected_output:
+  files_created: ["cmd/{name}.go"]
+  files_modified: ["cmd/root.go"]
+```
+
+### The Chimbo Pattern
+
+```
+ORIENT  → Read before assuming
+PLAN    → State minimal change
+EXECUTE → Do exactly that
+VERIFY  → Prove it worked
+```
+
+Anti-pattern (what to avoid):
+```
+ASSUME → EXPAND → CREATE → HOPE
+```
+
+---
+
+## Files Created This Session
+
+- `clood-canaries.md` - Full proposal for canaries, golden paths, recipes, structural guidelines
+
+---
+
+## Key Insight: Context Handoff Workflow
+
+The workflow we're using RIGHT NOW:
+1. Work with Claude Code on a task
+2. Hit context limits or need fresh session
+3. Dump session context to LAST_SESSION.md
+4. Commit and push
+5. Start new session, pull, continue
+
+**This should be a clood feature.**
+
+---
+
+## Proposed: `clood handoff` Command
+
+```bash
+# End of session - dump context for next session
+clood handoff --save "Worked on canaries, next: implement pre-flight checks"
+
+# Start of session - load context from last handoff
+clood handoff --load
+
+# Show handoff history
+clood handoff --history
+```
+
+### Implementation Sketch
+
+```go
+type Handoff struct {
+    Timestamp   time.Time
+    Summary     string        // Human-readable what we did
+    FilesChanged []string     // What files were touched
+    NextSteps   []string      // What to do next
+    GitRef      string        // Commit hash at handoff
+    Context     string        // Full context blob for LLM consumption
+}
+
+// Save creates a handoff checkpoint
+func (h *Handoff) Save() error {
+    // 1. Capture git status/diff
+    // 2. Extract recent file changes
+    // 3. Write to ~/.clood/handoffs/{timestamp}.json
+    // 4. Optionally commit LAST_SESSION.md
+}
+
+// Load retrieves the most recent handoff
+func LoadLatestHandoff() (*Handoff, error) {
+    // Read from ~/.clood/handoffs/
+    // Return most recent
+}
+
+// ToPrompt generates LLM-consumable context
+func (h *Handoff) ToPrompt() string {
+    return fmt.Sprintf(`
+## Session Context (from %s)
+
+**Previous work:** %s
+
+**Files changed:**
+%s
+
+**Next steps:**
+%s
+
+**Git ref:** %s
+`, h.Timestamp, h.Summary, strings.Join(h.FilesChanged, "\n"),
+   strings.Join(h.NextSteps, "\n"), h.GitRef)
+}
+```
+
+### Integration with Claude Code
+
+Add to CLAUDE.md:
+```markdown
+## Session Continuity
+
+At the start of a session, check for handoff context:
+1. Run `clood handoff --load` or read LAST_SESSION.md
+2. Orient to what was done previously
+3. Continue from the stated next steps
+
+Before ending a session with significant work:
+1. Offer to create a handoff checkpoint
+2. Summarize what was done and what's next
+```
+
+---
+
+## Hardware Profiling (Original Ask)
+
+The file that triggered the bug: `clood-cli/docs/HARDWARE_FACTS.md`
+
+Contains:
+- One-liner for quick Mac hardware facts collection
+- Full `gather-facts.sh` script for comprehensive profiling
+- Collected facts for ubuntu25 (benchmark data included)
+- Placeholder for mac-mini facts
+
+### Manual Profiling Workflow
+
+```bash
+# On target machine, run:
+bash gather-facts.sh > $(hostname)-facts.json
+
+# Or quick one-liner for Mac:
+echo "{\"hostname\":\"$(hostname)\",\"chip\":\"$(sysctl -n machdep.cpu.brand_string 2>/dev/null || system_profiler SPHardwareDataType | grep 'Chip' | awk -F: '{print $2}' | xargs)\",\"memory_gb\":$(( $(sysctl -n hw.memsize) / 1073741824 )),\"ollama\":$(curl -s http://localhost:11434/api/tags 2>/dev/null || echo 'null')}"
+
+# Paste output into HARDWARE_FACTS.md
+```
+
+---
+
+## Next Steps
+
+1. [ ] Implement `clood handoff` command
+2. [ ] Add pre-flight checks to clood-cli
+3. [ ] Create `docs/recipes/` directory with initial recipes
+4. [ ] Add canary rules to CLAUDE.md
+5. [ ] Test hardware profiling on mac-mini
+6. [ ] Build recipe loader/executor
+
+---
+
+## Previous Session Context (preserved below)
+
+---
+
+# Previous: 2025-12-16 (Night Build)
 
 ## Status: BUILD COMPLETE
 
