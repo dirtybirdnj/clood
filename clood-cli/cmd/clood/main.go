@@ -90,6 +90,7 @@ func main() {
 
 	// Project management commands
 	rootCmd.AddCommand(commands.IssuesCmd())
+	rootCmd.AddCommand(commands.ChatCmd())
 
 	// Init command
 	rootCmd.AddCommand(initCmd())
