@@ -1,117 +1,160 @@
-# Last Session - 2025-12-12 (Late Night Continued)
+# Last Session - 2025-12-15
 
-## Big Win: Custom Scripts + Mods Working!
+## Big Win: clood-cli Go Project Scaffolded!
 
-### Scripts Created (all in `~/Code/clood/scripts/`)
+Designed and scaffolded a Go CLI tool called `clood` - a unified interface for local LLM workflows with tiered inference.
 
-| Script | Purpose | Usage |
-|--------|---------|-------|
-| `code-review.py` | Review code with Ollama | `python3 code-review.py file.rs` |
-| `code-review.py --edit` | Interactive Claude-style edits | `python3 code-review.py file.rs --edit` |
-| `search-ask.py` | SearXNG search + Ollama answer | `python3 search-ask.py "your question"` |
-| `gh-ask.py` | GitHub context + Ollama | `python3 gh-ask.py "summarize PRs" -r owner/repo` |
-| `tool-proxy.py` | Inject tools into Ollama API | `python3 tool-proxy.py` (port 11435) |
+---
 
-### Mods Configured for Ollama + MCP
+## Decision: Go + Charm (not Rust)
 
-Edited `~/Library/Application Support/mods/mods.yml`:
-- default-api: ollama
-- default-model: llama3-groq-tool-use:8b
-- MCP servers: filesystem, github
+**Why Go:**
+- Crush and mods are both Go/Charm - same ecosystem
+- Faster iteration than Rust
+- Bubble Tea + Lipgloss for TUI
+- Single binary distribution
+
+---
+
+## Project Created: `clood-cli/`
+
+```
+clood-cli/
+├── cmd/clood/main.go           # Cobra entry point
+├── internal/
+│   ├── commands/
+│   │   ├── ask.go              # Routes queries to mods (Tier 1) or crush (Tier 2)
+│   │   ├── context.go          # Generate LLM-optimized context
+│   │   ├── health.go           # Check Ollama, SearXNG, LiteLLM status
+│   │   ├── summary.go          # Project type detection, JSON output
+│   │   ├── symbols.go          # Extract functions/classes/types
+│   │   └── tree.go             # Smart directory tree (respects .gitignore)
+│   ├── context/context.go      # Project detection
+│   ├── git/git.go              # Git utilities
+│   ├── parser/parser.go        # Language-specific parsing
+│   ├── router/router.go        # Tier 1/2 query classification
+│   └── tui/branding.go         # ASCII ART + COLOR PALETTE (customize here!)
+├── pkg/manifest/manifest.go    # Public API
+└── go.mod
+```
+
+---
+
+## Commands Implemented
+
+| Command | Purpose |
+|---------|---------|
+| `clood` | Show banner, launch TUI (eventually) |
+| `clood ask "query"` | Auto-route to mods (simple) or crush (complex) |
+| `clood tree [path]` | Directory tree with gitignore support |
+| `clood summary [path]` | JSON project manifest |
+| `clood context [path]` | Generate LLM context blob |
+| `clood symbols [path]` | Extract functions/types from code |
+| `clood health` | Check all services status |
+
+---
+
+## Tiered Inference Router
+
+In `internal/router/router.go`:
+- **Tier 1 (mods)**: Simple queries - "what is", "how to", "one-liner"
+- **Tier 2 (crush)**: Complex queries - "refactor", "implement", "debug", multi-step
+
+Router uses keyword matching + length heuristics. Can be enhanced with local LLM classification later.
+
+---
+
+## ASCII Art Customization
+
+Edit `internal/tui/branding.go`. Character palette documented inline:
+
+```
+BOX DRAWING: ─ │ ┌ ┐ └ ┘ ╭ ╮ ╰ ╯ ═ ║ ╔ ╗ ╚ ╝
+BLOCKS: █ ▓ ▒ ░ ▄ ▀ ▌ ▐
+WEATHER: ☁ ⛅ ⚡ ✨ 💧
+GEOMETRIC: ◆ ◇ ○ ● ▲ ▼ ★ ☆
+```
+
+Color palette (lightning/cloud theme):
+- `ColorPrimary`: #00D4FF (electric blue)
+- `ColorAccent`: #FFD700 (lightning gold)
+- `ColorSecondary`: #B8C5D0 (cloud gray)
+
+ASCII generators:
+- https://patorjk.com/software/taag/
+- https://www.ascii-art-generator.org/
+
+---
+
+## Reviewed: Local LLM Outputs
+
+Found 5 untracked files from local LLM experiments:
+- `clood-cli-spec.md` - Basic CLI spec
+- `clood-outline-1.md` - 5-step install process
+- `clood-outline-2.md` - Rust feature list
+- `clood-analysis-1.md` - Confused comparison
+- `clood-refine-1.md` - Hallucinated completion
+
+Quality was inconsistent - classic local model behavior. The `improve-clood-ask-gemini.md` spec was much better (likely human or stronger model).
+
+---
+
+## Blockers
+
+**Go not installed** - Cannot build yet.
 
 ```bash
-# Basic mods usage (WORKS!)
-echo "hello" | mods "respond"
-git diff | mods "explain"
-cat file.rs | mods "review"
-```
-
-MCP with mods may need debugging - Ollama models don't handle tool calls as reliably as Claude.
-
----
-
-## Scripts Usage Examples
-
-```bash
-# Code review (prose)
-python3 ~/Code/clood/scripts/code-review.py ~/Code/rat-king/crates/rat-king-cli/src/main.rs
-
-# Interactive edit mode (Claude Code style)
-python3 ~/Code/clood/scripts/code-review.py ~/Code/rat-king/src/main.rs --edit
-
-# Search + Ask
-python3 ~/Code/clood/scripts/search-ask.py "ollama vulkan performance"
-
-# GitHub context
-python3 ~/Code/clood/scripts/gh-ask.py "what are recent issues" -r dirtybirdnj/clood
-
-# Use different model
-python3 ~/Code/clood/scripts/code-review.py file.py -m qwen2.5-coder:3b
-
-# Use remote Ollama (ubuntu25)
-python3 ~/Code/clood/scripts/search-ask.py "rust async" -o http://192.168.4.63:11434 -m llama3.2:3b
+# To complete setup:
+brew install go
+cd ~/Code/clood/clood-cli
+go mod tidy
+go build -o clood ./cmd/clood
+./clood --help
 ```
 
 ---
 
-## Key Discovery: Crush Tool Calling Broken
+## Integration Notes
 
-- Ollama models DO support tool calling (verified via direct API)
-- Crush does NOT pass tools to OpenAI-compatible APIs
-- Mods has MCP support but Ollama may not handle it well
-- Our custom scripts bypass this by calling Ollama directly
+For coordinating with aider agent, share this context:
 
----
-
-## Existing Tools to Explore
-
-| Tool | Install | What it does |
-|------|---------|--------------|
-| **mods** | `brew install charmbracelet/tap/mods` | Pipe anything to LLM (configured!) |
-| **llm** | `pip install llm llm-ollama` | Simon Willison's CLI, has tool support |
+- Config location: `~/.config/clood/` or `.clood/` in project root
+- Context files: `CLAUDE.md`, `AGENTS.md`, `README.md` auto-injected
+- Ollama endpoints: localhost:11434/11435, ubuntu25:11434, mac-mini:11434
+- LiteLLM proxy: localhost:4000
 
 ---
 
-## Machine Status
-
-| Machine | IP | Ollama | Models |
-|---------|-----|--------|--------|
-| MacBook Air | localhost | ✅ Running | groq-8b, qwen-3b, tinyllama |
-| ubuntu25 | 192.168.4.63 | ✅ Running | groq-8b, llama3.2:3b, deepseek:6.7b, mistral:7b |
-| Mac Mini | 192.168.4.41 | ❌ Needs setup | (see NEXT_SESSION.md) |
-
----
-
-## Commits This Session
+## Files Created This Session
 
 ```
-bd15c63 - Add gh-ask.py: GitHub context for Ollama
-364885e - Add -o flag for remote Ollama URL
-5ba261b - Add search-ask.py: SearXNG + Ollama RAG pipeline
-68887bc - Add --edit mode: Claude Code style interactive apply
-bc7e3d4 - Add --patch mode to code-review.py
-7c602e2 - Fix code-review.py: prioritize code over docs
-8d08023 - Add code-review.py - direct Ollama code reviewer
-c093608 - Add tool-injection proxy for Ollama
+clood-cli/go.mod
+clood-cli/cmd/clood/main.go
+clood-cli/internal/commands/ask.go
+clood-cli/internal/commands/context.go
+clood-cli/internal/commands/health.go
+clood-cli/internal/commands/summary.go
+clood-cli/internal/commands/symbols.go
+clood-cli/internal/commands/tree.go
+clood-cli/internal/context/context.go
+clood-cli/internal/git/git.go
+clood-cli/internal/parser/parser.go
+clood-cli/internal/router/router.go
+clood-cli/internal/tui/branding.go
+clood-cli/pkg/manifest/manifest.go
 ```
 
 ---
 
-## Next Steps
+## Next Session TODO
 
-1. **Test mods MCP** - See if filesystem/github tools work with Ollama
-2. **Try `llm` CLI** - `pip install llm llm-ollama` - has native tool support
-3. **Mac Mini setup** - See NEXT_SESSION.md
-4. **Start LiteLLM hub** - `~/Code/clood/scripts/start-litellm.sh`
-
----
-
-## Files Modified
-
-- `~/Library/Application Support/mods/mods.yml` - Ollama + MCP config
-- `~/.config/crush/crush.json` - Added supports_tools flags (didn't help)
-- `scripts/` - 5 new Python scripts
+1. **Install Go**: `brew install go`
+2. **Build clood**: `go mod tidy && go build -o clood ./cmd/clood`
+3. **Test commands**: `./clood tree`, `./clood summary`, `./clood health`
+4. **Customize ASCII art**: Edit `internal/tui/branding.go`
+5. **Integrate with aider**: Share config patterns
+6. **Add TUI mode**: Bubble Tea interactive interface
 
 ---
 
-*Custom scripts work. Mods works. Crush MCP broken. Progress!*
+*Go CLI scaffolded. Need Go installed to build. ASCII art ready for customization!*
