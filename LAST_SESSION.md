@@ -1,124 +1,59 @@
-# Session Handoff - 2025-12-16 (Evening)
+# Session Handoff - 2025-12-16 (Afternoon)
 
 ## Summary
-Massive progress on clood CLI. Resolved ALL design questions via chat resolution. Built `clood issues` and `clood chat` commands. Established agent workflow patterns.
+Major progress: Built `clood handoff`, consolidated Legend of Clood narrative, researched cbonsai for SVG trees, created 5 new GitHub issues including SD integration epic. Ready for aggressive testing with Crush.
 
 ---
 
 ## What Was Built This Session
 
-### `clood issues` - Project Status Dashboard
+### `clood handoff` Command (Issue #14)
 ```bash
-./clood issues        # TUI view of all issues by category
-./clood issues --json # JSON for agents
+clood handoff "summary, next: steps"   # Save context, commit, push
+clood handoff --load                    # Load latest context
+clood handoff --history                 # View handoff history
+clood handoff --diff                    # Changes since last
+clood handoff --no-push                 # Save without pushing
 ```
-Categorizes by labels: `agent-review-complete`, `bug`, etc.
+Parses "next:" from summary to extract actionable steps.
 
-### `clood chat` - The Saga Experience
+### `docs/PERSONAS.md`
+9 detailed user personas across the technical spectrum:
+- Technical: Infra Engineer, Solo Dev, Homelab Enthusiast
+- Semi-Technical: Creative Pro, Small Biz Owner, Privacy Pro
+- Non-Technical: Curious Parent, Maker/Hobbyist, Educator
+
+### `docs/BONSAI_GUIDE.md`
+cbonsai + ansisvg pipeline for ASCII tree → SVG conversion:
 ```bash
-./clood chat          # Start/continue project saga
-./clood chat --tier 4 # Force writing tier
+# Key insight: Use -p for static output (no animation)
+cbonsai -p -L 60 -M 8 | ansisvg > tree.svg
 ```
-Features:
-- One saga per project (`.clood/saga.json`)
-- Auto-loads context from `llm-context/*.md`
-- Health meter shows context usage
-- Slash commands: `/save`, `/clear`, `/stats`, `/quit`
+Includes size presets (tiny→ancient) and shape variations.
+
+### `lore/` Directory
+Consolidated Legend of Clood narrative:
+- `lore/LEGEND_OF_CLOOD.md` - Unified saga
+- `lore/METAPHORS.md` - Technical-to-folklore quick reference
+- `lore/archive/` - Original source files preserved
 
 ---
 
-## Design Decisions Resolved
+## GitHub Issues Created
 
-| Issue | Decision |
-|-------|----------|
-| #9 chat | One saga per project, auto-resume, health meter, human-guided compression |
-| #6 --with-context | Agent tool for surgical context loading |
-| #14 handoff | Both CLI + slash command (CLI is foundation) |
-| #16 recipes | YAML format, project-local in `docs/recipes/` |
+| # | Title | Type |
+|---|-------|------|
+| [#18](https://github.com/dirtybirdnj/clood/issues/18) | Add clood bonsai command | Enhancement |
+| [#19](https://github.com/dirtybirdnj/clood/issues/19) | Graceful fallback to Claude API | Enhancement |
+| [#20](https://github.com/dirtybirdnj/clood/issues/20) | Add clood garden command | Enhancement |
+| [#21](https://github.com/dirtybirdnj/clood/issues/21) | CLI polish: banners, colors | Enhancement |
+| [#22](https://github.com/dirtybirdnj/clood/issues/22) | **[EPIC]** Stable Diffusion integration | Epic |
 
-Key principle: **CLI tools are the foundation, everything else builds on top.**
-
----
-
-## Documentation Created
-
-- `docs/CLOOD_TOOLS.md` - Agent reference (commands, patterns)
-- `docs/CLOOD_EXPERIENCE.md` - Human UX guide (saga, health meter)
-- `docs/AGENT_WORKFLOW.md` - GitHub issue patterns (@mention, labels)
-
----
-
-## Issue Status
-
-### Ready to Close (implemented)
-- #2 clood grep ✓
-- #3 clood imports ✓
-- #4 tiers ✓
-- #5 clood analyze ✓
-- #9 clood chat ✓ (just built)
-- #17 clood issues ✓ (just built)
-
-### Ready to Build (design complete)
-- #6 --with-context flag
-- #14 clood handoff
-- #16 recipe system
-
-### Not Started
-- #7 clood pull
-- #8 MCP server
-- #10 test suite
-- #12 auto-fallback bug
-- #15 canary system
-
----
-
-## Blocking Issue: Hosts Offline
-
-During `clood chat` test, all hosts showed offline:
-```
-ubuntu25: i/o timeout
-mac-mini: connection refused
-```
-
-User confirmed both machines are on. Possible causes:
-1. Network latency in Claude's execution context
-2. Ollama not running
-3. Firewall issue
-
-**To diagnose next session:**
-```bash
-curl http://192.168.4.63:11434/api/version  # ubuntu25
-curl http://192.168.4.41:11434/api/version  # mac-mini
-./clood hosts
-```
-
----
-
-## Server Garden Architecture
-
-```
-MacBook Air (DRIVER)
-├── clood CLI
-├── clood chat (saga)
-└── Orchestrates workers
-         │
-    ┌────┴────┐
-    ▼         ▼
-ubuntu25    mac-mini
-GPU, 8      M4 16GB
-models      2 models
-35 tok/s    TBD
-```
-
----
-
-## Next Steps
-
-1. [ ] Diagnose host connectivity
-2. [ ] Test `clood chat` interactively
-3. [ ] Build `clood handoff`
-4. [ ] Build `clood garden` / `clood tiers` (diagrams)
-5. [ ] Close implemented issues
+### SD Integration Epic (#22) Highlights
+- `clood imagine "prompt"` - Text-to-image with LLM prompt enhancement
+- Routes to ComfyUI on ubuntu25 or Draw Things on Macs
+- 5 implementation phases: Foundation → Prompt Eng → CLI → Advanced → Feedback Loop
+- Key decisions needed: Backend priority, prompt approach, asset storage
 
 ---
 
@@ -126,24 +61,156 @@ models      2 models
 
 ```
 NEW:
-- internal/commands/issues.go
-- internal/commands/chat.go
-- docs/CLOOD_TOOLS.md
-- docs/CLOOD_EXPERIENCE.md
-- docs/AGENT_WORKFLOW.md
+- clood-cli/internal/commands/handoff.go
+- docs/PERSONAS.md
+- docs/BONSAI_GUIDE.md
+- lore/LEGEND_OF_CLOOD.md
+- lore/METAPHORS.md
+- lore/archive/ (moved originals here)
+
+DELETED:
+- scripts-strategy.md (empty)
+- clood-outline-*.md (obsolete)
+- clood-analysis-1.md, clood-refine-1.md (obsolete)
 
 MODIFIED:
-- cmd/clood/main.go (added commands)
+- clood-cli/cmd/clood/main.go (added handoff command)
 ```
 
 ---
 
-## Git Status
+## Issue Status Summary
 
-All changes committed and pushed. Latest: `9cfc095`
+### Ready to Test
+- #14 `clood handoff` ✅ Built
+- #9 `clood chat` (from last session)
+- #17 `clood issues` (from last session)
+
+### Ready to Build
+- #18 `clood bonsai`
+- #19 Claude fallback
+- #20 `clood garden`
+- #21 CLI polish
+
+### Needs Design Discussion
+- #22 SD Integration (epic - multiple sub-issues)
+
+### Previous (Human Review Needed)
+- #2, #3, #4, #5 - Ready to close (agent-review-complete)
 
 ---
 
-*Take care of mom. The saga continues when you return.* 🛒
+## Testing Plan with Crush
+
+When you return, test these in Crush:
+
+### 1. Host Connectivity
+```bash
+curl http://192.168.4.63:11434/api/version  # ubuntu25
+curl http://192.168.4.41:11434/api/version  # mac-mini
+./clood hosts
+```
+
+### 2. Test clood handoff
+```bash
+./clood handoff --load              # Should show this session
+./clood handoff --history           # Should list handoffs
+./clood handoff "test" --no-push    # Test save flow
+```
+
+### 3. Test clood chat (if hosts online)
+```bash
+./clood chat
+# Try: "What files are in lore/"
+# Try: /stats, /context, /quit
+```
+
+### 4. Test cbonsai (install first)
+```bash
+brew install cbonsai
+cbonsai -p -L 60 -M 8  # Should show static tree
+
+# If you have ansisvg:
+go install github.com/wader/ansisvg@latest
+cbonsai -p | ansisvg > test.svg
+```
+
+---
+
+## Crush Integration Notes
+
+The new clood commands can be used by Crush agents:
+
+```bash
+# Start session - load context
+./clood handoff --load
+
+# Check project status
+./clood issues --json
+
+# Use grep/symbols for codebase search
+./clood grep "TODO"
+./clood symbols internal/commands/
+
+# End session - save context
+./clood handoff "what was done, next: what's next"
+```
+
+---
+
+## Architecture Reminder
+
+```
+MacBook Air (DRIVER)
+├── clood CLI (orchestrator)
+├── Crush (Claude Code agent)
+└── Routes to:
+         │
+    ┌────┴────┐
+    ▼         ▼
+ubuntu25    mac-mini
+RX 590      M4 16GB
+8 models    2 models
+~35 tok/s   TBD
+ComfyUI     Draw Things
+```
+
+---
+
+## Next Steps
+
+1. [ ] Test host connectivity when you return
+2. [ ] Test handoff, chat, issues commands
+3. [ ] Try cbonsai → SVG pipeline
+4. [ ] Decide: Start with bonsai (#18) or garden (#20)?
+5. [ ] For SD epic: Decide backend priority (ComfyUI vs Draw Things)
+6. [ ] Close completed issues (#2, #3, #4, #5) if tests pass
+
+---
+
+## Quick Command Reference
+
+```bash
+# Build
+cd clood-cli && go build -o clood ./cmd/clood
+
+# Test commands
+./clood handoff --help
+./clood garden --help  # Not yet implemented
+./clood bonsai --help  # Not yet implemented
+
+# Check hosts
+./clood hosts
+
+# View issues
+./clood issues
+gh issue list
+```
+
+---
+
+*Pixels bloom in spring,
+Server garden tends itself—
+Agents carry on.*
 
 🤖 Handoff by Claude Code agent
