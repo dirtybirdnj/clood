@@ -179,4 +179,56 @@ Key indicators:
 
 ---
 
+## Diagnosing from Outside (Driver Machine)
+
+Run these from the machine trying to reach the host (e.g., mac-mini or MacBook):
+
+```bash
+# Direct connectivity test
+curl http://192.168.4.63:11434/api/version
+
+# With timeout (don't wait forever)
+curl --connect-timeout 5 http://192.168.4.63:11434/api/version
+
+# Check if host is reachable at all
+ping -c 2 192.168.4.63
+
+# Check if port is open (nc/netcat)
+nc -zv 192.168.4.63 11434
+
+# What clood sees
+./clood hosts
+```
+
+### Interpreting Results
+
+| Outside Test | Inside Test | Diagnosis |
+|--------------|-------------|-----------|
+| Timeout | localhost works | **Binding issue** - Ollama on 127.0.0.1 only |
+| Connection refused | localhost works | **Firewall** - port 11434 blocked |
+| Timeout | ping fails | **Network issue** - host unreachable |
+| Works | Works | **Clood bug** - check clood config/code |
+
+### Quick Fix Checklist
+
+If outside test times out but inside localhost works:
+
+```bash
+# On the host (ubuntu25), run:
+sudo systemctl edit ollama
+
+# Add exactly these lines:
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0"
+
+# Save, then:
+sudo systemctl daemon-reload
+sudo systemctl restart ollama
+
+# Verify from outside:
+curl http://192.168.4.63:11434/api/version
+```
+
+---
+
 *"Debug the garden, one node at a time."*
