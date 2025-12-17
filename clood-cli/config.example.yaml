@@ -8,7 +8,7 @@
 hosts:
   # The Iron Keep - Heavy GPU inference
   - name: ubuntu25
-    url: http://192.168.4.63:11434
+    url: http://192.168.4.64:11434
     priority: 1
     enabled: true
 

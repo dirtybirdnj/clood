@@ -3,6 +3,8 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/dirtybirdnj/clood/internal/config"
 	"github.com/dirtybirdnj/clood/internal/hosts"
@@ -33,6 +35,9 @@ Shows which hosts are online, their latency, and available models.`,
 
 			statuses := mgr.CheckAllHosts()
 
+			// Detect if localhost is same as a named host
+			localAlias := detectLocalAlias(statuses)
+
 			if jsonOutput {
 				printHostsJSON(statuses)
 				return
@@ -42,24 +47,38 @@ Shows which hosts are online, their latency, and available models.`,
 			fmt.Println()
 
 			for _, status := range statuses {
-				printHostStatus(status)
+				printHostStatusWithAlias(status, localAlias)
 			}
 
-			// Summary
+			// Summary - don't double-count if localhost is an alias
 			online := 0
 			totalModels := 0
+			modelsSeen := make(map[string]bool)
 			for _, s := range statuses {
 				if s.Online {
+					// Skip localhost in count if it's an alias
+					if localAlias != "" && s.Host.Name == "localhost" {
+						continue
+					}
 					online++
-					totalModels += len(s.Models)
+					for _, m := range s.Models {
+						if !modelsSeen[m.Name] {
+							modelsSeen[m.Name] = true
+							totalModels++
+						}
+					}
 				}
 			}
 
 			fmt.Println()
-			fmt.Printf("  %s %d/%d hosts online, %d models available\n",
+			totalHosts := len(statuses)
+			if localAlias != "" {
+				totalHosts-- // Don't count localhost separately if it's an alias
+			}
+			fmt.Printf("  %s %d/%d hosts online, %d unique models\n",
 				tui.MutedStyle.Render("Summary:"),
 				online,
-				len(statuses),
+				totalHosts,
 				totalModels)
 		},
 	}
@@ -69,7 +88,51 @@ Shows which hosts are online, their latency, and available models.`,
 	return cmd
 }
 
+// detectLocalAlias checks if localhost is the same Ollama instance as a named host
+func detectLocalAlias(statuses []*hosts.HostStatus) string {
+	// First, check by hostname match
+	hostname, _ := os.Hostname()
+	hostname = strings.ToLower(strings.Split(hostname, ".")[0]) // Get short hostname
+
+	// Find localhost and other host statuses
+	var localStatus *hosts.HostStatus
+	var namedStatuses []*hosts.HostStatus
+
+	for _, s := range statuses {
+		if s.Host.Name == "localhost" || strings.HasPrefix(s.Host.Name, "local") {
+			localStatus = s
+		} else {
+			namedStatuses = append(namedStatuses, s)
+		}
+	}
+
+	if localStatus == nil || !localStatus.Online {
+		return ""
+	}
+
+	// Check if hostname matches a named host
+	for _, s := range namedStatuses {
+		if strings.ToLower(s.Host.Name) == hostname {
+			return s.Host.Name
+		}
+	}
+
+	// Fallback: check if version and model count match (same instance)
+	for _, s := range namedStatuses {
+		if s.Online && s.Version == localStatus.Version && len(s.Models) == len(localStatus.Models) {
+			// Same version and model count - likely same instance
+			return s.Host.Name
+		}
+	}
+
+	return ""
+}
+
 func printHostStatus(status *hosts.HostStatus) {
+	printHostStatusWithAlias(status, "")
+}
+
+func printHostStatusWithAlias(status *hosts.HostStatus, localAlias string) {
 	var indicator, statusText string
 
 	if status.Online {
@@ -80,11 +143,25 @@ func printHostStatus(status *hosts.HostStatus) {
 		statusText = tui.ErrorStyle.Render("offline")
 	}
 
+	// Check if this localhost entry is an alias
+	isAlias := localAlias != "" && status.Host.Name == "localhost"
+
 	// Host name and URL
-	fmt.Printf("  %s %s\n", indicator, status.Host.Name)
+	if isAlias {
+		fmt.Printf("  %s %s %s\n", indicator, status.Host.Name, tui.MutedStyle.Render(fmt.Sprintf("(= %s)", localAlias)))
+	} else {
+		fmt.Printf("  %s %s\n", indicator, status.Host.Name)
+	}
 	fmt.Printf("    %s\n", tui.MutedStyle.Render(status.Host.URL))
 
 	if status.Online {
+		// If it's an alias, just show brief info
+		if isAlias {
+			fmt.Printf("    %s\n", tui.MutedStyle.Render("Same instance as "+localAlias))
+			fmt.Println()
+			return
+		}
+
 		// Latency
 		fmt.Printf("    Latency: %s\n", tui.MutedStyle.Render(fmt.Sprintf("%dms", status.Latency.Milliseconds())))
 

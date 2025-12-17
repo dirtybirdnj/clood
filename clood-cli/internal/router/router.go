@@ -335,13 +335,28 @@ func (r *Router) Route(query string, forceTier int, forceModel string) (*RouteRe
 		return result, nil
 	}
 
-	// Fallback: try to find any online host
+	// Try tier fallback model if primary not found
 	if r.config.Routing.Fallback {
+		fallbackModel := r.config.GetTierFallback(result.Tier)
+		if fallbackModel != "" {
+			hostStatus = r.manager.GetHostWithModel(fallbackModel)
+			if hostStatus != nil {
+				result.Model = fallbackModel // Switch to fallback model
+				result.Host = hostStatus
+				result.Client = r.manager.GetClient(hostStatus.Host.Name)
+				return result, nil
+			}
+		}
+
+		// Last resort: try to find any online host with the fallback model
 		bestHost := r.manager.GetBestHost()
 		if bestHost != nil {
 			result.Host = bestHost
 			result.Client = r.manager.GetClient(bestHost.Host.Name)
-			// Note: the model might not be available, but we try anyway
+			// Use fallback model if available, otherwise stick with original
+			if fallbackModel != "" {
+				result.Model = fallbackModel
+			}
 			return result, nil
 		}
 	}

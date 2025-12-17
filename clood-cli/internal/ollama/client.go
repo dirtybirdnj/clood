@@ -270,6 +270,62 @@ func (c *Client) HasModel(name string) (bool, error) {
 	return false, nil
 }
 
+// PullRequest is the request body for /api/pull
+type PullRequest struct {
+	Name   string `json:"name"`
+	Stream bool   `json:"stream"`
+}
+
+// PullResponse is a response chunk from /api/pull
+type PullResponse struct {
+	Status    string `json:"status"`
+	Digest    string `json:"digest,omitempty"`
+	Total     int64  `json:"total,omitempty"`
+	Completed int64  `json:"completed,omitempty"`
+}
+
+// Pull downloads a model, calling the callback for progress updates
+func (c *Client) Pull(model string, callback func(status string, completed, total int64)) error {
+	req := PullRequest{
+		Name:   model,
+		Stream: true,
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("marshal request: %w", err)
+	}
+
+	// Use client without timeout for potentially long downloads
+	pullClient := &http.Client{}
+	resp, err := pullClient.Post(c.BaseURL+"/api/pull", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("post request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("ollama returned %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	scanner := bufio.NewScanner(resp.Body)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+
+	for scanner.Scan() {
+		var chunk PullResponse
+		if err := json.Unmarshal(scanner.Bytes(), &chunk); err != nil {
+			continue
+		}
+		if callback != nil {
+			callback(chunk.Status, chunk.Completed, chunk.Total)
+		}
+	}
+
+	return scanner.Err()
+}
+
 // BenchmarkResult contains the results of a benchmark run
 type BenchmarkResult struct {
 	Model            string
