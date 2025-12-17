@@ -148,8 +148,11 @@ Tonight we prove step 1-2 work. Crush integration is next.
 | 84 | TUI Multi-Question | Captured |
 | 85 | Crush Roadmap | Captured |
 | 86 | Overnight Catfights | Dropped |
+| 87 | Catfight Challenge Sets | Dropped |
 
 **#86 - Overnight Catfights:** Scheduled catfight runs via cron. Run battles overnight, wake up to results. Integration with crush TUI for monitoring. GitHub issues as result destination. The kitchen never sleeps.
+
+**#87 - Catfight Challenge Sets:** Define structured challenges for catfights. A challenge set includes: discovery tasks (find the code), analysis tasks (find bugs), synthesis tasks (add features). Tests how agents handle vague/related requests. Scoring criteria beyond just speed - correctness, style, completeness. The Rat King challenge: find it, fix it, extend it.
 
 ---
 
