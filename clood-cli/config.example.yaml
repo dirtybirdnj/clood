@@ -1,0 +1,48 @@
+# clood configuration
+# Copy to: ~/.config/clood/config.yaml
+#
+# The Server Garden - Host Configuration
+# ======================================
+
+# Ollama hosts in the garden
+hosts:
+  # The Iron Keep - Heavy GPU inference
+  - name: ubuntu25
+    url: http://192.168.4.63:11434
+    priority: 1
+    enabled: true
+
+  # The Sentinel - Always-on M4
+  - name: mac-mini
+    url: http://192.168.4.41:11434
+    priority: 2
+    enabled: true
+
+  # Local fallback (if running Ollama locally)
+  - name: localhost
+    url: http://localhost:11434
+    priority: 3
+    enabled: true
+
+# Model tiers for query routing
+tiers:
+  fast:
+    model: qwen2.5-coder:3b      # Quick responses, autocomplete
+  deep:
+    model: qwen2.5-coder:7b      # Complex reasoning, code gen
+  analysis:
+    model: deepseek-r1:14b       # Code review, architecture
+    fallback: llama3.1:8b
+  writing:
+    model: llama3.1:8b           # Documentation, prose
+    fallback: mistral:7b
+
+# Routing behavior
+routing:
+  strategy: fastest    # Options: fastest, round-robin, least-loaded
+  fallback: true       # Try next host if first fails
+
+# Default settings
+defaults:
+  stream: true         # Stream responses
+  timeout: 120s        # Request timeout (longer for big models)

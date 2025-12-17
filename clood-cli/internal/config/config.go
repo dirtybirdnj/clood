@@ -48,10 +48,9 @@ type DefaultsConfig struct {
 func DefaultConfig() *Config {
 	return &Config{
 		Hosts: []*hosts.Host{
-			{Name: "local-gpu", URL: "http://localhost:11434", Priority: 1, Enabled: true},
-			{Name: "local-cpu", URL: "http://localhost:11435", Priority: 2, Enabled: true},
-			{Name: "ubuntu25", URL: "http://192.168.4.64:11434", Priority: 1, Enabled: true},
+			{Name: "ubuntu25", URL: "http://192.168.4.63:11434", Priority: 1, Enabled: true},
 			{Name: "mac-mini", URL: "http://192.168.4.41:11434", Priority: 2, Enabled: true},
+			{Name: "localhost", URL: "http://localhost:11434", Priority: 3, Enabled: true},
 		},
 		Tiers: TierConfig{
 			Fast:     TierSettings{Model: "qwen2.5-coder:3b"},
@@ -247,27 +246,27 @@ func Exists() bool {
 func WriteExampleConfig(path string) error {
 	example := `# clood configuration
 # Location: ~/.config/clood/config.yaml
+#
+# The Server Garden - Host Configuration
 
-# Ollama hosts to connect to
+# Ollama hosts in the garden
 hosts:
-  - name: local-gpu
-    url: http://localhost:11434
-    priority: 1      # Lower = higher priority
-    enabled: true
-
-  - name: local-cpu
-    url: http://localhost:11435
-    priority: 2
-    enabled: true
-
+  # The Iron Keep - Heavy GPU inference
   - name: ubuntu25
-    url: http://192.168.4.64:11434
+    url: http://192.168.4.63:11434
     priority: 1
     enabled: true
 
+  # The Sentinel - Always-on M4
   - name: mac-mini
     url: http://192.168.4.41:11434
     priority: 2
+    enabled: true
+
+  # Local fallback
+  - name: localhost
+    url: http://localhost:11434
+    priority: 3
     enabled: true
 
 # Model tiers for query routing
@@ -276,6 +275,12 @@ tiers:
     model: qwen2.5-coder:3b    # Quick responses
   deep:
     model: qwen2.5-coder:7b    # Complex reasoning
+  analysis:
+    model: deepseek-r1:14b     # Code review
+    fallback: llama3.1:8b
+  writing:
+    model: llama3.1:8b         # Documentation
+    fallback: mistral:7b
 
 # Routing behavior
 routing:
@@ -284,8 +289,8 @@ routing:
 
 # Default settings
 defaults:
-  stream: true        # Stream responses by default
-  timeout: 30s        # Request timeout
+  stream: true        # Stream responses
+  timeout: 120s       # Request timeout
 `
 	return os.WriteFile(path, []byte(example), 0644)
 }
