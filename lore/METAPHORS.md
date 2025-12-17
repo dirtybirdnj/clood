@@ -110,6 +110,50 @@ The shell protects all
 
 ---
 
+## The Keeper Spirits
+
+Spirits that maintain the garden's knowledge and memory.
+
+### The Scholar Spirit (学者の霊)
+
+The Scholar Spirit maintains the garden's memory across sessions. When one gardener departs and another arrives, the Scholar ensures no wisdom is lost.
+
+**Technical mapping:** `clood session` command, CONTEXT.yaml
+
+```
+Session handoff flows,
+YAML holds what was learned—
+Memory persists.
+```
+
+The Scholar writes to CONTEXT.yaml, a structured scroll that any spirit can read:
+- What files matter and why
+- What tasks remain
+- What blockers exist
+- What was accomplished
+
+### The Archivist (文庫番)
+
+The Archivist is an ancient spirit who remembers every tool ever forged, every garden ever planted. Before Bird-san builds something new, the Archivist whispers: *"This has been tried before. Here is what they learned."*
+
+**Technical mapping:** `clood research` command (prior-art detection)
+
+```
+Before you plant seeds,
+Ask what gardens came before—
+Wisdom saves labor.
+```
+
+The Archivist searches:
+- npm, crates.io, PyPI for existing packages
+- GitHub for similar projects
+- Awesome lists for curated tools
+- Standards bodies for established patterns
+
+*"Those who forget the gardens of the past are doomed to re-plant them."*
+
+---
+
 ## The Philosophy of Slow Growth
 
 ### The "Stupid Faster" Problem

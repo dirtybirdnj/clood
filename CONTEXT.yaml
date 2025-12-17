@@ -1,0 +1,29 @@
+# Session Context — The Scholar Spirit's Memory
+#
+# This file passes context between agents and sessions.
+# Commit and push to share across machines.
+#
+# Update: clood session save "summary, next: tasks"
+# View:   clood session show
+# Load:   clood session load
+#
+# "The garden remembers what the gardener forgets."
+
+session: "2025-12-16T20:34:40-05:00"
+branch: main
+status: starting
+focus:
+    files:
+        - path: clood-cli/internal/commands/session.go
+        - path: AGENTS.md
+        - path: lore/METAPHORS.md
+    issues:
+        - 32
+        - 33
+        - 31
+next:
+    - debug slow hosts
+    - test on mac-mini
+    - implement clood research
+summary: Added session command and AGENTS.md. Scholar Spirit maintains context.
+updated_by: clood session save

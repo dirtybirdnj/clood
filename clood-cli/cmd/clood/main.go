@@ -92,6 +92,7 @@ func main() {
 	rootCmd.AddCommand(commands.IssuesCmd())
 	rootCmd.AddCommand(commands.ChatCmd())
 	rootCmd.AddCommand(commands.HandoffCmd())
+	rootCmd.AddCommand(commands.SessionCmd())
 
 	// Init command
 	rootCmd.AddCommand(initCmd())
