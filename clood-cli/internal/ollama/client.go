@@ -35,6 +35,7 @@ func DefaultClient() *Client {
 type GenerateRequest struct {
 	Model   string                 `json:"model"`
 	Prompt  string                 `json:"prompt"`
+	System  string                 `json:"system,omitempty"`
 	Stream  bool                   `json:"stream"`
 	Options map[string]interface{} `json:"options,omitempty"`
 }
@@ -145,6 +146,39 @@ func (c *Client) GenerateWithOptions(model, prompt string, opts *GenerateOptions
 	return &result, nil
 }
 
+// GenerateWithSystem sends a prompt with a system prompt and returns the full response
+func (c *Client) GenerateWithSystem(model, system, prompt string) (*GenerateResponse, error) {
+	req := GenerateRequest{
+		Model:  model,
+		System: system,
+		Prompt: prompt,
+		Stream: false,
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Post(c.BaseURL+"/api/generate", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("post request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("ollama returned %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	var result GenerateResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+
+	return &result, nil
+}
+
 // GenerateStream sends a prompt and calls the callback for each chunk
 func (c *Client) GenerateStream(model, prompt string, callback func(chunk GenerateResponse)) (*GenerateResponse, error) {
 	req := GenerateRequest{
@@ -181,6 +215,58 @@ func (c *Client) GenerateStream(model, prompt string, callback func(chunk Genera
 		var chunk GenerateResponse
 		if err := json.Unmarshal(scanner.Bytes(), &chunk); err != nil {
 			continue // Skip malformed lines
+		}
+		if callback != nil {
+			callback(chunk)
+		}
+		if chunk.Done {
+			lastResponse = chunk
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("reading stream: %w", err)
+	}
+
+	return &lastResponse, nil
+}
+
+// GenerateStreamWithSystem sends a prompt with system prompt and streams the response
+func (c *Client) GenerateStreamWithSystem(model, system, prompt string, callback func(chunk GenerateResponse)) (*GenerateResponse, error) {
+	req := GenerateRequest{
+		Model:  model,
+		System: system,
+		Prompt: prompt,
+		Stream: true,
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	// Use a client without timeout for streaming
+	streamClient := &http.Client{}
+	resp, err := streamClient.Post(c.BaseURL+"/api/generate", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("post request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("ollama returned %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	scanner := bufio.NewScanner(resp.Body)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+
+	var lastResponse GenerateResponse
+	for scanner.Scan() {
+		var chunk GenerateResponse
+		if err := json.Unmarshal(scanner.Bytes(), &chunk); err != nil {
+			continue
 		}
 		if callback != nil {
 			callback(chunk)
