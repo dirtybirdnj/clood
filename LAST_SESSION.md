@@ -50,6 +50,8 @@ KITCHEN STADIUM DOUBLE HEADER! Persian (deepseek-coder:6.7b) wins BACK TO BACK! 
 | 78 | Catfight optimization | Sequential execution for max performance |
 | 79 | Multi-phase catfight | Elimination rounds for underperformers |
 | 80 | JDD: Jelly-Driven Development | Meme marketing campaign |
+| 81 | Escoffier System | Hardware-aware model brigades |
+| 82 | Serious Mode | Toggle between lore and plain English focus |
 
 ---
 
@@ -92,12 +94,13 @@ Iron Chef combines
 
 ## Artifacts Created
 
+- `chapters/ch004-the-chairmans-blade.md` - Session narrative
 - `catfights/battle-001-http-fetcher.md` - Battle 1 report
 - `catfights/battle-002-recipe-parser.md` - Battle 2 report
 - `/tmp/fetcher_synthesis.go` - HTTP Fetcher synthesis
 - `/tmp/recipe_synthesis.go` - Recipe types synthesis
 - `/tmp/loader_synthesis.go` - Recipe loader synthesis
-- Issues #78, #79, #80 - New jelly beans
+- Issues #78-82 - New jelly beans
 
 ---
 
