@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/dirtybirdnj/clood/internal/agents"
 	"github.com/dirtybirdnj/clood/internal/config"
 	"github.com/dirtybirdnj/clood/internal/hosts"
 	"github.com/dirtybirdnj/clood/internal/ollama"
@@ -30,6 +31,7 @@ func RunCmd() *cobra.Command {
 	var systemPrompt string
 	var systemFile string
 	var promptFile string
+	var agentName string
 	var outputJSON bool
 	var quiet bool
 	var noStream bool
@@ -52,6 +54,9 @@ Examples:
   # Run on ubuntu25 with a specific model
   clood run --host ubuntu25 --model llama3.1:8b "explain this code"
 
+  # Use a preconfigured agent role
+  clood run --agent reviewer "review this function"
+
   # Use a system prompt to define agent role
   clood run --host ubuntu25 --system "You are a code reviewer" "review this function"
 
@@ -68,6 +73,34 @@ Examples:
 			if err != nil {
 				outputError(outputJSON, quiet, "Error loading config: "+err.Error())
 				return
+			}
+
+			// Apply agent configuration if specified
+			if agentName != "" {
+				agentCfg := agents.LoadConfigWithFallback()
+				agent := agentCfg.GetAgent(agentName)
+				if agent == nil {
+					outputError(outputJSON, quiet, "Agent not found: "+agentName+"\nRun 'clood agents' to list available agents")
+					return
+				}
+
+				// Apply agent settings (explicit flags take precedence)
+				if hostName == "" && agent.Host != "" {
+					hostName = agent.Host
+				}
+				if model == "" && agent.Model != "" {
+					model = agent.Model
+				}
+				if systemPrompt == "" && systemFile == "" && agent.System != "" {
+					systemPrompt = agent.System
+				}
+
+				// Show which agent is being used (unless quiet/json)
+				if !quiet && !outputJSON {
+					fmt.Printf("%s %s\n",
+						tui.MutedStyle.Render("Agent:"),
+						agentName)
+				}
 			}
 
 			// Get the prompt
@@ -193,6 +226,7 @@ Examples:
 
 	cmd.Flags().StringVarP(&hostName, "host", "H", "", "Target host (required for deterministic routing)")
 	cmd.Flags().StringVarP(&model, "model", "m", "", "Model to use (default: first available)")
+	cmd.Flags().StringVarP(&agentName, "agent", "a", "", "Use preconfigured agent role (see 'clood agents')")
 	cmd.Flags().StringVarP(&systemPrompt, "system", "s", "", "System prompt (agent role definition)")
 	cmd.Flags().StringVar(&systemFile, "system-file", "", "Load system prompt from file")
 	cmd.Flags().StringVarP(&promptFile, "prompt-file", "f", "", "Load prompt from file (use - for stdin)")
