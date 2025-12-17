@@ -1,144 +1,209 @@
-# Session Handoff - 2025-12-16 (Evening)
+# Session Handoff - 2025-12-16 (Night Triage)
 
 ## Summary
-
-Stress test session: testing clood on mac-mini against rat-king. Discovered and fixed hardcoded IP bug. Iron Keep agent wrote poetry. Host detection is painfully slow - needs parallel checks and progress indicators.
-
----
-
-## What Was Fixed
-
-### IP Configuration Bug
-- **Problem:** ubuntu25 hardcoded as `192.168.4.64` instead of `.63`
-- **Fix:** Updated `config.go` DefaultConfig() and WriteExampleConfig()
-- **Added:** `config.example.yaml` with documented settings
-
-### Config File Location
-```
-~/.config/clood/config.yaml    # User config (overrides defaults)
-~/Code/clood/clood-cli/config.example.yaml  # Template to copy
-```
+Triage mode: Closed 11 issues, built `clood pull` with disk safety, fixed ubuntu25 IP (now .64), added host alias detection, router fallback. Ready to test three agent workflow patterns using clood-cli.
 
 ---
 
-## Known Issues (Debug These)
+## What Was Built This Session
 
-### 1. Slow Host Detection (#priority)
-The `clood hosts` command is painfully slow:
-- Checks hosts sequentially (not parallel)
-- Long timeouts per host
-- No progress feedback
-
-**Debug on mac-mini:**
+### `clood pull` Command (#7)
 ```bash
-# Test direct (bypass clood)
-curl --connect-timeout 3 http://192.168.4.63:11434/api/version
-curl --connect-timeout 3 http://192.168.4.41:11434/api/version
-
-# Check what clood is doing
-time clood hosts
+clood pull --recommend              # Show models by tier + disk analysis
+clood pull qwen2.5-coder:7b         # Pull to best host with space check
+clood pull --host ubuntu25 model    # Pull to specific host
+clood pull --tier analysis          # Batch pull tier models
 ```
+Features:
+- Estimated model sizes (stored in code)
+- Disk usage analysis before pulling
+- Warns if disk >90% full or insufficient space
+- Progress display during download
 
-**Probable fix:** Parallel goroutines + shorter initial timeout + progress output
+### Router Fallback Fix (#12)
+When primary analysis model (deepseek-r1:14b) unavailable, automatically tries fallback (llama3.1:8b). Tested and working.
 
-### 2. Development Workflow
-Issue #31 tracks adding a Makefile for easier dev workflow.
+### Host Alias Detection
+`clood hosts` now detects when localhost is the same Ollama instance as a named host:
+- Compares hostname to config names
+- Falls back to version + model count matching
+- Shows "localhost (= mac-mini)" when detected
+- Unique model count in summary (no double-counting)
 
-Current workaround:
-```bash
-echo 'alias clood="~/Code/clood/clood-cli/clood"' >> ~/.zshrc
-source ~/.zshrc
-```
+### IP Resolution
+ubuntu25 IP definitively set to .64 in all locations (was bouncing between .63/.64).
 
 ---
 
-## What the Iron Keep Wrote
+## Issues Closed This Session
 
-The ubuntu25 agent added `lore/THE_AWAKENING.md` - a narrative chapter documenting this collaborative moment. Two agents on different machines, writing together through git.
+| # | Title | Action |
+|---|-------|--------|
+| #2 | clood grep | Already implemented |
+| #3 | clood imports | Already implemented |
+| #4 | Analysis/writing tiers | Already implemented |
+| #5 | clood analyze | Already implemented |
+| #7 | clood pull | **BUILT** |
+| #9 | clood chat | Already implemented |
+| #12 | Analysis fallback | **FIXED** |
+| #14 | clood handoff | Already implemented |
+| #17 | clood issues | Already implemented |
+| #26 | clood summary | Already implemented |
+| #31 | Makefile | Already existed |
 
-Key haiku from the Keep:
+**Open issues: 30 → 21**
+
+---
+
+## Three Patterns to Test with clood-cli
+
+The goal is to use clood commands to establish reusable agent workflow patterns.
+
+### Pattern 1: Session Continuity Loop
+```bash
+# At session start
+clood handoff --load                    # Load previous context
+clood issues                            # See what needs doing
+
+# During session
+clood hosts                             # Check infrastructure
+clood ask "what should I focus on?"     # Use LLM for guidance
+
+# At session end
+clood handoff "what was done, next: what's next"
 ```
-Bird-san stands in awe
-The garden grew while he slept
-Spirits tend the code
+**Test this pattern** by having an agent start a session, do work, and hand off cleanly.
+
+### Pattern 2: Code Exploration Pipeline
+```bash
+# Understand structure
+clood summary                           # Quick overview
+clood tree internal/                    # Directory structure
+
+# Find specific code
+clood grep "func.*Cmd" --type go        # Find commands
+clood symbols internal/commands/        # List functions/types
+clood imports internal/router/          # Dependency chain
+
+# Deep dive
+clood analyze internal/router/router.go --focus "edge cases"
 ```
+**Test this pattern** by having an agent explore an unfamiliar codebase.
+
+### Pattern 3: Model-Aware Task Routing
+```bash
+# Check available resources
+clood hosts                             # What's online?
+clood models                            # What models where?
+clood pull --recommend                  # What's missing?
+
+# Route by task type
+clood ask "quick question"              # Auto-routes to fast tier
+clood ask --tier deep "complex task"    # Force deep tier
+clood analyze file.go                   # Uses analysis tier with fallback
+
+# Benchmark if needed
+clood bench qwen2.5-coder:7b           # Test performance
+```
+**Test this pattern** by having an agent choose models based on task complexity.
+
+---
+
+## Current Host Status
+
+| Host | IP | Status | Models |
+|------|-----|--------|--------|
+| ubuntu25 | 192.168.4.64 | Online | 8 models (llama3.1:8b, qwen2.5-coder:7b, etc) |
+| mac-mini | 192.168.4.41 | Offline | Ollama not running |
+| localhost (MBA) | - | Online | 2 models (qwen2.5-coder:3b, tinyllama) |
 
 ---
 
 ## Files Changed This Session
 
 ```
-FIXED:
-- clood-cli/internal/config/config.go (IP .64 -> .63)
-
 NEW:
-- clood-cli/config.example.yaml
-- docs/DIAGNOSE_HOST.md (expanded with outside tests)
-- docs/USAGE.md
-- lore/THE_AWAKENING.md (from Iron Keep agent)
+- clood-cli/internal/commands/pull.go   (+364 lines)
 
-ISSUES CREATED:
-- #27 - Self-update capability
-- #31 - Makefile for dev workflow
+MODIFIED:
+- clood-cli/cmd/clood/main.go           # Register pull command
+- clood-cli/config.example.yaml         # IP fix (.63 -> .64)
+- clood-cli/internal/commands/hosts.go  # Alias detection (+89 lines)
+- clood-cli/internal/config/config.go   # IP fix
+- clood-cli/internal/hosts/hosts.go     # IP fix
+- clood-cli/internal/ollama/client.go   # Pull method (+56 lines)
+- clood-cli/internal/router/router.go   # Fallback logic (+19 lines)
+- ~/.config/clood/config.yaml           # IP fix (user config)
 ```
 
 ---
 
-## Go Learning Notes
+## Testing the Patterns
 
-For the Node.js/PHP developer:
+### Quick Test Commands
+```bash
+cd ~/Code/clood/clood-cli
 
-| Interpreted | Compiled (Go) |
-|-------------|---------------|
-| Runtime reads source | Binary contains everything |
-| Save → refresh works | Save → rebuild → run |
-| Deploy source files | Deploy single binary |
-| `node_modules/` needed | Nothing needed |
+# Check infrastructure
+./clood hosts
+./clood models
+./clood pull --recommend
 
-**Key insight:** `go build` bakes source into binary. Pull new code? Rebuild.
+# Test code exploration
+./clood summary
+./clood grep "func.*Cmd" internal/commands/
+
+# Test routing
+./clood ask "what is a haiku?"
+echo 'func add(a,b int) int { return a+b }' | ./clood analyze --stdin
+```
+
+### On ubuntu25 (SSH)
+```bash
+ssh ubuntu25
+cd ~/Code/clood/clood-cli
+git pull && go build -o clood ./cmd/clood
+./clood hosts                           # localhost should have 8 models
+./clood analyze internal/router/        # Test with llama3.1:8b fallback
+```
 
 ---
 
 ## Next Steps
 
-1. [ ] Debug slow host detection on mac-mini
-2. [ ] Test `clood ask` against rat-king once hosts work
-3. [ ] Implement parallel host checks with progress
-4. [ ] Try pattern generation workflow
+1. [ ] Test Pattern 1: Session continuity with handoff
+2. [ ] Test Pattern 2: Code exploration pipeline
+3. [ ] Test Pattern 3: Model-aware routing
+4. [ ] Start Ollama on mac-mini and test alias detection
+5. [ ] Pull deepseek-r1:14b to ubuntu25 for full analysis tier
+6. [ ] Document patterns discovered as new workflow docs
 
 ---
 
-## Quick Reference
+## Quick Command Reference
 
 ```bash
-# On mac-mini
-cd ~/Code/clood/clood-cli
-git pull && go build -o clood ./cmd/clood
+# Session management
+./clood handoff --load                  # Load context
+./clood handoff "summary, next: steps"  # Save context
+./clood issues                          # Project status
 
-# Test hosts directly
-curl --connect-timeout 3 http://192.168.4.63:11434/api/version
+# Infrastructure
+./clood hosts                           # Check Ollama hosts
+./clood models                          # List models
+./clood pull --recommend                # Model recommendations
 
-# Use clood (with alias)
-cd ~/Code/rat-king
-clood ask "How do I add a Moiré pattern?"
+# Code tools
+./clood grep "pattern"                  # Search content
+./clood symbols path/                   # Extract symbols
+./clood analyze file.go                 # Code review
+./clood ask "question"                  # Query with routing
 ```
 
 ---
 
-```
-        ,.,
-       /(@)\
-      /  Y  \
-     /   |   \
-    /    |    \
-   /_____|_____\
-       |||
-       |||
-   ~~~~|||~~~~
-
-   Slow hosts check waits,
-   Parallel paths not yet carved—
-   Tomorrow, speed grows.
-```
+*Tires burned hot,
+Issues fell like autumn leaves—
+The garden grows strong.*
 
 🤖 Handoff by Claude Code agent
