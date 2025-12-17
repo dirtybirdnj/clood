@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dirtybirdnj/clood/internal/config"
+	"github.com/dirtybirdnj/clood/internal/focus"
 	"github.com/dirtybirdnj/clood/internal/ollama"
 	"github.com/dirtybirdnj/clood/internal/router"
 	"github.com/dirtybirdnj/clood/internal/tui"
@@ -32,6 +33,7 @@ type Saga struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 	Messages    []Message `json:"messages"`
 	Context     string    `json:"context,omitempty"` // Loaded project context
+	Goal        string    `json:"goal,omitempty"`    // Focus guardian goal
 }
 
 // SagaStats contains context usage information
@@ -53,6 +55,7 @@ func ChatCmd() *cobra.Command {
 	var forceTier int
 	var forceModel string
 	var forceHost string
+	var goal string
 
 	cmd := &cobra.Command{
 		Use:   "chat",
@@ -64,30 +67,34 @@ The saga:
   - Loads project context automatically
   - Shows context health meter
   - Supports slash commands
+  - Focus guardian (Gamera-kun) detects drift from your goal
 
 Slash commands:
   /save FILE   - Save conversation to file
   /clear       - Clear history (keep context)
   /stats       - Show saga statistics
   /context     - Show loaded context
+  /goal [NEW]  - Show or update current goal
   /quit        - Exit and save saga
 
 Examples:
-  clood chat                    # Start/continue saga
-  clood chat --tier 4           # Force writing tier`,
+  clood chat                              # Start/continue saga
+  clood chat --goal "fix auth bug"        # Start with focus goal
+  clood chat --tier 4                     # Force writing tier`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runChat(forceTier, forceModel, forceHost)
+			return runChat(forceTier, forceModel, forceHost, goal)
 		},
 	}
 
 	cmd.Flags().IntVarP(&forceTier, "tier", "T", 0, "Force specific tier (1=fast, 2=deep, 3=analysis, 4=writing)")
 	cmd.Flags().StringVarP(&forceModel, "model", "m", "", "Force specific model")
 	cmd.Flags().StringVarP(&forceHost, "host", "H", "", "Force specific host")
+	cmd.Flags().StringVarP(&goal, "goal", "g", "", "Set focus goal (Gamera-kun guards against drift)")
 
 	return cmd
 }
 
-func runChat(forceTier int, forceModel, forceHost string) error {
+func runChat(forceTier int, forceModel, forceHost, goal string) error {
 	// Check for .cloodignore
 	if _, err := os.Stat(".cloodignore"); err == nil {
 		return fmt.Errorf("saga disabled for this directory (.cloodignore found)\nUse --force to override")
@@ -105,6 +112,17 @@ func runChat(forceTier int, forceModel, forceHost string) error {
 		return fmt.Errorf("loading saga: %w", err)
 	}
 
+	// Set goal if provided via flag (overrides saved goal)
+	if goal != "" {
+		saga.Goal = goal
+	}
+
+	// Initialize focus guardian (Gamera-kun)
+	var guardian *focus.Guardian
+	if saga.Goal != "" {
+		guardian = focus.NewGuardian(saga.Goal)
+	}
+
 	// Display header
 	if isNew {
 		fmt.Println(tui.SuccessStyle.Render(fmt.Sprintf("The Saga of %s begins.", saga.Name)))
@@ -120,6 +138,11 @@ func runChat(forceTier int, forceModel, forceHost string) error {
 		fmt.Println(tui.SuccessStyle.Render(fmt.Sprintf("Continuing The Saga of %s...", saga.Name)))
 		fmt.Println(tui.MutedStyle.Render(fmt.Sprintf("Last session: %s (%d messages)",
 			saga.UpdatedAt.Format("Jan 2 15:04"), len(saga.Messages))))
+	}
+
+	// Show goal if set
+	if saga.Goal != "" {
+		fmt.Println(tui.MutedStyle.Render(fmt.Sprintf("Goal: %s", saga.Goal)))
 	}
 
 	// Show health meter
@@ -149,14 +172,44 @@ func runChat(forceTier int, forceModel, forceHost string) error {
 
 		// Handle slash commands
 		if strings.HasPrefix(input, "/") {
-			shouldQuit, err := handleSlashCommand(input, saga)
+			shouldQuit, newGuardian, err := handleSlashCommand(input, saga, guardian)
 			if err != nil {
 				fmt.Println(tui.ErrorStyle.Render("Error: " + err.Error()))
+			}
+			if newGuardian != nil {
+				guardian = newGuardian
 			}
 			if shouldQuit {
 				break
 			}
 			continue
+		}
+
+		// Check for focus drift (Gamera-kun)
+		if guardian != nil {
+			driftResult := guardian.CheckMessage(input)
+			if driftResult.Message != "" {
+				// Show Gamera-kun warning
+				renderGameraWarning(saga.Goal, driftResult.Message)
+
+				// Ask for confirmation
+				fmt.Print(tui.MutedStyle.Render("Continue anyway? [y/N/update goal] "))
+				response, _ := reader.ReadString('\n')
+				response = strings.TrimSpace(strings.ToLower(response))
+
+				switch {
+				case response == "y" || response == "yes":
+					guardian.Reset() // Allow this digression
+				case strings.HasPrefix(response, "update ") || strings.HasPrefix(response, "goal "):
+					newGoal := strings.TrimPrefix(strings.TrimPrefix(response, "update "), "goal ")
+					saga.Goal = newGoal
+					guardian.UpdateGoal(newGoal)
+					fmt.Println(tui.SuccessStyle.Render(fmt.Sprintf("Goal updated: %s", newGoal)))
+				default:
+					fmt.Println(tui.MutedStyle.Render("Message skipped. Staying focused."))
+					continue
+				}
+			}
 		}
 
 		// Add user message to history
@@ -343,10 +396,10 @@ func buildChatPrompt(saga *Saga) string {
 	return promptBuilder.String()
 }
 
-func handleSlashCommand(input string, saga *Saga) (bool, error) {
+func handleSlashCommand(input string, saga *Saga, guardian *focus.Guardian) (bool, *focus.Guardian, error) {
 	parts := strings.Fields(input)
 	if len(parts) == 0 {
-		return false, nil
+		return false, nil, nil
 	}
 
 	cmd := strings.ToLower(parts[0])
@@ -354,18 +407,41 @@ func handleSlashCommand(input string, saga *Saga) (bool, error) {
 	switch cmd {
 	case "/quit", "/q", "/exit":
 		fmt.Println(tui.MutedStyle.Render("Saga saved. See you next time."))
-		return true, saveSaga(saga)
+		return true, nil, saveSaga(saga)
 
 	case "/save":
 		if len(parts) < 2 {
-			return false, fmt.Errorf("usage: /save FILENAME")
+			return false, nil, fmt.Errorf("usage: /save FILENAME")
 		}
-		return false, saveConversationToFile(saga, parts[1])
+		return false, nil, saveConversationToFile(saga, parts[1])
 
 	case "/clear":
 		saga.Messages = []Message{}
 		fmt.Println(tui.SuccessStyle.Render("History cleared."))
-		return false, saveSaga(saga)
+		return false, nil, saveSaga(saga)
+
+	case "/goal":
+		if len(parts) < 2 {
+			// Show current goal
+			if saga.Goal == "" {
+				fmt.Println(tui.MutedStyle.Render("No goal set. Use /goal <your goal> to set one."))
+			} else {
+				fmt.Println(tui.RenderHeader("Current Goal"))
+				fmt.Printf("  %s\n", saga.Goal)
+				if guardian != nil {
+					fmt.Println(tui.MutedStyle.Render(fmt.Sprintf("  Status: %s", guardian.GetStatus())))
+				}
+				fmt.Println()
+			}
+			return false, nil, nil
+		}
+		// Set new goal
+		newGoal := strings.Join(parts[1:], " ")
+		saga.Goal = newGoal
+		newGuardian := focus.NewGuardian(newGoal)
+		fmt.Println(tui.SuccessStyle.Render(fmt.Sprintf("Goal set: %s", newGoal)))
+		fmt.Println(tui.MutedStyle.Render("Gamera-kun will watch for drift."))
+		return false, newGuardian, saveSaga(saga)
 
 	case "/stats":
 		stats := saga.GetStats()
@@ -375,10 +451,13 @@ func handleSlashCommand(input string, saga *Saga) (bool, error) {
 		fmt.Printf("  History:       %d tokens\n", stats.HistoryTokens)
 		fmt.Printf("  Context:       %d tokens\n", stats.ContextTokens)
 		fmt.Printf("  Total:         %d / %d tokens (%.0f%%)\n", stats.TotalTokens, stats.MaxTokens, stats.UsagePercent)
+		if saga.Goal != "" {
+			fmt.Printf("  Goal:          %s\n", saga.Goal)
+		}
 		fmt.Println()
 		renderHealthMeter(stats)
 		fmt.Println()
-		return false, nil
+		return false, nil, nil
 
 	case "/context":
 		if saga.Context == "" {
@@ -392,7 +471,7 @@ func handleSlashCommand(input string, saga *Saga) (bool, error) {
 			}
 			fmt.Println(preview)
 		}
-		return false, nil
+		return false, nil, nil
 
 	case "/help":
 		fmt.Println()
@@ -401,13 +480,14 @@ func handleSlashCommand(input string, saga *Saga) (bool, error) {
 		fmt.Println("  /clear       Clear history (keep context)")
 		fmt.Println("  /stats       Show saga statistics")
 		fmt.Println("  /context     Show loaded context")
+		fmt.Println("  /goal [NEW]  Show or update focus goal")
 		fmt.Println("  /help        Show this help")
 		fmt.Println("  /quit        Exit and save saga")
 		fmt.Println()
-		return false, nil
+		return false, nil, nil
 
 	default:
-		return false, fmt.Errorf("unknown command: %s (try /help)", cmd)
+		return false, nil, fmt.Errorf("unknown command: %s (try /help)", cmd)
 	}
 }
 
@@ -483,4 +563,36 @@ func renderHealthMeter(stats SagaStats) {
 	}
 
 	fmt.Println(meterStr)
+}
+
+// renderGameraWarning displays the focus guardian warning box
+func renderGameraWarning(goal, newTopic string) {
+	fmt.Println()
+	fmt.Println(tui.MutedStyle.Render("┌─────────────────────────────────────────────┐"))
+	fmt.Println(tui.MutedStyle.Render("│ 🐢 Gamera-kun notices:                      │"))
+	fmt.Println(tui.MutedStyle.Render("│                                             │"))
+
+	// Show what seems off-topic
+	topicLine := fmt.Sprintf("│ \"%s\" seems unrelated to your goal:", newTopic)
+	// Pad to box width
+	for len(topicLine) < 46 {
+		topicLine += " "
+	}
+	topicLine += "│"
+	fmt.Println(tui.MutedStyle.Render(topicLine))
+
+	// Show the goal
+	goalLine := fmt.Sprintf("│ \"%s\"", goal)
+	if len(goalLine) > 43 {
+		goalLine = goalLine[:40] + "..."
+	}
+	for len(goalLine) < 46 {
+		goalLine += " "
+	}
+	goalLine += "│"
+	fmt.Println(tui.MutedStyle.Render(goalLine))
+
+	fmt.Println(tui.MutedStyle.Render("│                                             │"))
+	fmt.Println(tui.MutedStyle.Render("└─────────────────────────────────────────────┘"))
+	fmt.Println()
 }
