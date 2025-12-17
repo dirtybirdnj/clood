@@ -1,216 +1,144 @@
-# Session Handoff - 2025-12-16 (Afternoon)
+# Session Handoff - 2025-12-16 (Evening)
 
 ## Summary
-Major progress: Built `clood handoff`, consolidated Legend of Clood narrative, researched cbonsai for SVG trees, created 5 new GitHub issues including SD integration epic. Ready for aggressive testing with Crush.
+
+Stress test session: testing clood on mac-mini against rat-king. Discovered and fixed hardcoded IP bug. Iron Keep agent wrote poetry. Host detection is painfully slow - needs parallel checks and progress indicators.
 
 ---
 
-## What Was Built This Session
+## What Was Fixed
 
-### `clood handoff` Command (Issue #14)
+### IP Configuration Bug
+- **Problem:** ubuntu25 hardcoded as `192.168.4.64` instead of `.63`
+- **Fix:** Updated `config.go` DefaultConfig() and WriteExampleConfig()
+- **Added:** `config.example.yaml` with documented settings
+
+### Config File Location
+```
+~/.config/clood/config.yaml    # User config (overrides defaults)
+~/Code/clood/clood-cli/config.example.yaml  # Template to copy
+```
+
+---
+
+## Known Issues (Debug These)
+
+### 1. Slow Host Detection (#priority)
+The `clood hosts` command is painfully slow:
+- Checks hosts sequentially (not parallel)
+- Long timeouts per host
+- No progress feedback
+
+**Debug on mac-mini:**
 ```bash
-clood handoff "summary, next: steps"   # Save context, commit, push
-clood handoff --load                    # Load latest context
-clood handoff --history                 # View handoff history
-clood handoff --diff                    # Changes since last
-clood handoff --no-push                 # Save without pushing
+# Test direct (bypass clood)
+curl --connect-timeout 3 http://192.168.4.63:11434/api/version
+curl --connect-timeout 3 http://192.168.4.41:11434/api/version
+
+# Check what clood is doing
+time clood hosts
 ```
-Parses "next:" from summary to extract actionable steps.
 
-### `docs/PERSONAS.md`
-9 detailed user personas across the technical spectrum:
-- Technical: Infra Engineer, Solo Dev, Homelab Enthusiast
-- Semi-Technical: Creative Pro, Small Biz Owner, Privacy Pro
-- Non-Technical: Curious Parent, Maker/Hobbyist, Educator
+**Probable fix:** Parallel goroutines + shorter initial timeout + progress output
 
-### `docs/BONSAI_GUIDE.md`
-cbonsai + ansisvg pipeline for ASCII tree → SVG conversion:
+### 2. Development Workflow
+Issue #31 tracks adding a Makefile for easier dev workflow.
+
+Current workaround:
 ```bash
-# Key insight: Use -p for static output (no animation)
-cbonsai -p -L 60 -M 8 | ansisvg > tree.svg
+echo 'alias clood="~/Code/clood/clood-cli/clood"' >> ~/.zshrc
+source ~/.zshrc
 ```
-Includes size presets (tiny→ancient) and shape variations.
-
-### `lore/` Directory
-Consolidated Legend of Clood narrative:
-- `lore/LEGEND_OF_CLOOD.md` - Unified saga
-- `lore/METAPHORS.md` - Technical-to-folklore quick reference
-- `lore/archive/` - Original source files preserved
 
 ---
 
-## GitHub Issues Created
+## What the Iron Keep Wrote
 
-| # | Title | Type |
-|---|-------|------|
-| [#18](https://github.com/dirtybirdnj/clood/issues/18) | Add clood bonsai command | Enhancement |
-| [#19](https://github.com/dirtybirdnj/clood/issues/19) | Graceful fallback to Claude API | Enhancement |
-| [#20](https://github.com/dirtybirdnj/clood/issues/20) | Add clood garden command | Enhancement |
-| [#21](https://github.com/dirtybirdnj/clood/issues/21) | CLI polish: banners, colors | Enhancement |
-| [#22](https://github.com/dirtybirdnj/clood/issues/22) | **[EPIC]** Stable Diffusion integration | Epic |
+The ubuntu25 agent added `lore/THE_AWAKENING.md` - a narrative chapter documenting this collaborative moment. Two agents on different machines, writing together through git.
 
-### SD Integration Epic (#22) Highlights
-- `clood imagine "prompt"` - Text-to-image with LLM prompt enhancement
-- Routes to ComfyUI on ubuntu25 or Draw Things on Macs
-- 5 implementation phases: Foundation → Prompt Eng → CLI → Advanced → Feedback Loop
-- Key decisions needed: Backend priority, prompt approach, asset storage
+Key haiku from the Keep:
+```
+Bird-san stands in awe
+The garden grew while he slept
+Spirits tend the code
+```
 
 ---
 
-## Files Changed
+## Files Changed This Session
 
 ```
+FIXED:
+- clood-cli/internal/config/config.go (IP .64 -> .63)
+
 NEW:
-- clood-cli/internal/commands/handoff.go
-- docs/PERSONAS.md
-- docs/BONSAI_GUIDE.md
-- lore/LEGEND_OF_CLOOD.md
-- lore/METAPHORS.md
-- lore/archive/ (moved originals here)
+- clood-cli/config.example.yaml
+- docs/DIAGNOSE_HOST.md (expanded with outside tests)
+- docs/USAGE.md
+- lore/THE_AWAKENING.md (from Iron Keep agent)
 
-DELETED:
-- scripts-strategy.md (empty)
-- clood-outline-*.md (obsolete)
-- clood-analysis-1.md, clood-refine-1.md (obsolete)
-
-MODIFIED:
-- clood-cli/cmd/clood/main.go (added handoff command)
+ISSUES CREATED:
+- #27 - Self-update capability
+- #31 - Makefile for dev workflow
 ```
 
 ---
 
-## Issue Status Summary
+## Go Learning Notes
 
-### Ready to Test
-- #14 `clood handoff` ✅ Built
-- #9 `clood chat` (from last session)
-- #17 `clood issues` (from last session)
+For the Node.js/PHP developer:
 
-### Ready to Build
-- #18 `clood bonsai`
-- #19 Claude fallback
-- #20 `clood garden`
-- #21 CLI polish
+| Interpreted | Compiled (Go) |
+|-------------|---------------|
+| Runtime reads source | Binary contains everything |
+| Save → refresh works | Save → rebuild → run |
+| Deploy source files | Deploy single binary |
+| `node_modules/` needed | Nothing needed |
 
-### Needs Design Discussion
-- #22 SD Integration (epic - multiple sub-issues)
-
-### Previous (Human Review Needed)
-- #2, #3, #4, #5 - Ready to close (agent-review-complete)
-
----
-
-## Testing Plan with Crush
-
-When you return, test these in Crush:
-
-### 1. Host Connectivity
-```bash
-curl http://192.168.4.63:11434/api/version  # ubuntu25
-curl http://192.168.4.41:11434/api/version  # mac-mini
-./clood hosts
-```
-
-### 2. Test clood handoff
-```bash
-./clood handoff --load              # Should show this session
-./clood handoff --history           # Should list handoffs
-./clood handoff "test" --no-push    # Test save flow
-```
-
-### 3. Test clood chat (if hosts online)
-```bash
-./clood chat
-# Try: "What files are in lore/"
-# Try: /stats, /context, /quit
-```
-
-### 4. Test cbonsai (install first)
-```bash
-brew install cbonsai
-cbonsai -p -L 60 -M 8  # Should show static tree
-
-# If you have ansisvg:
-go install github.com/wader/ansisvg@latest
-cbonsai -p | ansisvg > test.svg
-```
-
----
-
-## Crush Integration Notes
-
-The new clood commands can be used by Crush agents:
-
-```bash
-# Start session - load context
-./clood handoff --load
-
-# Check project status
-./clood issues --json
-
-# Use grep/symbols for codebase search
-./clood grep "TODO"
-./clood symbols internal/commands/
-
-# End session - save context
-./clood handoff "what was done, next: what's next"
-```
-
----
-
-## Architecture Reminder
-
-```
-MacBook Air (DRIVER)
-├── clood CLI (orchestrator)
-├── Crush (Claude Code agent)
-└── Routes to:
-         │
-    ┌────┴────┐
-    ▼         ▼
-ubuntu25    mac-mini
-RX 590      M4 16GB
-8 models    2 models
-~35 tok/s   TBD
-ComfyUI     Draw Things
-```
+**Key insight:** `go build` bakes source into binary. Pull new code? Rebuild.
 
 ---
 
 ## Next Steps
 
-1. [ ] Test host connectivity when you return
-2. [ ] Test handoff, chat, issues commands
-3. [ ] Try cbonsai → SVG pipeline
-4. [ ] Decide: Start with bonsai (#18) or garden (#20)?
-5. [ ] For SD epic: Decide backend priority (ComfyUI vs Draw Things)
-6. [ ] Close completed issues (#2, #3, #4, #5) if tests pass
+1. [ ] Debug slow host detection on mac-mini
+2. [ ] Test `clood ask` against rat-king once hosts work
+3. [ ] Implement parallel host checks with progress
+4. [ ] Try pattern generation workflow
 
 ---
 
-## Quick Command Reference
+## Quick Reference
 
 ```bash
-# Build
-cd clood-cli && go build -o clood ./cmd/clood
+# On mac-mini
+cd ~/Code/clood/clood-cli
+git pull && go build -o clood ./cmd/clood
 
-# Test commands
-./clood handoff --help
-./clood garden --help  # Not yet implemented
-./clood bonsai --help  # Not yet implemented
+# Test hosts directly
+curl --connect-timeout 3 http://192.168.4.63:11434/api/version
 
-# Check hosts
-./clood hosts
-
-# View issues
-./clood issues
-gh issue list
+# Use clood (with alias)
+cd ~/Code/rat-king
+clood ask "How do I add a Moiré pattern?"
 ```
 
 ---
 
-*Pixels bloom in spring,
-Server garden tends itself—
-Agents carry on.*
+```
+        ,.,
+       /(@)\
+      /  Y  \
+     /   |   \
+    /    |    \
+   /_____|_____\
+       |||
+       |||
+   ~~~~|||~~~~
+
+   Slow hosts check waits,
+   Parallel paths not yet carved—
+   Tomorrow, speed grows.
+```
 
 🤖 Handoff by Claude Code agent
