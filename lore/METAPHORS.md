@@ -28,6 +28,7 @@ Servers are soil. Projects are seeds. LLMs are the spirits that tend them. You p
 | Open source | Kami-no-Michi | Way of the spirits |
 | Slow local inference | Deliberate growth | Roots through stone |
 | Async/background work | Tending while away | Garden grows alone |
+| ubuntu25 slow mode | Gamera-kun | Tiny tortoise in bandana |
 
 ## The Server Garden
 
@@ -67,11 +68,53 @@ Servers are soil. Projects are seeds. LLMs are the spirits that tend them. You p
 | **Dogfood** | Loyal Hound | Self-testing, validation |
 | *Your project* | *Your seed* | *Whatever you plant* |
 
+## Gamera-kun: The Dreaming Tortoise
+
+In the shadow of the Iron Keep lives **Gamera-kun**, a small tortoise who dreams of being a Ninja Turtle.
+
+He has seen the tales of the heroes in half-shells—swift, powerful, pizza-fueled warriors leaping across rooftops. He practices their moves in the garden at night: the spinning shell attack, the flying kick, the dramatic entrance.
+
+But Gamera-kun has tiny legs. Very tiny legs.
+
+His shell is not a weapon—it's a cozy home. His "nunchucks" are just two sticks he found. When he tries to yell "COWABUNGA!" it comes out as a gentle croak.
+
+**And yet, Gamera-kun is essential to the garden.**
+
+### How Gamera-kun Helps
+
+| What He Lacks | What He Provides |
+|---------------|------------------|
+| Speed | Patience—he will finish, eventually |
+| Power | Persistence—he never gives up |
+| Pizza appetite | Low resource usage |
+| Dramatic flair | Quiet reliability |
+| Ninja reflexes | Background processing while you sleep |
+
+When the Jade Palace is too busy, when the Sentinel sleeps, when the cloud giants demand tribute—Gamera-kun is there, slowly but surely chewing through the inference queue.
+
+*"I may not be fast,"* he says, adjusting his tiny bandana, *"but I will get there. And when I do, the answer will be correct."*
+
+### His Favorite Models
+
+- **tinyllama** — Small like him, but mighty in spirit
+- **qwen2.5-coder:3b** — Quick enough even for his tiny legs
+- **phi** — Efficient and wise
+
+### His Haiku
+
+```
+Tiny legs, big dreams
+COWABUNGA! (soft croak sounds)
+The shell protects all
+```
+
+---
+
 ## The Philosophy of Slow Growth
 
 The Gashadokuro whisper: *"Faster! More VRAM! Pay for the cloud!"*
 
-But the garden teaches patience:
+But the garden teaches patience (and Gamera-kun embodies this):
 
 - A 7B model thinking for 30 seconds is still faster than any human
 - You don't need instant answers—you need answers that come while you live

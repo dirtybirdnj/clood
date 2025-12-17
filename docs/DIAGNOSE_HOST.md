@@ -105,7 +105,7 @@ sudo systemctl enable ollama  # auto-start on boot
 **Check:**
 ```bash
 hostname -I
-# Compare with what clood is trying to reach (192.168.4.63)
+# Compare with what clood is trying to reach (192.168.4.64)
 ```
 
 **Fix:** Update clood config or `/etc/hosts` on the calling machine.
@@ -185,16 +185,16 @@ Run these from the machine trying to reach the host (e.g., mac-mini or MacBook):
 
 ```bash
 # Direct connectivity test
-curl http://192.168.4.63:11434/api/version
+curl http://192.168.4.64:11434/api/version
 
 # With timeout (don't wait forever)
-curl --connect-timeout 5 http://192.168.4.63:11434/api/version
+curl --connect-timeout 5 http://192.168.4.64:11434/api/version
 
 # Check if host is reachable at all
-ping -c 2 192.168.4.63
+ping -c 2 192.168.4.64
 
 # Check if port is open (nc/netcat)
-nc -zv 192.168.4.63 11434
+nc -zv 192.168.4.64 11434
 
 # What clood sees
 ./clood hosts
@@ -226,7 +226,7 @@ sudo systemctl daemon-reload
 sudo systemctl restart ollama
 
 # Verify from outside:
-curl http://192.168.4.63:11434/api/version
+curl http://192.168.4.64:11434/api/version
 ```
 
 ---

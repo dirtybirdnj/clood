@@ -50,7 +50,7 @@ func DefaultConfig() *Config {
 		Hosts: []*hosts.Host{
 			{Name: "local-gpu", URL: "http://localhost:11434", Priority: 1, Enabled: true},
 			{Name: "local-cpu", URL: "http://localhost:11435", Priority: 2, Enabled: true},
-			{Name: "ubuntu25", URL: "http://192.168.4.63:11434", Priority: 1, Enabled: true},
+			{Name: "ubuntu25", URL: "http://192.168.4.64:11434", Priority: 1, Enabled: true},
 			{Name: "mac-mini", URL: "http://192.168.4.41:11434", Priority: 2, Enabled: true},
 		},
 		Tiers: TierConfig{
@@ -261,7 +261,7 @@ hosts:
     enabled: true
 
   - name: ubuntu25
-    url: http://192.168.4.63:11434
+    url: http://192.168.4.64:11434
     priority: 1
     enabled: true
 
