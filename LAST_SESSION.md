@@ -1,129 +1,182 @@
-# Session Handoff - 2025-12-17 (Night: Two Battles Complete!)
+# Session Handoff - 2025-12-17 → 2025-12-18 (The All-Nighter)
 
-## Summary
-KITCHEN STADIUM DOUBLE HEADER! Persian (deepseek-coder:6.7b) wins BACK TO BACK! Battle 1 (HTTP Fetcher) and Battle 2 (Recipe Parser) complete. Tabby redemption arc in Battle 2 - no hallucinations! Bengal and Kitten eliminated from competition. Three jelly beans dropped (#78-80). Synthesis files ready for Chimborazo.
+## FOR UBUNTU25: START HERE
 
----
-
-## Battle 1 Results: HTTP Fetcher
-
-| Cat | Model | Time | Lines | Status |
-|-----|-------|------|-------|--------|
-| 🥈 | qwen2.5-coder:3b (Siamese) | 20s | 154 | Missing context import |
-| 🎭 | mistral:7b (Tabby) | 72s | 220 | Hallucinated go-kit, tar |
-| 💀 | starcoder2:7b (Bengal) | 3s | 0 | EMPTY - No output! |
-| 🏅 | deepseek-r1:14b (Serval) | 256s | 157 | Missing hex import |
-| ⚠️ | codellama:13b (Snow Leopard) | 112s | 108 | Wrong package name |
-| 🥉 | llama3.1:8b (Caracal) | 58s | 206 | Wrong FetchOption pattern |
-| 🥇 | deepseek-coder:6.7b (Persian) | 27s | 121 | Cleanest approach! |
-| 🎭 | llama3-groq-tool-use:8b (Ocelot) | 28s | 119 | Invalid package syntax |
-| 💀 | tinyllama (Kitten) | 8s | 45 | FeTCHER hallucination |
-
-**Winner:** Persian (deepseek-coder:6.7b) - Clean, fast, no hallucinated deps
-
-**MXC Failures:**
-- Bengal: *silent stare* - GET IT TOGETHER!
-- Kitten: `FeTCHER`, `FeTCCHOption` - speaks in tongues
-- Tabby: imported `golang.org/x/crypto/tar` for HTTP fetcher
+Bird-san transfers from laptop to Iron Keep. The catfight continues.
 
 ---
 
-## Battle 2 Results: Recipe Parser
+## IMMEDIATE OBJECTIVE
 
-| Cat | Model | Time | Lines | Status |
-|-----|-------|------|-------|--------|
-| 🥇 | deepseek-coder:6.7b (Persian) | 20s | 74 | BACK TO BACK CHAMPION! |
-| 🥈 | mistral:7b (Tabby) | 21s | 76 | REDEMPTION! No hallucinations |
-| 🥉 | qwen2.5-coder:3b (Siamese) | 12s | 84 | Fast, missing YAML tags |
-| ⚠️ | llama3.1:8b (Caracal) | 27s | 112 | Circular import, syntax error |
-| ⚠️ | deepseek-r1:14b (House Lion) | 146s | 75 | SLOWEST with syntax errors |
-| ⚠️ | codellama:13b (Snow Leopard) | 53s | 66 | Missing all YAML tags |
+**Run Battle 3 on ubuntu25 directly.**
 
-**Eliminated:** Bengal, Kitten (consistent failures)
+The goal: Bird-san at the ubuntu25 keyboard, running catfights locally, seeing results in real-time. No laptop needed. Prove Option -1 works.
 
 ---
 
-## Jelly Beans Today
+## What Was Accomplished (Laptop Session)
 
-| # | Bean | Purpose |
-|---|------|---------|
-| 78 | Catfight optimization | Sequential execution for max performance |
-| 79 | Multi-phase catfight | Elimination rounds for underperformers |
-| 80 | JDD: Jelly-Driven Development | Meme marketing campaign |
-| 81 | Escoffier System | Hardware-aware model brigades |
-| 82 | Serious Mode | Toggle between lore and plain English focus |
+1. **Battle 1: HTTP Fetcher** - Persian won (deepseek-coder:6.7b)
+2. **Battle 2: Recipe Parser** - Persian won again (back-to-back)
+3. **Deep analysis of strata/chimborazo** - Gap analysis complete
+4. **8 jelly beans dropped** (#78-85)
+5. **Chapter 4 written** - The Chairman's Blade
 
 ---
 
-## Mythology Expanded
+## Battle 3: Geometry Clip/Subtract
 
-### The Tortoise and the Bird
-- Gamera-kun guards the jelly bean satchel
-- Bird-san always trying to snatch beans
-- Rat-King keeps adding more beans
-- Tortoise will BITE YOUR FINGERS if you reach too soon
-- Balance: respect creativity without derailing work
+**The Challenge:** Implement geometry operations for chimborazo
 
-### Jelly Bean Haikus
+**Files to create:**
+- `internal/geometry/clip.go`
+- `internal/geometry/subtract.go`
 
-```
-One bean holds a world
-Multiplied force, great power
-Seeds become forests
-```
+**Use paulmach/orb library** - pure Go, no CGO
 
+**The prompt (ready to use):**
 ```
-Shiny candy calls
-Hours lost in sugar dreams
-Nothing built today
-```
-
-```
-Gamera guards well
-His satchel of sweet futures
-Bird cannot snatch yet
-```
-
-```
-Nine cats circle prey
-Only one speaks plainly true
-Iron Chef combines
+You are implementing Go code for Chimborazo. NAMING: Project=Chimborazo, CLI=chimbo, imports use github.com/dirtybirdnj/chimborazo. TASK: Implement internal/geometry/clip.go with: 1. Clip function taking geometry and bounds, returning clipped geometry 2. Use github.com/paulmach/orb for geometry types 3. Handle Polygon and MultiPolygon inputs 4. Return error if geometry is completely outside bounds. Use orb.Bound for bounds. Wrap errors with context. Output ONLY the complete clip.go file. No explanations.
 ```
 
 ---
 
-## Artifacts Created
+## How to Run Catfight on ubuntu25
 
-- `chapters/ch004-the-chairmans-blade.md` - Session narrative
-- `catfights/battle-001-http-fetcher.md` - Battle 1 report
-- `catfights/battle-002-recipe-parser.md` - Battle 2 report
-- `/tmp/fetcher_synthesis.go` - HTTP Fetcher synthesis
-- `/tmp/recipe_synthesis.go` - Recipe types synthesis
-- `/tmp/loader_synthesis.go` - Recipe loader synthesis
-- Issues #78-82 - New jelly beans
+### Option 1: Direct curl (what we used tonight)
+```bash
+# Save prompt to file
+cat > /tmp/battle3_prompt.txt << 'EOF'
+[paste prompt here]
+EOF
+
+# Run each cat sequentially
+PROMPT=$(cat /tmp/battle3_prompt.txt)
+for MODEL in deepseek-coder:6.7b mistral:7b qwen2.5-coder:3b llama3.1:8b; do
+  echo "=== $MODEL ==="
+  time curl -s http://localhost:11434/api/generate \
+    -d "$(jq -n --arg m "$MODEL" --arg p "$PROMPT" '{model:$m,prompt:$p,stream:false}')" \
+    | jq -r '.response' | tee "/tmp/battle3_$MODEL.txt"
+  echo ""
+done
+```
+
+### Option 2: clood ask (if working)
+```bash
+clood ask --model deepseek-coder:6.7b "$(cat /tmp/battle3_prompt.txt)"
+```
+
+### Option 3: Future - clood catfight
+```bash
+# This doesn't exist yet - it's a jelly bean (#62)
+clood catfight --models persian,tabby,siamese /tmp/battle3_prompt.txt
+```
 
 ---
 
-## Key Learnings
+## The Cats (Iron Keep Roster)
 
-1. **Sequential > Parallel** - Each cat needs full GPU/CPU
-2. **Small can win** - Persian (6.7b) beat House Lion (14b) TWICE
-3. **Consistency matters** - Persian won both battles
-4. **Redemption is possible** - Tabby cleaned up its act in Battle 2
-5. **Elimination works** - Skipping Bengal/Kitten saved time
-6. **Synthesis beats competition** - Combine best approaches
+**Use these (proven performers):**
+| Cat | Model | Role |
+|-----|-------|------|
+| Persian | deepseek-coder:6.7b | Champion - run first |
+| Tabby | mistral:7b | Redeemed - run second |
+| Siamese | qwen2.5-coder:3b | Fast - run third |
+
+**Skip these (MXC failures):**
+- Bengal (starcoder2:7b) - returns empty
+- Kitten (tinyllama) - hallucinates
+
+**Optional (inconsistent):**
+- Caracal (llama3.1:8b) - high volume, errors
+- House Lion (deepseek-r1:14b) - slow, errors
 
 ---
 
-## Next Session
+## The Vision: Crush Experience
 
-1. Copy synthesis files to Chimborazo repo
-2. Run tests on synthesized code
-3. Battle 3: TBD (Geometry operations?)
-4. Consider multi-phase elimination format
+**What Bird-san seeks:**
+1. Run catfight from ubuntu25 terminal
+2. See cats compete in real-time TUI
+3. Compare outputs side-by-side
+4. Iron Chef Claude synthesizes (later)
+5. Iterate: change models, refine prompts, go 12 rounds
+
+**Current state:**
+- crush exists but not integrated with clood
+- catfights run via raw curl commands
+- synthesis done manually
+
+**Next steps for crush:**
+1. Get crush running on ubuntu25
+2. Create simple catfight viewer mode
+3. Stream ollama responses to crush TUI
+4. Add model comparison view
 
 ---
 
-*Session: 2025-12-17 night*
-*Kitchen Stadium, Battles 1 & 2 complete*
-*Persian reigns supreme*
+## The Golden Path
+
+```
+Bird-san's Vision:
+
+    [Bird-san at ubuntu25]
+           ↓
+    [clood catfight CLI]
+           ↓
+    [crush TUI shows battle]
+           ↓
+    [Iron Chef Claude synthesizes]
+           ↓
+    [Code ships to chimborazo]
+```
+
+Tonight we prove step 1-2 work. Crush integration is next.
+
+---
+
+## Jelly Beans Dropped Tonight
+
+| # | Bean | Status |
+|---|------|--------|
+| 78 | Sequential catfight | Learned |
+| 79 | Multi-phase elimination | Learned |
+| 80 | JDD meme marketing | Growing |
+| 81 | Escoffier System | Captured |
+| 82 | Serious Mode | Used |
+| 83 | Sauce Master (Gucci Mane) | Captured |
+| 84 | TUI Multi-Question | Captured |
+| 85 | Crush Roadmap | Captured |
+
+---
+
+## Files in /tmp (laptop)
+
+These synthesis files need to go to chimborazo:
+- `/tmp/fetcher_synthesis.go` → `internal/sources/fetcher.go`
+- `/tmp/recipe_synthesis.go` → `internal/config/recipe.go`
+- `/tmp/loader_synthesis.go` → `internal/config/loader.go`
+
+---
+
+## The All-Nighter Continues
+
+Bird-san has bottled the lightning. Flow state achieved. The tools and story of clood keep him on track.
+
+> "I can't stop if I have bottled the lightning and achieved flow state."
+
+The sauce flows. The catfight rages. The Iron Keep awaits.
+
+---
+
+```
+Headache with pictures
+Visions too fast to capture
+The flow demands more
+```
+
+---
+
+*Session transfers: laptop → ubuntu25*
+*Battle 3 awaits*
+*The night kitchen never sleeps*
