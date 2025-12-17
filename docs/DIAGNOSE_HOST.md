@@ -231,4 +231,60 @@ curl http://192.168.4.63:11434/api/version
 
 ---
 
+## The Iron Keep (ubuntu25)
+
+The legendary ubuntu25, known as **The Iron Keep**, stands as the primary GPU workhorse in the clood garden. When this beast goes silent, the garden feels the absence.
+
+### Iron Keep Quick Check
+
+```bash
+# From your driver machine, verify the Keep is awake:
+curl --connect-timeout 5 http://ubuntu25:11434/api/version
+
+# SSH in and check GPU health:
+ssh ubuntu25 "nvidia-smi --query-gpu=name,memory.total,memory.used,temperature.gpu --format=csv"
+
+# Check what models the Keep has loaded:
+ssh ubuntu25 "ollama list"
+
+# Full diagnostic dump:
+ssh ubuntu25 "ollama ps && echo '---' && df -h /home/ollama-models"
+```
+
+### Haikus from the Iron Keep
+
+*When diagnosing connectivity issues, meditate on these truths:*
+
+```
+Port eleven four
+Three four—gateway to wisdom
+Is it listening?
+```
+
+```
+Zero zero zero
+Point zero—all interfaces
+Not just localhost
+```
+
+```
+The firewall sleeps
+But does it dream of blocking?
+Check ufw status
+```
+
+```
+Iron Keep stands tall
+GPU fans spin through the night
+Inference awaits
+```
+
+```
+Timeout means nothing
+If the binding is too tight
+Loosen to zero
+```
+
+---
+
 *"Debug the garden, one node at a time."*
