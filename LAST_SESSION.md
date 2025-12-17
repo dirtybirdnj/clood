@@ -1,7 +1,7 @@
-# Session Handoff - 2025-12-17 (Night: Battle 1 Complete)
+# Session Handoff - 2025-12-17 (Night: Two Battles Complete!)
 
 ## Summary
-KITCHEN STADIUM BATTLE 1 COMPLETE! HTTP Fetcher catfight ran all 9 cats. Persian (deepseek-coder:6.7b) won commendation for cleanest approach. Iron Chef Claude synthesized best implementation. Three new jelly beans dropped (#78-80). Bengal (starcoder2:7b) returned EMPTY - MXC Hall of Shame inductee.
+KITCHEN STADIUM DOUBLE HEADER! Persian (deepseek-coder:6.7b) wins BACK TO BACK! Battle 1 (HTTP Fetcher) and Battle 2 (Recipe Parser) complete. Tabby redemption arc in Battle 2 - no hallucinations! Bengal and Kitten eliminated from competition. Three jelly beans dropped (#78-80). Synthesis files ready for Chimborazo.
 
 ---
 
@@ -25,6 +25,21 @@ KITCHEN STADIUM BATTLE 1 COMPLETE! HTTP Fetcher catfight ran all 9 cats. Persian
 - Bengal: *silent stare* - GET IT TOGETHER!
 - Kitten: `FeTCHER`, `FeTCCHOption` - speaks in tongues
 - Tabby: imported `golang.org/x/crypto/tar` for HTTP fetcher
+
+---
+
+## Battle 2 Results: Recipe Parser
+
+| Cat | Model | Time | Lines | Status |
+|-----|-------|------|-------|--------|
+| 🥇 | deepseek-coder:6.7b (Persian) | 20s | 74 | BACK TO BACK CHAMPION! |
+| 🥈 | mistral:7b (Tabby) | 21s | 76 | REDEMPTION! No hallucinations |
+| 🥉 | qwen2.5-coder:3b (Siamese) | 12s | 84 | Fast, missing YAML tags |
+| ⚠️ | llama3.1:8b (Caracal) | 27s | 112 | Circular import, syntax error |
+| ⚠️ | deepseek-r1:14b (House Lion) | 146s | 75 | SLOWEST with syntax errors |
+| ⚠️ | codellama:13b (Snow Leopard) | 53s | 66 | Missing all YAML tags |
+
+**Eliminated:** Bengal, Kitten (consistent failures)
 
 ---
 
@@ -77,8 +92,11 @@ Iron Chef combines
 
 ## Artifacts Created
 
-- `catfights/battle-001-http-fetcher.md` - Full battle report
-- `/tmp/fetcher_synthesis.go` - Iron Chef Claude's synthesis
+- `catfights/battle-001-http-fetcher.md` - Battle 1 report
+- `catfights/battle-002-recipe-parser.md` - Battle 2 report
+- `/tmp/fetcher_synthesis.go` - HTTP Fetcher synthesis
+- `/tmp/recipe_synthesis.go` - Recipe types synthesis
+- `/tmp/loader_synthesis.go` - Recipe loader synthesis
 - Issues #78, #79, #80 - New jelly beans
 
 ---
@@ -86,19 +104,23 @@ Iron Chef combines
 ## Key Learnings
 
 1. **Sequential > Parallel** - Each cat needs full GPU/CPU
-2. **Small can win** - Persian (6.7b) beat House Lion (14b)
-3. **Speed ≠ Quality** - Bengal was fastest but empty
-4. **Synthesis beats competition** - Combine best approaches
+2. **Small can win** - Persian (6.7b) beat House Lion (14b) TWICE
+3. **Consistency matters** - Persian won both battles
+4. **Redemption is possible** - Tabby cleaned up its act in Battle 2
+5. **Elimination works** - Skipping Bengal/Kitten saved time
+6. **Synthesis beats competition** - Combine best approaches
 
 ---
 
 ## Next Session
 
-1. Battle 2: Recipe Parser
-2. Copy fetcher_synthesis.go to Chimborazo
-3. Consider elimination format for underperformers
+1. Copy synthesis files to Chimborazo repo
+2. Run tests on synthesized code
+3. Battle 3: TBD (Geometry operations?)
+4. Consider multi-phase elimination format
 
 ---
 
 *Session: 2025-12-17 night*
-*Kitchen Stadium, Battle 1 complete*
+*Kitchen Stadium, Battles 1 & 2 complete*
+*Persian reigns supreme*
