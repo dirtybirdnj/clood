@@ -82,6 +82,7 @@ func main() {
 	rootCmd.AddCommand(commands.AgentsCmd())
 	rootCmd.AddCommand(commands.HealthCmd())
 	rootCmd.AddCommand(commands.TuneCmd())
+	rootCmd.AddCommand(commands.BonsaiCmd())
 
 	// Code analysis commands
 	rootCmd.AddCommand(commands.GrepCmd())
