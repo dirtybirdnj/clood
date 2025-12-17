@@ -14,12 +14,16 @@ import (
 
 func HostsCmd() *cobra.Command {
 	var jsonOutput bool
+	var gardenView bool
+	var verbose bool
 
 	cmd := &cobra.Command{
 		Use:   "hosts",
 		Short: "List and check Ollama hosts",
 		Long: `Lists all configured Ollama hosts and checks their status.
-Shows which hosts are online, their latency, and available models.`,
+Shows which hosts are online, their latency, and available models.
+
+Use --garden for ASCII art visualization of the Server Garden topology.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			cfg, err := config.Load()
 			if err != nil {
@@ -39,10 +43,21 @@ Shows which hosts are online, their latency, and available models.`,
 			localAlias := detectLocalAlias(statuses)
 
 			if jsonOutput {
-				printHostsJSON(statuses)
+				if gardenView {
+					printGardenJSON(statuses, verbose)
+				} else {
+					printHostsJSON(statuses)
+				}
 				return
 			}
 
+			// Garden view - ASCII art topology
+			if gardenView {
+				printGardenVisual(statuses, verbose)
+				return
+			}
+
+			// Default list view
 			fmt.Println(tui.RenderHeader("Ollama Hosts"))
 			fmt.Println()
 
@@ -84,6 +99,8 @@ Shows which hosts are online, their latency, and available models.`,
 	}
 
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
+	cmd.Flags().BoolVar(&gardenView, "garden", false, "Show ASCII art garden visualization")
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show all model details")
 
 	return cmd
 }
@@ -225,4 +242,175 @@ func printHostsJSON(statuses []*hosts.HostStatus) {
 
 	data, _ := json.MarshalIndent(result, "", "  ")
 	fmt.Println(string(data))
+}
+
+// Garden view types and functions
+
+// GardenStatus represents host status for garden JSON output
+type GardenStatus struct {
+	Name       string   `json:"name"`
+	URL        string   `json:"url"`
+	Online     bool     `json:"online"`
+	LatencyMs  int64    `json:"latency_ms"`
+	ModelCount int      `json:"model_count"`
+	Models     []string `json:"models,omitempty"`
+}
+
+// GardenOutput represents the full garden status with driver info
+type GardenOutput struct {
+	Driver  string         `json:"driver"`
+	Hosts   []GardenStatus `json:"hosts"`
+	Summary struct {
+		Online       int `json:"online"`
+		Total        int `json:"total"`
+		UniqueModels int `json:"unique_models"`
+	} `json:"summary"`
+}
+
+func printGardenVisual(statuses []*hosts.HostStatus, verbose bool) {
+	fmt.Println()
+
+	// ASCII garden visualization
+	fmt.Println("  ┌─────────────────────────────────────────────────────────┐")
+	fmt.Println("  │                    🌳 Server Garden 🌳                   │")
+	fmt.Println("  └─────────────────────────────────────────────────────────┘")
+	fmt.Println()
+
+	// Driver (local machine)
+	hostname, _ := os.Hostname()
+	fmt.Printf("  ┌──────────────────┐\n")
+	fmt.Printf("  │  🖥️  %-12s │  DRIVER\n", truncateGarden(hostname, 12))
+	fmt.Printf("  │  clood hosts     │\n")
+	fmt.Printf("  └────────┬─────────┘\n")
+	fmt.Println("           │")
+
+	// Count online hosts
+	online := 0
+	for _, s := range statuses {
+		if s.Online {
+			online++
+		}
+	}
+
+	if len(statuses) == 0 {
+		fmt.Println("           │")
+		fmt.Println("      (no hosts configured)")
+		return
+	}
+
+	// Connection lines
+	if len(statuses) > 1 {
+		fmt.Println("     ┌─────┴─────┐")
+	} else {
+		fmt.Println("           │")
+	}
+
+	// Draw hosts
+	for i, status := range statuses {
+		if i > 0 {
+			fmt.Println()
+		}
+		printHostBox(status, verbose)
+	}
+
+	// Summary
+	fmt.Println()
+	fmt.Println("  ─────────────────────────────────────────────────────────")
+
+	uniqueModels := make(map[string]bool)
+	for _, s := range statuses {
+		for _, m := range s.Models {
+			uniqueModels[m.Name] = true
+		}
+	}
+
+	statusText := fmt.Sprintf("%d/%d hosts online", online, len(statuses))
+	if online == len(statuses) {
+		fmt.Printf("  %s  •  %d unique models\n",
+			tui.SuccessStyle.Render(statusText), len(uniqueModels))
+	} else if online > 0 {
+		fmt.Printf("  %s  •  %d unique models\n",
+			tui.MutedStyle.Render(statusText), len(uniqueModels))
+	} else {
+		fmt.Printf("  %s\n", tui.ErrorStyle.Render(statusText))
+	}
+	fmt.Println()
+}
+
+func printHostBox(status *hosts.HostStatus, verbose bool) {
+	var statusColor string
+	if status.Online {
+		statusColor = tui.SuccessStyle.Render("● ONLINE")
+	} else {
+		statusColor = tui.ErrorStyle.Render("○ OFFLINE")
+	}
+
+	fmt.Printf("  ┌──────────────────┐\n")
+	fmt.Printf("  │  %-14s  │\n", truncateGarden(status.Host.Name, 14))
+	fmt.Printf("  │  %s       │\n", statusColor)
+
+	if status.Online {
+		fmt.Printf("  │  %d models        │\n", len(status.Models))
+		fmt.Printf("  │  %dms latency    │\n", status.Latency.Milliseconds())
+		if status.Version != "" {
+			fmt.Printf("  │  v%-13s │\n", truncateGarden(status.Version, 13))
+		}
+	}
+	fmt.Printf("  └──────────────────┘\n")
+
+	if verbose && status.Online && len(status.Models) > 0 {
+		fmt.Println("     Models:")
+		for _, m := range status.Models {
+			fmt.Printf("       • %s\n", m.Name)
+		}
+	}
+}
+
+func printGardenJSON(statuses []*hosts.HostStatus, verbose bool) {
+	output := GardenOutput{}
+
+	hostname, _ := os.Hostname()
+	output.Driver = hostname
+
+	uniqueModels := make(map[string]bool)
+
+	for _, s := range statuses {
+		gs := GardenStatus{
+			Name:       s.Host.Name,
+			URL:        s.Host.URL,
+			Online:     s.Online,
+			LatencyMs:  s.Latency.Milliseconds(),
+			ModelCount: len(s.Models),
+		}
+
+		if verbose {
+			for _, m := range s.Models {
+				gs.Models = append(gs.Models, m.Name)
+				uniqueModels[m.Name] = true
+			}
+		} else {
+			for _, m := range s.Models {
+				uniqueModels[m.Name] = true
+			}
+		}
+
+		if s.Online {
+			output.Summary.Online++
+		}
+
+		output.Hosts = append(output.Hosts, gs)
+	}
+
+	output.Summary.Total = len(statuses)
+	output.Summary.UniqueModels = len(uniqueModels)
+
+	data, _ := json.MarshalIndent(output, "", "  ")
+	fmt.Println(string(data))
+}
+
+func truncateGarden(s string, max int) string {
+	if len(s) <= max {
+		return s + strings.Repeat(" ", max-len(s))
+	}
+	return s[:max-1] + "…"
 }
