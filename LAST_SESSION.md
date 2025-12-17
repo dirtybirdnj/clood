@@ -147,6 +147,9 @@ Tonight we prove step 1-2 work. Crush integration is next.
 | 83 | Sauce Master (Gucci Mane) | Captured |
 | 84 | TUI Multi-Question | Captured |
 | 85 | Crush Roadmap | Captured |
+| 86 | Overnight Catfights | Dropped |
+
+**#86 - Overnight Catfights:** Scheduled catfight runs via cron. Run battles overnight, wake up to results. Integration with crush TUI for monitoring. GitHub issues as result destination. The kitchen never sleeps.
 
 ---
 

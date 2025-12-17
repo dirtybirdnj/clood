@@ -160,6 +160,15 @@ var (
 	// MutedStyle for secondary information
 	MutedStyle = lipgloss.NewStyle().
 			Foreground(ColorMuted)
+
+	// AccentStyle for highlighted/important text
+	AccentStyle = lipgloss.NewStyle().
+			Foreground(ColorAccent).
+			Bold(true)
+
+	// WarningStyle for warning messages
+	WarningStyle = lipgloss.NewStyle().
+			Foreground(ColorWarning)
 )
 
 // RenderBanner returns the full styled banner
