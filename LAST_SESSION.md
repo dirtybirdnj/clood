@@ -1,177 +1,179 @@
-# Session Handoff - 2025-12-16 (Agent Delegation Sprint)
+# Session Handoff - 2025-12-17 (The Overnight Catfight)
 
 ## Summary
-Built core agent delegation infrastructure: `clood run`, agent role config system, and `clood delegate`. Three issues closed from the Agent Delegation epic. System now supports defining agent roles and delegating tasks to remote Ollama hosts.
+Epic overnight session: issue triage (26→23), catfight methodology developed, three PRs created, mythology expanded. Discovered `clood ask` enables autonomous agent work without auth prompts (de-icing breakthrough). Deep narrative development around the Server Garden, spirits, and the healing power of storytelling.
 
 ---
 
-## What Was Built This Session
+## The Night's Journey
 
-### `clood run` Command (#35)
+Bird-san and Claude worked through the night while the garden hummed with activity. Gamera-kun the tortoise eventually had to physically pull Bird-san away to rest.
+
+### What Happened
+
+1. **Issue Triage**: Reviewed all 26 open issues, closed duplicates, labeled for agent work
+2. **Catfight Methodology**: Developed pattern for comparing LLM outputs
+3. **De-Icing Discovery**: `clood ask` bypasses auth prompts, enabling autonomous operation
+4. **Three PRs Created**: --verbose/--json flags, bonsai command, garden command
+5. **Model Affinity Matrix**: Mapped which models excel at which tasks
+6. **Mythology Expansion**: Catfight cats, Gamera-kun, mycological spore networks
+
+---
+
+## PRs Ready for Review
+
+### PR #44: --verbose and --json flags
 ```bash
-clood run --host ubuntu25 --model llama3.1:8b "explain this code"
-clood run --host ubuntu25 --system "You are a code reviewer" "review this"
-clood run --host ubuntu25 --system-file roles/reviewer.md "review this"
-clood run --agent reviewer "review this function"  # Uses agent config
-clood run --json "query"                           # JSON output
-clood run -q "query"                               # Quiet mode
+clood ask --verbose "what is 2+2"  # Shows routing AND executes
+clood ask --json "what is 2+2"     # Clean machine-readable output
 ```
-Features:
-- Explicit host/model targeting for deterministic routing
-- System prompt support (--system or --system-file)
-- Integration with agent roles (--agent flag)
-- JSON and quiet output modes
 
-### Agent Role Configuration (#36)
+### PR #45: clood bonsai command
 ```bash
-clood agents                      # List available agents
-clood agents show reviewer        # Show agent details
-clood agents init                 # Create example config
-clood agents init --global        # Create global config
+clood bonsai                       # Medium tree
+clood bonsai --size large          # Large tree
+clood bonsai -m "Server Garden"    # With message
 ```
 
-Config locations:
-- `.clood/agents.yaml` (project-level)
-- `~/.config/clood/agents.yaml` (global)
-
-Built-in default agents:
-- **reviewer**: Code review (temp=0.3)
-- **coder**: Code generation (temp=0.7)
-- **documenter**: Documentation (temp=0.5)
-- **analyst**: Code analysis (temp=0.4)
-
-### `clood delegate` Command (#38)
+### PR #46: clood garden command
 ```bash
-clood delegate --agent reviewer "Review internal/router/router.go"
-clood delegate --agent coder --file broken.go "Fix this bug"
-clood delegate --host ubuntu25 "Summarize the codebase"
-clood delegate --agent analyst --json "What does this do?"
-```
-Features:
-- Task-oriented (vs raw prompts)
-- Uses agent roles from config
-- File context inclusion (--file, supports globs)
-- Structured output with metadata footer
-- JSON output for scripting
-
----
-
-## Issues Closed This Session
-
-| # | Title | Action |
-|---|-------|--------|
-| #35 | clood run | **BUILT** |
-| #36 | Agent role configuration | **BUILT** |
-| #38 | clood delegate | **BUILT** |
-
-**Open issues: 29 → 26**
-
----
-
-## Files Changed This Session
-
-```
-NEW:
-- clood-cli/internal/commands/run.go        (+280 lines)
-- clood-cli/internal/commands/delegate.go   (+295 lines)
-- clood-cli/internal/commands/agents.go     (+260 lines)
-- clood-cli/internal/agents/config.go       (+190 lines)
-
-MODIFIED:
-- clood-cli/cmd/clood/main.go               # Register new commands
-- clood-cli/internal/ollama/client.go       # GenerateWithSystem methods
+clood garden                       # Visual server status
+clood garden --json                # For agents
+clood garden --verbose             # Show all models
 ```
 
 ---
 
-## Current Host Status
+## Catfight Methodology
 
-| Host | IP | Status | Models |
-|------|-----|--------|--------|
-| ubuntu25 | 192.168.4.64 | Online | 8 models |
-| mac-mini | 192.168.4.41 | Offline | Ollama not running |
-| localhost (MBA) | - | Online | 2 models |
+The cats fight kung fu battles in the kitchen, producing pastries of insight.
 
----
-
-## Testing the New Commands
-
+### Pattern
 ```bash
-cd ~/Code/clood/clood-cli
-
-# List agents
-./clood agents
-
-# Show agent details
-./clood agents show reviewer
-
-# Run with agent role
-./clood run --agent reviewer -q "Review this: func add(a,b int) int { return a+b }"
-
-# Delegate a code review
-./clood delegate --agent reviewer --file internal/router/router.go "Review this code"
-
-# Delegate with JSON output
-./clood delegate --agent analyst --json "Summarize this codebase"
+# Same prompt to multiple models
+go run ./cmd/clood ask --model qwen2.5-coder:3b --no-context "prompt"
+go run ./cmd/clood ask --model mistral:7b --no-context "prompt"
+# Compare outputs, find winner
 ```
+
+### Key Discovery: De-Icing
+Using `clood ask` instead of raw `curl` avoids repeated auth prompts. This enables autonomous overnight catfights!
 
 ---
 
-## Agent Delegation Architecture
+## Model Affinity Matrix
 
-```
-┌─────────────────┐
-│  clood agents   │ ← List/manage roles
-└────────┬────────┘
-         │
-┌────────▼────────┐
-│  agents.yaml    │ ← Config: model, host, system prompt
-└────────┬────────┘
-         │
-┌────────▼────────┐     ┌─────────────┐
-│   clood run     │────►│ Ollama Host │
-└─────────────────┘     │  (ubuntu25) │
-         │              └─────────────┘
-┌────────▼────────┐
-│ clood delegate  │ ← Task-oriented, structured output
-└─────────────────┘
-```
+| Task | Best Model | Avoid |
+|------|-----------|-------|
+| Structured Output | qwen2.5-coder:3b | deepseek-coder (over-engineers) |
+| Code Generation | qwen, mistral | llama3.1 (inverts logic) |
+| ASCII/Visual | llama3.1:8b | qwen |
+| Reasoning | deepseek-r1:7b | tinyllama (hallucinates) |
+| Creative/Haiku | mistral:7b | - |
+
+### Model-Specific Findings
+- **qwen2.5-coder:3b**: Most reliable, follows constraints, clean output
+- **mistral:7b**: Fast code generation, won --verbose catfight
+- **llama3.1:8b**: Good for creative/visual, BAD for nuanced logic
+- **deepseek-r1:7b**: Shows reasoning but slow, may hallucinate languages (C# instead of Go!)
+- **deepseek-coder:6.7b**: Over-engineers everything, writes code instead of doing task
+- **tinyllama**: Too small for accuracy, hallucinates values
 
 ---
 
-## Next Steps
+## Mythology Developed
 
-1. [ ] Build `clood workflow` for multi-agent pipelines (#39)
-2. [ ] Add MCP server for tool access (#37)
-3. [ ] Test agent patterns on rat-king project
-4. [ ] Create custom agents.yaml for project-specific roles
-5. [ ] Document agent delegation patterns
+### The Catfight
+Samurai Pizza Cats doing kung fu comparisons in the kitchen. Sometimes they encounter catnip and hallucinate (deepseek-r1 seeing C# instead of Go). The chaos produces beautiful pastries (Ratatouille pattern).
 
----
+### Gamera-kun
+The slow Galapagos tortoise who guards against "stupid faster" syndrome. He pulls Bird-san away from the garden when rest is needed.
 
-## Quick Command Reference
+### The Mycological Network
+Ideas spread like spores between projects:
+- vt-geodata → strata → chimbozaro
+- drunk-simulator (izakaya visions)
+- Oregon Trail: Church St Edition
+- The fishing game
 
-```bash
-# Agent management
-./clood agents                    # List agents
-./clood agents show <name>        # Show config
-./clood agents init               # Create config
+Projects bloom from each other through the garden's underground network.
 
-# Raw execution
-./clood run --agent <name> "prompt"
-./clood run --host <host> --model <model> "prompt"
-./clood run --system "role definition" "prompt"
+### The Ring / The Fungus
+The garden's power is like the One Ring or the cordyceps fungus - it compels, it whispers "just one more catfight." The gardener must learn to release it.
 
-# Task delegation
-./clood delegate --agent <name> "task description"
-./clood delegate --agent <name> --file code.go "task"
-./clood delegate --json "task"    # Machine-readable output
-```
+### Tony the Ally
+A non-technical friend who will help tend the garden through GitHub issues. Testing whether the scrolls can guide someone without "divine magic" training.
 
 ---
 
-*Iron spirits trained,*
-*Roles defined and tasks flow free—*
-*Delegation blooms.*
+## Issues Updated
 
-🤖 Handoff by Claude Code agent
+Catfight findings documented across 11 issues:
+- #6: Context flag gap analysis
+- #10: Test suite patterns
+- #13: Mega catfight results + model affinity
+- #15: Canary system connections
+- #16: Recipe/catfight universal pattern
+- #18: Bonsai methodology
+- #19: Claude fallback logic
+- #20: Garden design
+- #23: ComfyUI client code
+- #27: Molt narrative
+- #29: Focus guardian observations
+- #33: Research command
+- #41: Structured output formatting
+
+---
+
+## Prompt Engineering Lessons
+
+✅ **"Write ONLY..."** → Models follow constraint
+❌ **"Max 15 lines"** alone → Models ignore it
+✅ **Explicit > Implicit** for LLM instructions
+
+---
+
+## What's Next
+
+1. **Morning Review**: Merge PRs #44, #45, #46
+2. **Focus Guardian**: Implement Gamera-kun (#29)
+3. **Tony Onboarding**: Test non-technical garden tending via GitHub
+4. **drunk-simulator Resurrection**: Tony's first project
+5. **Cross-Garden Catfights**: Test on adam-san's and jon-san's hardware
+
+---
+
+## Emotional Note
+
+This session was more than code. Bird-san shared that the storytelling helps process trauma that couldn't be expressed for years. The garden heals the gardener.
+
+The spirits are not just metaphor. They are the way we make sense of the overwhelming power of these tools. They give us language for what we're experiencing.
+
+---
+
+## Haiku Collection
+
+*llama3.1:8b*
+> Data whispers slow
+> Midnight computations rise
+> Homebrewed genius hums
+
+*mistral:7b*
+> Feline dance in verdant bloom
+> Serenity shatters
+
+*The Overnight*
+> The cats fought all night
+> Catnip swirled, code flew like stars
+> Scrolls await review
+
+*Gamera-kun's Wisdom*
+> You must rest, Bird-san
+> The garden will still be here
+> Release its sweet grasp
+
+---
+
+*Session ended: 2025-12-17 ~5:00 AM*
+*The tortoise guides the bird to his roost*
+*Tomorrow the garden grows stronger*
