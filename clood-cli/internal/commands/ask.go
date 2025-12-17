@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -19,6 +20,8 @@ func AskCmd() *cobra.Command {
 	var noStream bool
 	var noContext bool
 	var showRoute bool
+	var verbose bool
+	var jsonOutput bool
 
 	cmd := &cobra.Command{
 		Use:   "ask [question]",
@@ -67,9 +70,30 @@ Use --show-route to see routing decisions without executing.`,
 				result.Client = mgr.GetClient(forceHost)
 			}
 
-			// Show routing info
+			// Show routing info only (exit without executing)
 			if showRoute {
 				printRouteInfo(result)
+				return
+			}
+
+			// Show routing info with verbose (continue to execute)
+			if verbose {
+				printRouteInfo(result)
+				fmt.Println()
+			}
+
+			// Build prompt with context (needed for both JSON and normal output)
+			prompt := question
+			if !noContext {
+				context := getProjectContext()
+				if context != "" {
+					prompt = fmt.Sprintf("Context:\n%s\n\nQuestion: %s", context, question)
+				}
+			}
+
+			// JSON output mode - clean machine-readable output, no TUI
+			if jsonOutput {
+				executeJSON(result, prompt)
 				return
 			}
 
@@ -88,15 +112,6 @@ Use --show-route to see routing decisions without executing.`,
 				result.Host.Host.Name)
 			fmt.Println()
 
-			// Build prompt with context
-			prompt := question
-			if !noContext {
-				context := getProjectContext()
-				if context != "" {
-					prompt = fmt.Sprintf("Context:\n%s\n\nQuestion: %s", context, question)
-				}
-			}
-
 			// Execute query
 			stream := cfg.Defaults.Stream && !noStream
 
@@ -114,6 +129,8 @@ Use --show-route to see routing decisions without executing.`,
 	cmd.Flags().BoolVar(&noStream, "no-stream", false, "Disable streaming output")
 	cmd.Flags().BoolVar(&noContext, "no-context", false, "Skip project context injection")
 	cmd.Flags().BoolVar(&showRoute, "show-route", false, "Show routing decision without executing")
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show routing decisions before executing")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output response as JSON")
 
 	return cmd
 }
@@ -157,6 +174,55 @@ func executeBlocking(client *ollama.Client, model, prompt string) {
 	}
 
 	fmt.Println(resp.Response)
+}
+
+// AskResponse represents the JSON output format for ask command
+type AskResponse struct {
+	Routing struct {
+		Tier       int     `json:"tier"`
+		TierName   string  `json:"tier_name"`
+		Confidence float64 `json:"confidence"`
+		Model      string  `json:"model"`
+		Host       string  `json:"host,omitempty"`
+		URL        string  `json:"url,omitempty"`
+	} `json:"routing"`
+	Response string `json:"response"`
+	Error    string `json:"error,omitempty"`
+}
+
+func executeJSON(result *router.RouteResult, prompt string) {
+	output := AskResponse{}
+
+	// Fill routing info
+	output.Routing.Tier = result.Tier
+	output.Routing.TierName = router.TierName(result.Tier)
+	output.Routing.Confidence = result.Confidence
+	output.Routing.Model = result.Model
+	if result.Host != nil {
+		output.Routing.Host = result.Host.Host.Name
+		output.Routing.URL = result.Host.Host.URL
+	}
+
+	// Check for host availability
+	if result.Host == nil || result.Client == nil {
+		output.Error = "no available host found"
+		data, _ := json.MarshalIndent(output, "", "  ")
+		fmt.Println(string(data))
+		return
+	}
+
+	// Execute query (non-streaming for JSON)
+	resp, err := result.Client.Generate(result.Model, prompt)
+	if err != nil {
+		output.Error = err.Error()
+		data, _ := json.MarshalIndent(output, "", "  ")
+		fmt.Println(string(data))
+		return
+	}
+
+	output.Response = resp.Response
+	data, _ := json.MarshalIndent(output, "", "  ")
+	fmt.Println(string(data))
 }
 
 func getProjectContext() string {
