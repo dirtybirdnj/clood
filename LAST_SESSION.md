@@ -1,7 +1,54 @@
-# Session Handoff - 2025-12-17 (Morning: Gamera-kun Awakens)
+# Session Handoff - 2025-12-17 (Afternoon: The Tiger Enters)
 
 ## Summary
-Morning continuation: Implemented the Focus Guardian (#29) - Gamera-kun is now real code! Created PR #47 with keyword-based drift detection, --goal flag, /goal slash command, and the characteristic tortoise warning box. Full test coverage. Four PRs now awaiting review: #44, #45, #46, #47.
+Full day session: All 5 PRs reviewed and merged. Garden consolidated (`clood hosts --garden`). Process improvements created (preflight checks, de-icing safety). Now pulling llama3.1:70b - "the tiger" - to test if raw power beats agility in catfights.
+
+---
+
+## Afternoon Session - PR Review & Tiger Summoning
+
+### PRs Merged (One Stone at a Time)
+
+| PR | Feature | Notes |
+|----|---------|-------|
+| #43 | Overnight spirits haiku | Lore preserved |
+| #44 | `--verbose` and `--json` for ask | Catfight winner: mistral:7b |
+| #45 | `clood bonsai` | Garden aesthetic, yin/yang |
+| #46 | `clood hosts --garden` | **Consolidated** from separate command |
+| #47 | Focus Guardian (Gamera-kun) | Full test coverage |
+
+### Key Consolidation: PR #46
+
+Bird-san's guidance: *"merge all functionality into the hosts command"*
+
+Before: `clood garden` (separate command)
+After: `clood hosts --garden` (flag on existing command)
+
+This eliminated duplication and kept the CLI surface clean.
+
+### Process Improvements Created
+
+| Issue | Purpose |
+|-------|---------|
+| #48 | Agent Preflight: Dependency Check Protocol |
+| #49 | De-Icing Safety: Protocol for Adding Trusted Commands |
+| #50 | Catfight Metadata: Auto-populate PR reviews |
+| #51 | Gamera-kun: Capture drifted topics as jelly beans |
+| #52 | Add larger model (tiger) for deeper analysis |
+| #53 | Miyazaki SD Workflow (needs pruning) |
+
+### The Tiger Arrives
+
+Pulling `llama3.1:70b` (~40GB) to test:
+- Can the Iron Keep (ubuntu25) wield a 70B model?
+- Does raw power beat the agile 3B-8B cats?
+- Or do we need mac-mini/laptop for the big spirits?
+
+```
+A tiger walks in
+The cats eye it warily
+Catnip decides all
+```
 
 ---
 
@@ -194,12 +241,12 @@ Catfight findings documented across 11 issues:
 
 ## What's Next
 
-1. **Review and Merge PRs**: #44, #45, #46, #47 (all four ready!)
+1. ~~**Review and Merge PRs**: #44, #45, #46, #47~~ **ALL MERGED!**
 2. ~~**Focus Guardian**: Implement Gamera-kun (#29)~~ **DONE! PR #47**
-3. **Tony Onboarding**: Test non-technical garden tending via GitHub
-4. **drunk-simulator Resurrection**: Tony's first project
-5. **Cross-Garden Catfights**: Test on adam-san's and jon-san's hardware
-6. **Focus Guardian v2**: LLM-based semantic similarity (future enhancement)
+3. **Tiger Catfights**: Test llama3.1:70b vs smaller models on issues #48-51
+4. **Prune Miyazaki Epic** (#53): Break down SD workflow before agent work
+5. **Tony Onboarding**: Test non-technical garden tending via GitHub
+6. **Cross-Garden Catfights**: Test on adam-san's and jon-san's hardware
 
 ---
 
