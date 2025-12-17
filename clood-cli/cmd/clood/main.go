@@ -78,6 +78,7 @@ func main() {
 	rootCmd.AddCommand(commands.BenchCmd())
 	rootCmd.AddCommand(commands.AskCmd())
 	rootCmd.AddCommand(commands.RunCmd())
+	rootCmd.AddCommand(commands.DelegateCmd())
 	rootCmd.AddCommand(commands.AgentsCmd())
 	rootCmd.AddCommand(commands.HealthCmd())
 	rootCmd.AddCommand(commands.TuneCmd())
