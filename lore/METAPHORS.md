@@ -112,6 +112,22 @@ The shell protects all
 
 ## The Philosophy of Slow Growth
 
+### The "Stupid Faster" Problem
+
+> *"I've taken a controversial new pill that accelerates my brain."*
+> *"So you're smart now?"*
+> *"I'm stupid FASTER."*
+>
+> — [Shen Comix](https://shencomix.com) ([@shenanigansen](https://twitter.com/shenanigansen))
+
+This comic perfectly captures the danger of unchecked LLM velocity. A fast model doesn't make you smarter—it implements your bad ideas at ten billion miles an hour.
+
+**This is why clood embraces slowness.** Not as a limitation, but as a feature.
+
+Gamera-kun doesn't ask "how fast can we go?" He asks "are we going the right direction?"
+
+### The Gashadokuro's Whisper
+
 The Gashadokuro whisper: *"Faster! More VRAM! Pay for the cloud!"*
 
 But the garden teaches patience (and Gamera-kun embodies this):
