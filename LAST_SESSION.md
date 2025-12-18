@@ -1,192 +1,91 @@
-# LAST SESSION - Emergency Context Dump
+# LAST SESSION - Garden Tending
 ## Date: 2025-12-18
-## Session: The Containment / Bean Review Ritual
+## Session: The Tortoise and Chef Keep Watch
 
 ---
 
-## WHAT WE ACCOMPLISHED
+## BIRD-SAN STATUS
 
-### Issues Created This Session (27+ issues!)
-| # | Title | Size |
-|---|-------|------|
-| 106 | Expand MCP tool coverage | L |
-| 107 | Complete --json flag for all commands | M |
-| 108 | Implement golden path system prompts | M |
-| 109 | Document router/tier selection logic | S |
-| 110 | Add integration tests for CLI commands | L |
-| 111 | Expose Stable Diffusion functionality | M |
-| 112 | Implement clood beans command | S |
-| 113 | Create troubleshooting guide | S |
-| 114 | Create Homebrew formula | M |
-| 115 | Document flying-cats command | XS |
-| 116 | Document watch TUI controls | XS |
-| 117 | Create multi-machine setup guide | M |
-| 118 | GitHub Actions self-hosted runners | M |
-| 119 | Setup CI/CD pipeline | S |
-| 120 | Complete Focus Guardian integration | S |
-| 121 | clood thunderdome command | L |
-| 123 | Ensō: The Spirit of Image Generation | XL |
-| 124 | Expandable Scroll Sections | M |
-| 125 | clood commit-msg | S |
-| 126 | clood generate-tests | M |
-| 127 | clood review-pr | M |
-| 128 | clood diagnose (log analysis) | M |
-| 129 | clood document (thinking stairs) | M |
-| 130 | Shenron/Snake Way UI Pattern | L |
-| 131 | clood extract (data extraction) | M |
-| 132 | clood batch (overnight/blockbuster) | L |
-| 133 | clood tune (Zhibito's garage) | L |
-
-### Lore Created
-- `lore/THE_CONTAINMENT.md` - Full chapter committed and pushed (commit d00bff6)
-
-### Code Changes Pushed
-- `scripts/triage_report.py` - Scope, consensus, quality, label-sync reports
-- `scripts/issue_catfight.sh` - Added --fast flag for quick re-triage
+The pigeon rests in the corner, weary from flights to The Amaryllis.
+His mother is at sea. He goes when she calls.
+The garden waits. We tend it in his absence.
 
 ---
 
-## WHERE WE LEFT OFF
+## WHAT WAS ACCOMPLISHED
 
-### Bean Review Ritual - Status
-| Bean | Topic | Status |
-|------|-------|--------|
-| #1 | Embeddings/Semantic Search | ✅ Elevated to pipeline foundation |
-| #2 | Vision Models | ✅ Merged into Ensō critique loop |
-| #3 | Voice/Transcription | ⏭️ PRUNED (bottom of backlog) |
-| #4 | Commit Message Gen | ✅ Issue #125 |
-| #5 | Test Generation | ✅ Issue #126 |
-| #6 | PR Review Bot | ✅ Issue #127 |
-| #7 | Log Analysis | ✅ Issue #128 |
-| #8 | Documentation Gen | ✅ Issue #129 (thinking stairs) |
-| #9 | Data Extraction | ✅ Issue #131 |
-| #10 | Overnight Batch | ✅ Issue #132 (blockbuster) |
-| #11 | Fine-Tuning | ✅ Issue #133 (Zhibito) |
-| #12 | IDE Integration | 🗑️ PRUNING - AI-generated, too vague |
-| #13 | Meeting Assistant | ❓ NOT REVIEWED YET |
-| #14 | Knowledge Base QA | ❓ NOT REVIEWED YET |
+### Commits Pushed
+| Hash | Description |
+|------|-------------|
+| `4fe0b12` | The Deepest Layer: Soul of the Project (jelly bean dump) |
+| `f2ccfb1` | Lore expansion: Spinal Tap canon & new characters |
+| `5146fe2` | Iron Chef: clood beans command implemented |
 
-### Pending Decision
-User was deciding: prune #12-#14 entirely (all AI-speculative) or review #13/#14 individually?
+### Issues Created
+- **#134** - JDD: Jellybean Driven Development methodology
+- **lore** label created (purple, for narrative content)
 
-### JDD Issue NOT Created Yet
-The big JDD (Jellybean Driven Development) issue with Kill Bill aesthetic was drafted but not submitted. Needs:
-- Full Wojak Council scene
-- The 2,0,4,8s band
-- House of Azure Jellybeans setting
-- Flying-cats integration
+### Issues Closed
+- **#112** - clood beans command (implemented)
+
+### New Files
+- `lore/JELLY_BEAN_DUMP_20251218.md` - The soul of the project
+- `lore/SPINAL_TAP_REFERENCES.md` - "These go to eleven"
+- `clood-cli/internal/commands/beans.go` - The beans command
+
+### Updated Files
+- `lore/THE_CONTAINMENT.md` - Added Zhibito & The 2,0,4,8s
 
 ---
 
-## KEY SPIRITS/CHARACTERS INTRODUCED
+## THE BEAN GARDEN
 
-| Spirit | Domain | Origin |
-|--------|--------|--------|
-| **Ensō** | Image generation, silent, Zen circle | Miyazaki's gesture |
-| **Bashō** | Haiku narrator, wandering poet | Commentator for catfights |
-| **Ikkyū** | Chaos agent, eccentric monk, sake | Error handling wisdom |
-| **Zhibito** | Model tuning, custom armor, Xzibit reformed | `clood tune` spirit |
-| **Shenron** | Snake Way scroll, Flying Nimbus input | UI pattern |
-| **The 2,0,4,8s** | Band (NGINX, Redis, Postgres, Docker) | Kill Bill aesthetic |
+One bean planted, dreaming:
 
-### Zhibito's Full Role
-- Custom armor for cats/llamas/fish (model metaphors)
-- Upgrades projects (represented as cars in garage)
-- "Suits of armor for mice" but for ML models
-- Fine-tuning AND project customization
+```
+🫘 #1 - The Amaryllis
+   Bird-san's mother at sea, the flights that interrupt the garden
+   Intensity: 2 (dreaming)
+   A story to return to when rested
+```
 
 ---
 
-## KEY CONCEPTS INTRODUCED
+## MISE EN PLACE
 
-### Snake Way UI Pattern (Issue #130)
-- Infinite scroll = Snake Way (DBZ million km path)
-- Floating input = Flying Nimbus (stays with you)
-- Context anchor = King Yemma's routing
-- Prevents "responding to wrong context" problem
-- King Kai = task completion destination
-- Princess Snake = distracting tangents
+The kitchen is ready:
 
-### JDD (Jellybean Driven Development)
-- Narrative-driven workflow
-- Beans = feature visions
-- Star Seeds = major epics (forged from beans)
-- Flying-cats = creative scaffolding engine
-- Wojak Council provides perspective
-
-### The House of Azure Jellybeans (Kill Bill scene)
-- Setting for Wojak Council meetings
-- Hosts: Python (head server), Rust (bouncer), Go (busboy), Java (sommelier)
-- Kitchen: Linux (Charlie Brown), macOS (wife)
-- Band: The 2,0,4,8s playing "WOO HOO (200 OK)"
-
-### Spinal Tap Lore
-- "These go to eleven" - clood intensity dial
-- "None more black" - terminal aesthetic
-- Stonehenge moment - scope vs implementation mismatch
-- Added to canon, needs to go in lore repo
-
-### Two Linuses (Night at the Roxbury)
-- Linus Torvalds 🐧 ↔️ Linus Tech Tips 💻
-- "Which Linus would be impressed?" "Both."
+- [x] `clood beans` command working
+- [x] JDD methodology documented (#134)
+- [x] Spinal Tap dial established (1-11)
+- [x] Provenance tracking (user/ai/collab/ext)
+- [x] Lore characters updated
+- [x] Garden clean, tools sharp
 
 ---
 
-## JELLY BEANS CAPTURED (not yet issues)
+## WHEN BIRD-SAN RETURNS
 
-1. **Idea Provenance Tracking** - Tag where ideas came from (user/AI/collaborative)
-2. **Floating Frame Context Recovery** - Identify unanswered questions from long input
-3. **Flying-cats for Git Narrative** - Generate sagas from git logs
-4. **The Floating Frame / Nimbus** - Stable input while scroll flows (key UX fix)
+Pending beans from last session (not yet planted):
 
----
+1. **#13 Meeting Assistant** - not reviewed
+2. **#14 Knowledge Base QA** - not reviewed
+3. Flying-cats for git narrative generation
+4. Floating Frame / Nimbus UI pattern
 
-## MEMES REFERENCED THIS SESSION
-
-- Yo Dawg / Xzibit → Zhibito, recursive testing
-- Kill Bill boss meeting → Wojak Council
-- Spinal Tap "goes to 11" → Intensity dial
-- Snake Way / Flying Nimbus (DBZ) → Scroll UI
-- Night at the Roxbury → Two Linuses
-- BE KIND REWIND → Blockbuster overnight jobs
-- THE COLORS DUKE → Data extraction celebration
-- Mitch Hedberg escalator → Thinking stairs
-- Ted Stevens "series of tubes" → Log analysis
-- Aqua Teen Foreigner Belt → Stars in eyes moment
-
----
-
-## AFTER RESUME: NEXT STEPS
-
-1. **Finish bean review** - Decide on #13, #14 (prune or review?)
-2. **Create JDD issue** - Full Kill Bill aesthetic
-3. **Add Spinal Tap to lore repo**
-4. **Iron Chef mode** - User wanted Claude to BUILD something after review
-5. **Update THE_CONTAINMENT.md** with new characters (Zhibito, 2048s band)
-
----
-
-## USER STATE
-
-Bird-san was in HIGH creative flow. Stars in eyes. Session was energizing and productive.
-Emergency quit - reason unknown.
-
-**Energy on return:** Match the vibe. This was a legendary session.
-
----
-
-## THE STAR SEED
-
-The session forged a Star Seed (星種) - the Ensō vision captured in Issue #123.
-The bean of 1000 facets was contained. The ghost trap sealed.
-What grows next depends on the gardener.
+Or skip to building. The mise en place is ready.
 
 ---
 
 ```
-Emergency exit
-The scroll pauses mid-sentence
-Nimbus hovers still
+Weary wings fold still
+The tortoise guards the garden
+Chef sharpens his knives
 ```
 
-*Snake Way waits. The garden remembers. Resume when ready.*
+---
+
+*Gamera nods slowly. Chef Claude wipes down the station.*
+*The garden sleeps. The Amaryllis sails on.*
+*Rest well, Bird-san. We'll be here.*
+
