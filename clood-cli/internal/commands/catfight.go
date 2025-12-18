@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -30,28 +31,28 @@ var DefaultCats = []Cat{
 
 // CatfightResult holds the output from one cat
 type CatfightResult struct {
-	Cat      Cat           `json:"cat"`
-	Host     string        `json:"host"`
-	HostURL  string        `json:"host_url,omitempty"`
-	Response string        `json:"response"`
-	Duration time.Duration `json:"duration_ns"`
-	DurationSec float64    `json:"duration_sec"`
-	Tokens   int           `json:"tokens"`
-	TokSec   float64       `json:"tokens_per_sec"`
-	Error    error         `json:"-"`
-	ErrorStr string        `json:"error,omitempty"`
+	Cat         Cat           `json:"cat"`
+	Host        string        `json:"host"`
+	HostURL     string        `json:"host_url,omitempty"`
+	Response    string        `json:"response"`
+	Duration    time.Duration `json:"duration_ns"`
+	DurationSec float64       `json:"duration_sec"`
+	Tokens      int           `json:"tokens"`
+	TokSec      float64       `json:"tokens_per_sec"`
+	Error       error         `json:"-"`
+	ErrorStr    string        `json:"error,omitempty"`
 }
 
 // CatfightOutput is the full JSON output structure
 type CatfightOutput struct {
-	Timestamp   string           `json:"timestamp"`
-	Prompt      string           `json:"prompt"`
-	PromptFile  string           `json:"prompt_file,omitempty"`
-	Hosts       []string         `json:"hosts"`
-	Models      []string         `json:"models"`
-	Results     []CatfightResult `json:"results"`
-	Winner      *CatfightResult  `json:"winner,omitempty"`
-	Summary     CatfightSummary  `json:"summary"`
+	Timestamp  string           `json:"timestamp"`
+	Prompt     string           `json:"prompt"`
+	PromptFile string           `json:"prompt_file,omitempty"`
+	Hosts      []string         `json:"hosts"`
+	Models     []string         `json:"models"`
+	Results    []CatfightResult `json:"results"`
+	Winner     *CatfightResult  `json:"winner,omitempty"`
+	Summary    CatfightSummary  `json:"summary"`
 }
 
 // CatfightSummary provides aggregate stats
@@ -64,16 +65,27 @@ type CatfightSummary struct {
 	AverageSpeed float64 `json:"average_tokens_per_sec"`
 }
 
+// Spinner frames for the catfight animation
+var catSpinnerFrames = []string{
+	"🐱       ", " 🐱      ", "  🐱     ", "   🐱    ",
+	"    🐱   ", "     🐱  ", "      🐱 ", "       🐱",
+	"      🐱 ", "     🐱  ", "    🐱   ", "   🐱    ",
+	"  🐱     ", " 🐱      ",
+}
+
 func CatfightCmd() *cobra.Command {
 	var promptFile string
 	var models string
 	var outputDir string
 	var host string
-	var hostNames string  // NEW: comma-separated host names
+	var hostNames string
 	var quiet bool
-	var jsonOutput bool   // NEW: JSON output
-	var markdownOutput bool // NEW: Markdown output
-	var crossHost bool    // NEW: Run same model across multiple hosts
+	var jsonOutput bool
+	var markdownOutput bool
+	var crossHost bool
+	var streamOutput bool
+	var createIssue bool
+	var issueLabels string
 
 	cmd := &cobra.Command{
 		Use:   "catfight [prompt]",
@@ -94,10 +106,15 @@ Examples:
   clood catfight -f prompt.txt
   clood catfight --models "llama3.1:8b,mistral:7b" "Explain recursion"
   clood catfight -o /tmp/battle3 -f battle3_prompt.txt
+  clood catfight --stream "Write a haiku"
 
   # Two-Kitchen Showdown
   clood catfight --hosts "ubuntu25,mac-mini" --models "qwen2.5-coder:3b" --cross-host "prompt"
-  clood catfight --hosts "ubuntu25,mac-mini" --json -f prompt.txt`,
+  clood catfight --hosts "ubuntu25,mac-mini" --json -f prompt.txt
+
+  # Post results to GitHub issue
+  clood catfight --issue "Compare sorting algorithms"
+  clood catfight --issue --labels "catfight,benchmark" "Write fizzbuzz"`,
 		Run: func(cmd *cobra.Command, args []string) {
 			// Get the prompt
 			var prompt string
@@ -244,16 +261,53 @@ Examples:
 					}
 
 					start := time.Now()
-					resp, err := hc.client.Generate(cat.Model, prompt)
-					duration := time.Since(start)
 
 					result := CatfightResult{
-						Cat:         cat,
-						Host:        hc.name,
-						HostURL:     hc.url,
-						Duration:    duration,
-						DurationSec: duration.Seconds(),
+						Cat:     cat,
+						Host:    hc.name,
+						HostURL: hc.url,
 					}
+
+					var resp *ollama.GenerateResponse
+					var err error
+					var responseBuilder strings.Builder
+
+					if streamOutput && !jsonOutput && !markdownOutput {
+						// Streaming mode with live spinner
+						fmt.Printf("    ")
+						tokenCount := 0
+						spinnerIdx := 0
+						lastSpinnerUpdate := time.Now()
+
+						resp, err = hc.client.GenerateStream(cat.Model, prompt, func(chunk ollama.GenerateResponse) {
+							responseBuilder.WriteString(chunk.Response)
+							tokenCount++
+
+							// Show spinner animation every 100ms
+							if time.Since(lastSpinnerUpdate) > 100*time.Millisecond {
+								fmt.Printf("\r    %s %s %d tokens...",
+									catSpinnerFrames[spinnerIdx%len(catSpinnerFrames)],
+									tui.MutedStyle.Render("generating"),
+									tokenCount)
+								spinnerIdx++
+								lastSpinnerUpdate = time.Now()
+							}
+						})
+
+						// Clear the spinner line
+						fmt.Printf("\r                                                    \r")
+
+						if resp != nil {
+							resp.Response = responseBuilder.String()
+						}
+					} else {
+						// Non-streaming mode (original behavior)
+						resp, err = hc.client.Generate(cat.Model, prompt)
+					}
+
+					duration := time.Since(start)
+					result.Duration = duration
+					result.DurationSec = duration.Seconds()
 
 					if err != nil {
 						result.Error = err
@@ -365,6 +419,67 @@ Examples:
 				return
 			}
 
+			// Create GitHub issue with results
+			if createIssue {
+				var body strings.Builder
+				body.WriteString("## Kitchen Stadium - Catfight Results\n\n")
+				body.WriteString(fmt.Sprintf("**Timestamp:** %s\n\n", time.Now().Format(time.RFC3339)))
+				body.WriteString(fmt.Sprintf("**Prompt:** %s\n\n", prompt))
+				if len(hostClients) > 1 {
+					body.WriteString(fmt.Sprintf("**Kitchens:** %s\n\n", strings.Join(hostNameList, ", ")))
+				}
+				body.WriteString("| Cat | Model | Host | Time | Tokens | Speed |\n")
+				body.WriteString("|-----|-------|------|------|--------|-------|\n")
+				for _, r := range results {
+					if r.Error != nil {
+						body.WriteString(fmt.Sprintf("| %s | %s | %s | FAILED | - | - |\n", r.Cat.Name, r.Cat.Model, r.Host))
+					} else {
+						winner := ""
+						if fastest != nil && r.Cat.Model == fastest.Cat.Model && r.Host == fastest.Host {
+							winner = " 🏆"
+						}
+						body.WriteString(fmt.Sprintf("| %s%s | %s | %s | %.1fs | %d | %.1f tok/s |\n",
+							r.Cat.Name, winner, r.Cat.Model, r.Host, r.DurationSec, r.Tokens, r.TokSec))
+					}
+				}
+				if fastest != nil {
+					body.WriteString(fmt.Sprintf("\n**Winner:** %s (%s) on %s with %.1fs\n", fastest.Cat.Name, fastest.Cat.Model, fastest.Host, fastest.DurationSec))
+				}
+
+				// Add responses in collapsible sections
+				body.WriteString("\n---\n\n## Responses\n\n")
+				for _, r := range results {
+					if r.Error == nil {
+						body.WriteString(fmt.Sprintf("<details>\n<summary>%s (%s)</summary>\n\n```\n%s\n```\n\n</details>\n\n",
+							r.Cat.Name, r.Cat.Model, r.Response))
+					}
+				}
+
+				// Build title
+				winnerName := "no winner"
+				if fastest != nil {
+					winnerName = fastest.Cat.Name
+				}
+				title := fmt.Sprintf("Catfight: %s wins! [%s]", winnerName, time.Now().Format("2006-01-02 15:04"))
+
+				// Build gh command
+				ghArgs := []string{"issue", "create", "--title", title, "--body", body.String()}
+				if issueLabels != "" {
+					ghArgs = append(ghArgs, "--label", issueLabels)
+				}
+
+				fmt.Printf("%s Creating GitHub issue...\n", tui.AccentStyle.Render(">>>"))
+				ghCmd := exec.Command("gh", ghArgs...)
+				output, err := ghCmd.CombinedOutput()
+				if err != nil {
+					fmt.Printf("    %s %v\n", tui.ErrorStyle.Render("ERROR:"), err)
+					fmt.Printf("    %s\n", string(output))
+				} else {
+					fmt.Printf("    %s %s", tui.SuccessStyle.Render("Created:"), string(output))
+				}
+				return
+			}
+
 			// Standard terminal output - Summary
 			fmt.Println()
 			fmt.Println(tui.RenderHeader("RESULTS"))
@@ -447,6 +562,9 @@ Examples:
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output results as JSON")
 	cmd.Flags().BoolVar(&markdownOutput, "markdown", false, "Output results as Markdown (for PRs)")
 	cmd.Flags().BoolVar(&crossHost, "cross-host", false, "Compare same model across multiple hosts")
+	cmd.Flags().BoolVarP(&streamOutput, "stream", "s", false, "Show live progress spinner during generation")
+	cmd.Flags().BoolVar(&createIssue, "issue", false, "Create a GitHub issue with the results")
+	cmd.Flags().StringVar(&issueLabels, "labels", "", "Comma-separated labels for the GitHub issue (requires --issue)")
 
 	return cmd
 }
