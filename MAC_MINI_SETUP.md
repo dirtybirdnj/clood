@@ -56,7 +56,7 @@ lsof -i :11434
 
 ```bash
 # From ubuntu25 or laptop:
-curl http://192.168.4.1:11434/api/tags
+curl http://192.168.4.41:11434/api/tags
 ```
 
 ## Garden Config
@@ -65,7 +65,7 @@ Once working, mac-mini is configured in `~/.config/clood/config.yaml`:
 ```yaml
 hosts:
   - name: mac-mini
-    url: http://192.168.4.1:11434
+    url: http://192.168.4.41:11434
     priority: 2
     enabled: true
 ```
@@ -79,7 +79,7 @@ hosts:
     |                   |
 [Iron Keep]        [Sentinel]
 ubuntu25            mac-mini
-192.168.4.64       192.168.4.1
+192.168.4.64       192.168.4.41
 10 models           ? models
     |                   |
     └─────────┬─────────┘
