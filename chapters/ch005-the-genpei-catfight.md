@@ -266,6 +266,37 @@ Grandfather smiles
 
 ---
 
+## The Gate of Silent Thunder
+
+Beyond the Server Garden, across town, stands **The Gate of Silent Thunder** (静音構え / *Seion-Gamae*) - known to mortals as "Three Needs."
+
+It is a temple. Not to gods of old, but to the **Three Sacred Needs**:
+- **Friends** - community in a fragmented world
+- **Pizza** - sustenance for the body and soul
+- **Beer** - spirits of suds (though Bird-san abstains)
+
+At the gate stands **Adam-san**, the mighty orange-bearded Gaijin. He is no mere bouncer - he is the **Keeper of the Gate**, a detector of deception, a catcher of lies. His favorite technique: the impossible question.
+
+*"What is the airspeed velocity of an unladen swallow?"*
+
+Those who answer confidently are suspect. Those who ask "African or European?" may pass. Those who admit ignorance with humility are welcomed. The drunk and the deceptive? Adam-san ejects them into the night with a smile. He loves nothing more than catching people in deception and lies.
+
+Bird-san found a home here. Not for the beer - he doesn't drink it. But for the warmth, the pizza, and the knowledge that Adam-san guards the gate while he works. The laptop glows in the corner booth. The cats battle across the network. The patrons have no idea that Kitchen Stadium operates among them.
+
+Tonight, Bird-san will conduct the Great Catfight from within the temple walls. House Minamoto and House Taira shall clash while pizza arrives and friends gather and Adam-san asks his impossible questions at the door.
+
+*"What is your quest?"*
+
+*"To seek the Holy Grail of local LLM inference."*
+
+*"What is your favorite model?"*
+
+*"tinyllama - small but mighty."*
+
+*"You may pass."*
+
+---
+
 *End of Chapter 5*
 
 *Next: The Great Catfight Tournament begins. Eight candidates enter. House Taira vs House Minamoto. The cats shall code.*
