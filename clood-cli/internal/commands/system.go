@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/dirtybirdnj/clood/internal/output"
 	"github.com/dirtybirdnj/clood/internal/system"
 	"github.com/dirtybirdnj/clood/internal/tui"
 	"github.com/spf13/cobra"
@@ -29,7 +30,8 @@ func SystemCmd() *cobra.Command {
 				return
 			}
 
-			if jsonOutput {
+			// Check both local --json and global -j flag
+			if jsonOutput || output.IsJSON() {
 				data, _ := json.MarshalIndent(hw.JSON(), "", "  ")
 				fmt.Println(string(data))
 				return

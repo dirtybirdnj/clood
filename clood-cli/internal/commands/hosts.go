@@ -8,6 +8,7 @@ import (
 
 	"github.com/dirtybirdnj/clood/internal/config"
 	"github.com/dirtybirdnj/clood/internal/hosts"
+	"github.com/dirtybirdnj/clood/internal/output"
 	"github.com/dirtybirdnj/clood/internal/tui"
 	"github.com/spf13/cobra"
 )
@@ -34,15 +35,19 @@ Use --garden for ASCII art visualization of the Server Garden topology.`,
 			mgr := hosts.NewManager()
 			mgr.AddHosts(cfg.Hosts)
 
-			fmt.Println(tui.MutedStyle.Render("Checking hosts..."))
-			fmt.Println()
+			// Only show progress message in human mode
+			if !jsonOutput && !output.IsJSON() {
+				fmt.Println(tui.MutedStyle.Render("Checking hosts..."))
+				fmt.Println()
+			}
 
 			statuses := mgr.CheckAllHosts()
 
 			// Detect if localhost is same as a named host
 			localAlias := detectLocalAlias(statuses)
 
-			if jsonOutput {
+			// Check both local --json flag and global -j flag
+			if jsonOutput || output.IsJSON() {
 				if gardenView {
 					printGardenJSON(statuses, verbose)
 				} else {

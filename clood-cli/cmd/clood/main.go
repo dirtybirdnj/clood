@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
+	"os/exec"
+	"time"
 
 	"github.com/dirtybirdnj/clood/internal/commands"
-	"github.com/dirtybirdnj/clood/internal/config"
-	"github.com/dirtybirdnj/clood/internal/hosts"
+	"github.com/dirtybirdnj/clood/internal/output"
 	"github.com/dirtybirdnj/clood/internal/tui"
 	"github.com/spf13/cobra"
 )
@@ -19,57 +21,22 @@ func main() {
 		Short: "Lightning in a Bottle - Local LLM Infrastructure",
 		Long:  tui.RenderBanner() + "\n\nInfrastructure layer for local LLM workflows with multi-host routing.",
 		Run: func(cmd *cobra.Command, args []string) {
-			// No args = show banner and quick status
-			fmt.Println(tui.RenderBanner())
-			fmt.Println()
-
-			// Quick status check
-			cfg, err := config.Load()
-			if err != nil {
-				fmt.Println(tui.MutedStyle.Render("Config: not loaded"))
-			} else {
-				fmt.Println(tui.MutedStyle.Render(fmt.Sprintf("Config: %s", config.ConfigPath())))
-
-				// Quick host check
-				mgr := hosts.NewManager()
-				mgr.AddHosts(cfg.Hosts)
-
-				online := 0
-				for _, h := range cfg.Hosts {
-					status := mgr.CheckHost(h)
-					if status.Online {
-						online++
-					}
-				}
-
-				if online > 0 {
-					fmt.Println(tui.SuccessStyle.Render(fmt.Sprintf("Hosts: %d/%d online", online, len(cfg.Hosts))))
-				} else {
-					fmt.Println(tui.ErrorStyle.Render(fmt.Sprintf("Hosts: 0/%d online", len(cfg.Hosts))))
-				}
-
-				fmt.Println(tui.MutedStyle.Render(fmt.Sprintf("Tiers: fast=%s, deep=%s",
-					cfg.Tiers.Fast.Model,
-					cfg.Tiers.Deep.Model)))
+			// If not a TTY (piped/scripted), show help for MCP discovery
+			// If TTY (human), show zen greeting
+			if !isTerminal() {
+				cmd.Help()
+				return
 			}
-
-			fmt.Println()
-			fmt.Println(tui.MutedStyle.Render("Commands:"))
-			fmt.Println(tui.MutedStyle.Render("  clood system     Hardware analysis"))
-			fmt.Println(tui.MutedStyle.Render("  clood hosts      List Ollama hosts"))
-			fmt.Println(tui.MutedStyle.Render("  clood models     List available models"))
-			fmt.Println(tui.MutedStyle.Render("  clood bench      Benchmark a model"))
-			fmt.Println(tui.MutedStyle.Render("  clood ask        Query with auto-routing"))
-			fmt.Println(tui.MutedStyle.Render("  clood catfight   Battle models head-to-head"))
-			fmt.Println(tui.MutedStyle.Render("  clood health     Full health check"))
-			fmt.Println()
-			fmt.Println(tui.MutedStyle.Render("Use 'clood --help' for more information"))
+			showZenGreeting()
 		},
 	}
 
 	// Version flag
 	rootCmd.Version = version
 	rootCmd.SetVersionTemplate(tui.RenderBanner() + "\nVersion: {{.Version}}\n")
+
+	// Global --json flag for machine-readable output (MCP/agent friendly)
+	rootCmd.PersistentFlags().BoolVarP(&output.JSONMode, "json", "j", false, "Output in JSON format (for agents/MCP)")
 
 	// Add subcommands - infrastructure focused
 	rootCmd.AddCommand(commands.SystemCmd())
@@ -116,23 +83,73 @@ func initCmd() *cobra.Command {
 		Short: "Initialize clood configuration",
 		Long:  "Creates the default configuration file at ~/.config/clood/config.yaml",
 		Run: func(cmd *cobra.Command, args []string) {
-			path := config.ConfigPath()
-
-			if config.Exists() {
-				fmt.Printf("Config already exists at %s\n", path)
-				fmt.Println(tui.MutedStyle.Render("Use 'clood config' to edit"))
-				return
-			}
-
-			if err := config.Init(); err != nil {
-				fmt.Println(tui.ErrorStyle.Render("Error creating config: " + err.Error()))
-				return
-			}
-
-			fmt.Println(tui.SuccessStyle.Render("Created config at " + path))
-			fmt.Println()
-			fmt.Println(tui.MutedStyle.Render("Edit this file to configure your Ollama hosts and model tiers."))
-			fmt.Println(tui.MutedStyle.Render("Run 'clood hosts' to verify connectivity."))
+			fmt.Println(tui.MutedStyle.Render("Run 'clood --help' for configuration instructions."))
 		},
 	}
+}
+
+// Haikus for the zen greeting
+var zenHaikus = []string{
+	`Lightning in bottle—
+Local models wait in mist,
+One command away.`,
+
+	`Server garden grows,
+Silicon leaves catch the prompt,
+Tokens bloom like spring.`,
+
+	`The catfight begins,
+Models clash in Kitchen Stadium—
+Truth emerges whole.`,
+
+	`Ollama whispers,
+Across the network it flows,
+Wisdom finds its host.`,
+
+	`Context is the key,
+Without it models are blind—
+Feed them what they need.`,
+
+	`Bonsai patience here,
+Prune your prompts with careful thought,
+Less becomes much more.`,
+
+	`Lost in the sauce now,
+Too strange to live, weird to die—
+The peak holds us here.`,
+
+	`Three hosts stand ready,
+GPU heat shimmers in wait,
+The query takes flight.`,
+}
+
+// isTerminal checks if stdout is a terminal (TTY)
+func isTerminal() bool {
+	fileInfo, _ := os.Stdout.Stat()
+	return (fileInfo.Mode() & os.ModeCharDevice) != 0
+}
+
+func showZenGreeting() {
+	// Seed random
+	rand.Seed(time.Now().UnixNano())
+
+	// Pick a random haiku
+	haiku := zenHaikus[rand.Intn(len(zenHaikus))]
+
+	// Show bonsai with message (tiny size for zen)
+	cbCmd := exec.Command("cbonsai", "-p", "-L", "12", "-M", "2")
+	bonsaiOutput, err := cbCmd.CombinedOutput()
+	if err == nil {
+		fmt.Println()
+		fmt.Print(string(bonsaiOutput))
+	}
+
+	// Show haiku
+	fmt.Println()
+	fmt.Println(tui.MutedStyle.Render(haiku))
+	fmt.Println()
+
+	// Docs hint
+	fmt.Println(tui.MutedStyle.Render("  clood --help    Full documentation"))
+	fmt.Println()
 }

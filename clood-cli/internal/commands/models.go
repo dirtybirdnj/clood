@@ -7,6 +7,7 @@ import (
 
 	"github.com/dirtybirdnj/clood/internal/config"
 	"github.com/dirtybirdnj/clood/internal/hosts"
+	"github.com/dirtybirdnj/clood/internal/output"
 	"github.com/dirtybirdnj/clood/internal/tui"
 	"github.com/spf13/cobra"
 )
@@ -30,8 +31,14 @@ Shows which hosts have each model and model details.`,
 			mgr := hosts.NewManager()
 			mgr.AddHosts(cfg.Hosts)
 
-			fmt.Println(tui.MutedStyle.Render("Scanning hosts for models..."))
-			fmt.Println()
+			// Check both local --json and global -j flag
+			useJSON := jsonOutput || output.IsJSON()
+
+			// Only show progress in human mode
+			if !useJSON {
+				fmt.Println(tui.MutedStyle.Render("Scanning hosts for models..."))
+				fmt.Println()
+			}
 
 			if hostFilter != "" {
 				// Show models for specific host
@@ -45,14 +52,14 @@ Shows which hosts have each model and model details.`,
 					fmt.Println(tui.ErrorStyle.Render("Host is offline: " + hostFilter))
 					return
 				}
-				printHostModels(status, jsonOutput)
+				printHostModels(status, useJSON)
 				return
 			}
 
 			// Show all models across all hosts
 			allModels := mgr.GetAllModels()
 
-			if jsonOutput {
+			if useJSON {
 				data, _ := json.MarshalIndent(allModels, "", "  ")
 				fmt.Println(string(data))
 				return
