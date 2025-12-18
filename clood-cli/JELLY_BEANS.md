@@ -143,4 +143,144 @@ Could be:
 
 ---
 
+## Bean #6: Infodump Detection & Session Hygiene
+
+**Status:** Planted
+**Session:** The Bar Session (Dec 17, 2025)
+
+### The Problem
+
+User does an infodump (Church Street Oregon Trail, drunk-simulator specs, Adam's VRAM). This precious content:
+- Gets buried in context as session continues
+- May be lost if session crashes/clears
+- Consumes tokens that could be used for work
+
+### The Solution
+
+**1. Infodump Detection**
+```
+User message analysis:
+- Length > N tokens (threshold)
+- Contains lists, specs, names, URLs
+- Novel content (not referencing existing context)
+- Multiple distinct topics
+
+→ Trigger: "Infodump detected"
+```
+
+**2. Preservation Prompt**
+```
+🧠 Infodump detected! This looks like valuable seed info.
+
+Suggested actions:
+  [1] Create GitHub issue to preserve
+  [2] Save to session context file
+  [3] Add to project documentation
+  [4] Continue (I'll remember for this session)
+
+What would you like to do?
+```
+
+**3. Token Load Indicator**
+```
+┌─────────────────────────────────────────┐
+│ Session: 47,832 / 128,000 tokens [████░░░░░░] 37%
+│ Recommended: Clear at 80% for best performance
+└─────────────────────────────────────────┘
+```
+
+**4. Hardware-Aware Thresholds**
+
+Use `clood system` data to set limits:
+```yaml
+# Auto-calculated based on hardware
+thresholds:
+  # 32GB M4 = larger context OK
+  high_memory:
+    warn_at: 100000 tokens
+    recommend_clear: 120000 tokens
+
+  # 8GB laptop = tighter limits
+  low_memory:
+    warn_at: 32000 tokens
+    recommend_clear: 48000 tokens
+```
+
+**5. Session Dump Command**
+```bash
+clood session dump --format issue --repo dirtybirdnj/church-street
+# Creates issue with session highlights
+
+clood session dump --format markdown > SESSION_2025_12_17.md
+# Local preservation
+```
+
+### UI Brainstorm
+
+**Option A: Status Bar (crush integration)**
+```
+┌────────────────────────────────────────────────────┐
+│ 🟢 clood │ 3 hosts │ ████████░░ 78% tokens │ 12:47 │
+└────────────────────────────────────────────────────┘
+```
+
+**Option B: Periodic Reminder**
+```
+───────────────────────────────────────────
+💡 Session at 75% capacity. Consider:
+   /save - preserve important context
+   /clear - fresh start with summary
+───────────────────────────────────────────
+```
+
+**Option C: Smart Auto-Summary**
+At threshold, automatically:
+1. Generate session summary
+2. Extract key decisions/info
+3. Create handoff document
+4. Offer to clear with summary as new context
+
+### The Philosophy
+
+> "The best camera is the one in your pocket"
+
+The best context is the one that's preserved. Don't let infodumps disappear into the void. Detect them, honor them, save them.
+
+### Implementation Notes
+
+- Track token count per message
+- Heuristics for "infodump" detection
+- Integration with `clood session` commands
+- crush UI for visual feedback
+- Hardware detection for smart thresholds
+
+---
+
+## Bean #7: Token Load Visualization
+
+**Status:** Planted
+**Session:** The Bar Session (Dec 17, 2025)
+
+Visual representation of session token usage for crush/CLI.
+
+**Concepts:**
+```
+Minimal:     [████████░░] 78%
+
+Detailed:    Tokens: 89,432 / 128,000
+             ████████████████░░░░ 70%
+             ⚠️ Recommend clearing at 100k
+
+Contextual:  📝 User: 23,400 (26%)
+             🤖 Assistant: 58,200 (65%)
+             📎 System: 7,832 (9%)
+```
+
+**Integration points:**
+- crush status bar
+- clood session show
+- MCP tool for agents to self-monitor
+
+---
+
 *Jelly beans planted in the server garden, waiting to bloom.*
