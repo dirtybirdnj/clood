@@ -1,188 +1,192 @@
-# Session Handoff - 2025-12-17 → 2025-12-18 (The All-Nighter)
-
-## FOR UBUNTU25: START HERE
-
-Bird-san transfers from laptop to Iron Keep. The catfight continues.
+# LAST SESSION - Emergency Context Dump
+## Date: 2025-12-18
+## Session: The Containment / Bean Review Ritual
 
 ---
 
-## IMMEDIATE OBJECTIVE
+## WHAT WE ACCOMPLISHED
 
-**Run Battle 3 on ubuntu25 directly.**
+### Issues Created This Session (27+ issues!)
+| # | Title | Size |
+|---|-------|------|
+| 106 | Expand MCP tool coverage | L |
+| 107 | Complete --json flag for all commands | M |
+| 108 | Implement golden path system prompts | M |
+| 109 | Document router/tier selection logic | S |
+| 110 | Add integration tests for CLI commands | L |
+| 111 | Expose Stable Diffusion functionality | M |
+| 112 | Implement clood beans command | S |
+| 113 | Create troubleshooting guide | S |
+| 114 | Create Homebrew formula | M |
+| 115 | Document flying-cats command | XS |
+| 116 | Document watch TUI controls | XS |
+| 117 | Create multi-machine setup guide | M |
+| 118 | GitHub Actions self-hosted runners | M |
+| 119 | Setup CI/CD pipeline | S |
+| 120 | Complete Focus Guardian integration | S |
+| 121 | clood thunderdome command | L |
+| 123 | Ensō: The Spirit of Image Generation | XL |
+| 124 | Expandable Scroll Sections | M |
+| 125 | clood commit-msg | S |
+| 126 | clood generate-tests | M |
+| 127 | clood review-pr | M |
+| 128 | clood diagnose (log analysis) | M |
+| 129 | clood document (thinking stairs) | M |
+| 130 | Shenron/Snake Way UI Pattern | L |
+| 131 | clood extract (data extraction) | M |
+| 132 | clood batch (overnight/blockbuster) | L |
+| 133 | clood tune (Zhibito's garage) | L |
 
-The goal: Bird-san at the ubuntu25 keyboard, running catfights locally, seeing results in real-time. No laptop needed. Prove Option -1 works.
+### Lore Created
+- `lore/THE_CONTAINMENT.md` - Full chapter committed and pushed (commit d00bff6)
+
+### Code Changes Pushed
+- `scripts/triage_report.py` - Scope, consensus, quality, label-sync reports
+- `scripts/issue_catfight.sh` - Added --fast flag for quick re-triage
 
 ---
 
-## What Was Accomplished (Laptop Session)
+## WHERE WE LEFT OFF
 
-1. **Battle 1: HTTP Fetcher** - Persian won (deepseek-coder:6.7b)
-2. **Battle 2: Recipe Parser** - Persian won again (back-to-back)
-3. **Deep analysis of strata/chimborazo** - Gap analysis complete
-4. **8 jelly beans dropped** (#78-85)
-5. **Chapter 4 written** - The Chairman's Blade
+### Bean Review Ritual - Status
+| Bean | Topic | Status |
+|------|-------|--------|
+| #1 | Embeddings/Semantic Search | ✅ Elevated to pipeline foundation |
+| #2 | Vision Models | ✅ Merged into Ensō critique loop |
+| #3 | Voice/Transcription | ⏭️ PRUNED (bottom of backlog) |
+| #4 | Commit Message Gen | ✅ Issue #125 |
+| #5 | Test Generation | ✅ Issue #126 |
+| #6 | PR Review Bot | ✅ Issue #127 |
+| #7 | Log Analysis | ✅ Issue #128 |
+| #8 | Documentation Gen | ✅ Issue #129 (thinking stairs) |
+| #9 | Data Extraction | ✅ Issue #131 |
+| #10 | Overnight Batch | ✅ Issue #132 (blockbuster) |
+| #11 | Fine-Tuning | ✅ Issue #133 (Zhibito) |
+| #12 | IDE Integration | 🗑️ PRUNING - AI-generated, too vague |
+| #13 | Meeting Assistant | ❓ NOT REVIEWED YET |
+| #14 | Knowledge Base QA | ❓ NOT REVIEWED YET |
+
+### Pending Decision
+User was deciding: prune #12-#14 entirely (all AI-speculative) or review #13/#14 individually?
+
+### JDD Issue NOT Created Yet
+The big JDD (Jellybean Driven Development) issue with Kill Bill aesthetic was drafted but not submitted. Needs:
+- Full Wojak Council scene
+- The 2,0,4,8s band
+- House of Azure Jellybeans setting
+- Flying-cats integration
 
 ---
 
-## Battle 3: Geometry Clip/Subtract
+## KEY SPIRITS/CHARACTERS INTRODUCED
 
-**The Challenge:** Implement geometry operations for chimborazo
+| Spirit | Domain | Origin |
+|--------|--------|--------|
+| **Ensō** | Image generation, silent, Zen circle | Miyazaki's gesture |
+| **Bashō** | Haiku narrator, wandering poet | Commentator for catfights |
+| **Ikkyū** | Chaos agent, eccentric monk, sake | Error handling wisdom |
+| **Zhibito** | Model tuning, custom armor, Xzibit reformed | `clood tune` spirit |
+| **Shenron** | Snake Way scroll, Flying Nimbus input | UI pattern |
+| **The 2,0,4,8s** | Band (NGINX, Redis, Postgres, Docker) | Kill Bill aesthetic |
 
-**Files to create:**
-- `internal/geometry/clip.go`
-- `internal/geometry/subtract.go`
+### Zhibito's Full Role
+- Custom armor for cats/llamas/fish (model metaphors)
+- Upgrades projects (represented as cars in garage)
+- "Suits of armor for mice" but for ML models
+- Fine-tuning AND project customization
 
-**Use paulmach/orb library** - pure Go, no CGO
+---
 
-**The prompt (ready to use):**
+## KEY CONCEPTS INTRODUCED
+
+### Snake Way UI Pattern (Issue #130)
+- Infinite scroll = Snake Way (DBZ million km path)
+- Floating input = Flying Nimbus (stays with you)
+- Context anchor = King Yemma's routing
+- Prevents "responding to wrong context" problem
+- King Kai = task completion destination
+- Princess Snake = distracting tangents
+
+### JDD (Jellybean Driven Development)
+- Narrative-driven workflow
+- Beans = feature visions
+- Star Seeds = major epics (forged from beans)
+- Flying-cats = creative scaffolding engine
+- Wojak Council provides perspective
+
+### The House of Azure Jellybeans (Kill Bill scene)
+- Setting for Wojak Council meetings
+- Hosts: Python (head server), Rust (bouncer), Go (busboy), Java (sommelier)
+- Kitchen: Linux (Charlie Brown), macOS (wife)
+- Band: The 2,0,4,8s playing "WOO HOO (200 OK)"
+
+### Spinal Tap Lore
+- "These go to eleven" - clood intensity dial
+- "None more black" - terminal aesthetic
+- Stonehenge moment - scope vs implementation mismatch
+- Added to canon, needs to go in lore repo
+
+### Two Linuses (Night at the Roxbury)
+- Linus Torvalds 🐧 ↔️ Linus Tech Tips 💻
+- "Which Linus would be impressed?" "Both."
+
+---
+
+## JELLY BEANS CAPTURED (not yet issues)
+
+1. **Idea Provenance Tracking** - Tag where ideas came from (user/AI/collaborative)
+2. **Floating Frame Context Recovery** - Identify unanswered questions from long input
+3. **Flying-cats for Git Narrative** - Generate sagas from git logs
+4. **The Floating Frame / Nimbus** - Stable input while scroll flows (key UX fix)
+
+---
+
+## MEMES REFERENCED THIS SESSION
+
+- Yo Dawg / Xzibit → Zhibito, recursive testing
+- Kill Bill boss meeting → Wojak Council
+- Spinal Tap "goes to 11" → Intensity dial
+- Snake Way / Flying Nimbus (DBZ) → Scroll UI
+- Night at the Roxbury → Two Linuses
+- BE KIND REWIND → Blockbuster overnight jobs
+- THE COLORS DUKE → Data extraction celebration
+- Mitch Hedberg escalator → Thinking stairs
+- Ted Stevens "series of tubes" → Log analysis
+- Aqua Teen Foreigner Belt → Stars in eyes moment
+
+---
+
+## AFTER RESUME: NEXT STEPS
+
+1. **Finish bean review** - Decide on #13, #14 (prune or review?)
+2. **Create JDD issue** - Full Kill Bill aesthetic
+3. **Add Spinal Tap to lore repo**
+4. **Iron Chef mode** - User wanted Claude to BUILD something after review
+5. **Update THE_CONTAINMENT.md** with new characters (Zhibito, 2048s band)
+
+---
+
+## USER STATE
+
+Bird-san was in HIGH creative flow. Stars in eyes. Session was energizing and productive.
+Emergency quit - reason unknown.
+
+**Energy on return:** Match the vibe. This was a legendary session.
+
+---
+
+## THE STAR SEED
+
+The session forged a Star Seed (星種) - the Ensō vision captured in Issue #123.
+The bean of 1000 facets was contained. The ghost trap sealed.
+What grows next depends on the gardener.
+
+---
+
 ```
-You are implementing Go code for Chimborazo. NAMING: Project=Chimborazo, CLI=chimbo, imports use github.com/dirtybirdnj/chimborazo. TASK: Implement internal/geometry/clip.go with: 1. Clip function taking geometry and bounds, returning clipped geometry 2. Use github.com/paulmach/orb for geometry types 3. Handle Polygon and MultiPolygon inputs 4. Return error if geometry is completely outside bounds. Use orb.Bound for bounds. Wrap errors with context. Output ONLY the complete clip.go file. No explanations.
+Emergency exit
+The scroll pauses mid-sentence
+Nimbus hovers still
 ```
 
----
-
-## How to Run Catfight on ubuntu25
-
-### Option 1: Direct curl (what we used tonight)
-```bash
-# Save prompt to file
-cat > /tmp/battle3_prompt.txt << 'EOF'
-[paste prompt here]
-EOF
-
-# Run each cat sequentially
-PROMPT=$(cat /tmp/battle3_prompt.txt)
-for MODEL in deepseek-coder:6.7b mistral:7b qwen2.5-coder:3b llama3.1:8b; do
-  echo "=== $MODEL ==="
-  time curl -s http://localhost:11434/api/generate \
-    -d "$(jq -n --arg m "$MODEL" --arg p "$PROMPT" '{model:$m,prompt:$p,stream:false}')" \
-    | jq -r '.response' | tee "/tmp/battle3_$MODEL.txt"
-  echo ""
-done
-```
-
-### Option 2: clood ask (if working)
-```bash
-clood ask --model deepseek-coder:6.7b "$(cat /tmp/battle3_prompt.txt)"
-```
-
-### Option 3: Future - clood catfight
-```bash
-# This doesn't exist yet - it's a jelly bean (#62)
-clood catfight --models persian,tabby,siamese /tmp/battle3_prompt.txt
-```
-
----
-
-## The Cats (Iron Keep Roster)
-
-**Use these (proven performers):**
-| Cat | Model | Role |
-|-----|-------|------|
-| Persian | deepseek-coder:6.7b | Champion - run first |
-| Tabby | mistral:7b | Redeemed - run second |
-| Siamese | qwen2.5-coder:3b | Fast - run third |
-
-**Skip these (MXC failures):**
-- Bengal (starcoder2:7b) - returns empty
-- Kitten (tinyllama) - hallucinates
-
-**Optional (inconsistent):**
-- Caracal (llama3.1:8b) - high volume, errors
-- House Lion (deepseek-r1:14b) - slow, errors
-
----
-
-## The Vision: Crush Experience
-
-**What Bird-san seeks:**
-1. Run catfight from ubuntu25 terminal
-2. See cats compete in real-time TUI
-3. Compare outputs side-by-side
-4. Iron Chef Claude synthesizes (later)
-5. Iterate: change models, refine prompts, go 12 rounds
-
-**Current state:**
-- crush exists but not integrated with clood
-- catfights run via raw curl commands
-- synthesis done manually
-
-**Next steps for crush:**
-1. Get crush running on ubuntu25
-2. Create simple catfight viewer mode
-3. Stream ollama responses to crush TUI
-4. Add model comparison view
-
----
-
-## The Golden Path
-
-```
-Bird-san's Vision:
-
-    [Bird-san at ubuntu25]
-           ↓
-    [clood catfight CLI]
-           ↓
-    [crush TUI shows battle]
-           ↓
-    [Iron Chef Claude synthesizes]
-           ↓
-    [Code ships to chimborazo]
-```
-
-Tonight we prove step 1-2 work. Crush integration is next.
-
----
-
-## Jelly Beans Dropped Tonight
-
-| # | Bean | Status |
-|---|------|--------|
-| 78 | Sequential catfight | Learned |
-| 79 | Multi-phase elimination | Learned |
-| 80 | JDD meme marketing | Growing |
-| 81 | Escoffier System | Captured |
-| 82 | Serious Mode | Used |
-| 83 | Sauce Master (Gucci Mane) | Captured |
-| 84 | TUI Multi-Question | Captured |
-| 85 | Crush Roadmap | Captured |
-| 86 | Overnight Catfights | Dropped |
-| 87 | Catfight Challenge Sets | Dropped |
-
-**#86 - Overnight Catfights:** Scheduled catfight runs via cron. Run battles overnight, wake up to results. Integration with crush TUI for monitoring. GitHub issues as result destination. The kitchen never sleeps.
-
-**#87 - Catfight Challenge Sets:** Define structured challenges for catfights. A challenge set includes: discovery tasks (find the code), analysis tasks (find bugs), synthesis tasks (add features). Tests how agents handle vague/related requests. Scoring criteria beyond just speed - correctness, style, completeness. The Rat King challenge: find it, fix it, extend it.
-
----
-
-## Files in /tmp (laptop)
-
-These synthesis files need to go to chimborazo:
-- `/tmp/fetcher_synthesis.go` → `internal/sources/fetcher.go`
-- `/tmp/recipe_synthesis.go` → `internal/config/recipe.go`
-- `/tmp/loader_synthesis.go` → `internal/config/loader.go`
-
----
-
-## The All-Nighter Continues
-
-Bird-san has bottled the lightning. Flow state achieved. The tools and story of clood keep him on track.
-
-> "I can't stop if I have bottled the lightning and achieved flow state."
-
-The sauce flows. The catfight rages. The Iron Keep awaits.
-
----
-
-```
-Headache with pictures
-Visions too fast to capture
-The flow demands more
-```
-
----
-
-*Session transfers: laptop → ubuntu25*
-*Battle 3 awaits*
-*The night kitchen never sleeps*
+*Snake Way waits. The garden remembers. Resume when ready.*
