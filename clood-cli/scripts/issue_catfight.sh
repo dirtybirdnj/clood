@@ -2,17 +2,44 @@
 # Issue Catfight Processor - Universal Edition
 # Runs all open issues through model gauntlet, posts analysis as comments
 # Uses the Python processor for label-aware, resume-capable operation
+#
+# Usage:
+#   ./issue_catfight.sh              # Use all available models
+#   ./issue_catfight.sh --fast       # Use only fast, reliable models
+#   MODELS="m1,m2" ./issue_catfight.sh  # Use specific models
 
 set -e
 
 REPO="dirtybirdnj/clood"
 HOSTNAME=$(hostname | sed 's/.local$//')
 
+# Fast models - proven fast & reliable from overnight benchmarking
+# These all completed <40s avg with 0 failures
+FAST_MODELS="qwen2.5-coder:3b,llama3.1:8b,llama3-groq-tool-use:8b,tinyllama"
+
+# Parse command line args
+FAST_MODE=false
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --fast|-f)
+            FAST_MODE=true
+            shift
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
 # Detect available models or use defaults
-# This can be overridden with MODELS env var
+# This can be overridden with MODELS env var or --fast flag
 if [ -z "$MODELS" ]; then
-    # Try to detect models from ollama
-    if command -v ollama &> /dev/null; then
+    if [ "$FAST_MODE" = true ]; then
+        # Fast mode: use only proven fast models
+        MODELS="$FAST_MODELS"
+        echo "⚡ FAST MODE: Using proven fast models only"
+    elif command -v ollama &> /dev/null; then
+        # Try to detect models from ollama
         AVAILABLE=$(ollama list 2>/dev/null | tail -n +2 | awk '{print $1}' | tr '\n' ',' | sed 's/,$//')
         if [ -n "$AVAILABLE" ]; then
             MODELS="$AVAILABLE"
