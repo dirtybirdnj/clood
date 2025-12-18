@@ -68,6 +68,9 @@ func main() {
 	rootCmd.AddCommand(commands.HandoffCmd())
 	rootCmd.AddCommand(commands.SessionCmd())
 
+	// MCP server command
+	rootCmd.AddCommand(commands.ServeCmd())
+
 	// Init command
 	rootCmd.AddCommand(initCmd())
 

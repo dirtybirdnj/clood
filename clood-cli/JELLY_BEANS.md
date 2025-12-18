@@ -99,4 +99,48 @@ brew install clood
 
 ---
 
+## Bean #4: SSE Streaming Server
+
+**Status:** IMPLEMENTED
+**Session:** The Bar Session (Dec 17, 2025)
+
+Enable true streaming MCP via Server-Sent Events:
+
+```bash
+clood serve --sse --port 8765
+```
+
+crush config:
+```json
+"clood": {
+  "type": "sse",
+  "url": "http://localhost:8765/mcp/sse"
+}
+```
+
+**Why:** stdio MCP is request/response. SSE enables streaming partial results during long operations like catfight. But see GOLDEN_PATHS.md - granular tools may be better than streaming monolithic ones.
+
+---
+
+## Bean #5: Golden Path Prompts
+
+**Status:** Planted
+**Session:** The Bar Session (Dec 17, 2025)
+
+Create system prompts/instructions that teach crush HOW to use clood tools in sequence. Instead of one big tool call, guide the AI to:
+
+1. Gather context first (tree, grep, symbols)
+2. Explain what it found
+3. Execute in small steps
+4. Report progress at each step
+
+Could be:
+- A CLAUDE.md-style instruction file for crush
+- MCP server metadata that describes workflows
+- Example conversations that demonstrate the pattern
+
+**Why:** The tools exist. The golden paths are documented. Now we need to teach the AI to walk them.
+
+---
+
 *Jelly beans planted in the server garden, waiting to bloom.*
