@@ -38,10 +38,11 @@ with open('$ISSUES_FILE', 'r') as f:
     issues = json.load(f)
 
 def log(msg):
-    print(f'[{datetime.now().strftime(\"%H:%M:%S\")}] {msg}')
+    ts = datetime.now().strftime('%H:%M:%S')
+    print(f'[{ts}] {msg}', flush=True)
 
 def check_ollama():
-    \"\"\"Health check - make sure ollama is responding\"\"\"
+    """Health check - make sure ollama is responding"""
     try:
         result = subprocess.run(['curl', '-s', 'http://localhost:11434/api/tags'],
                               capture_output=True, timeout=10)
@@ -104,7 +105,7 @@ for i, issue in enumerate(issues):
     title = issue['title']
     body = issue['body'] or 'No description provided.'
 
-    log(f'\\n[{i+1}/{len(issues)}] Processing Issue #{num}: {title[:50]}...')
+    log(f'[{i+1}/{len(issues)}] Processing Issue #{num}: {title[:50]}...')
 
     # De-icing: Check ollama is alive before each issue
     if not check_ollama():
@@ -160,7 +161,7 @@ This issue was analyzed by the clood model gauntlet.
 </details>
 
 ---
-*Automated triage by clood catfight - review in tomorrow\\'s planning ritual*
+*Automated triage by clood catfight - review in planning ritual*
 '''
 
         # Post to GitHub
@@ -181,7 +182,7 @@ This issue was analyzed by the clood model gauntlet.
     except Exception as e:
         log(f'  ✗ Error on Issue #{num}: {e}')
 
-print('\\n=========================')
+print('=========================')
 print('🏁 CATFIGHT TRIAGE COMPLETE')
 print(f'Results saved to: {log_dir}')
 PYEOF
