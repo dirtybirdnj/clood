@@ -294,8 +294,37 @@ Ikkyū raised his sake cup:
 | **Bashō** | Wandering poet narrator | Haiku summaries, result distillation |
 | **Ikkyū** | Eccentric monk, chaos agent | Error handling, failure wisdom |
 | **The Spirit of Miyazaki** | Silent visionary, gestures only | Design philosophy, aesthetic guidance |
+| **Zhibito** | Armorer of models, garage master | Fine-tuning, `clood tune` command |
+| **The 2,0,4,8s** | House band at Azure Jellybeans | NGINX, Redis, Postgres, Docker ensemble |
 | **Star Seed** | Forged vision, ready to plant | Major feature epic (vs jelly beans for smaller features) |
 | **Ghost Trap** | Contains articulated vision | GitHub epic issue with full spec |
+
+### Zhibito's Garage
+
+*"Yo dawg, I heard you like inference..."*
+
+Zhibito is the reformed spirit of customization—once known for putting things inside other things, now he forges custom armor for the models. In his garage:
+
+- **Cats** (small models) get racing stripes
+- **Llamas** (medium models) get turbo upgrades
+- **Fish** (embeddings) get specialized fins
+
+His command: `clood tune` — where models become personalized.
+
+### The 2,0,4,8s
+
+The house band that plays at the House of Azure Jellybeans:
+
+```
+♪ WOO HOO (200 OK) ♪
+
+NGINX on drums: *steady routing beats*
+Redis on bass:  *deep cache thrums*
+Postgres keys:  *melodic queries*
+Docker on sax:  *containerized wails*
+```
+
+They play whenever a successful response returns. HTTP status codes are their setlist.
 
 ---
 
