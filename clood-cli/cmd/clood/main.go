@@ -46,6 +46,7 @@ func main() {
 	rootCmd.AddCommand(commands.BenchCmd())
 	rootCmd.AddCommand(commands.AskCmd())
 	rootCmd.AddCommand(commands.CatfightCmd())
+	rootCmd.AddCommand(commands.FlyingCatsCmd())
 	rootCmd.AddCommand(commands.RunCmd())
 	rootCmd.AddCommand(commands.DelegateCmd())
 	rootCmd.AddCommand(commands.AgentsCmd())
@@ -124,6 +125,10 @@ The peak holds us here.`,
 	`Three hosts stand ready,
 GPU heat shimmers in wait,
 The query takes flight.`,
+
+	`Flying cats take roost,
+Antenna towers hum with life—
+Pooparoo watches.`,
 }
 
 // isTerminal checks if stdout is a terminal (TTY)
