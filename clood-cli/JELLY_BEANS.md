@@ -219,9 +219,9 @@ clood session dump --format markdown > SESSION_2025_12_17.md
 
 **Option A: Status Bar (crush integration)**
 ```
-┌────────────────────────────────────────────────────┐
-│ 🟢 clood │ 3 hosts │ ████████░░ 78% tokens │ 12:47 │
-└────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│ 🟢 clood │ 3 hosts │ 🫘 7 beans │ ████████░░ 78% tokens │ 12:47 │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 **Option B: Periodic Reminder**
@@ -256,14 +256,21 @@ The best context is the one that's preserved. Don't let infodumps disappear into
 
 ---
 
-## Bean #7: Token Load Visualization
+## Bean #7: Token Load & Jelly Bean Visualization
 
 **Status:** Planted
 **Session:** The Bar Session (Dec 17, 2025)
 
-Visual representation of session token usage for crush/CLI.
+Visual representation of session token usage AND jelly bean count.
 
-**Concepts:**
+**Status Bar Concept:**
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ 🟢 clood │ 3 hosts │ 🫘 7 beans │ ████████░░ 78% tokens │ 12:47 │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Token Breakdown:**
 ```
 Minimal:     [████████░░] 78%
 
@@ -276,11 +283,162 @@ Contextual:  📝 User: 23,400 (26%)
              📎 System: 7,832 (9%)
 ```
 
+**Colored Jelly Beans via ANSI:**
+```go
+// ANSI color codes overlay on emoji
+fmt.Printf("\033[31m🫘\033[0m")  // Red bean
+fmt.Printf("\033[32m🫘\033[0m")  // Green bean
+fmt.Printf("\033[33m🫘\033[0m")  // Yellow bean
+fmt.Printf("\033[34m🫘\033[0m")  // Blue bean
+fmt.Printf("\033[35m🫘\033[0m")  // Magenta bean
+fmt.Printf("\033[36m🫘\033[0m")  // Cyan bean
+```
+
+**Bean Status Display:**
+```
+Jelly Beans: 🫘🫘🫘🫘🫘🫘🫘 (7 planted)
+             ▲▲▲▲▲▲▲
+             │││││││
+             │││││││
+             │││││└─ #7 Token Viz (planted)
+             ││││└── #6 Infodump Detection (planted)
+             │││└─── #5 Golden Path Prompts (planted)
+             ││└──── #4 SSE Server (IMPLEMENTED)
+             │└───── #3 Brew Formula (dream)
+             └────── #2 --json Flag (sprouting 3/14)
+                     #1 Headroom Enhancement (planted)
+```
+
+**Alternative: Unicode Colored Circles as "Beans"**
+```
+🔴 Dream        (not started)
+🟡 Planted      (documented)
+🟢 Sprouting    (in progress)
+🔵 Implemented  (done)
+
+Status: 🔵🟢🔴🔵🟡🟡🟡 = 2 done, 1 progress, 1 dream, 3 planted
+```
+
 **Integration points:**
 - crush status bar
 - clood session show
+- clood beans (new command to list all beans with status)
 - MCP tool for agents to self-monitor
 
 ---
 
+## Bean #8: The `clood beans` Command
+
+**Status:** Dream
+**Session:** The Bar Session (Dec 17, 2025)
+
+> "Bold challenges are what we need, not simple tasks." — The Commissioner
+
+A standalone CLI command to display all jelly beans with visual flair.
+
+**The Challenge:**
+
+```bash
+clood beans
+```
+
+**Expected Output:**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    🫘 THE JELLY BEAN JAR 🫘                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  🔵 #1  Headroom Analysis         planted   ████░░░░░░  40%    │
+│  🟢 #2  --json Flag               sprouting ██████░░░░  60%    │
+│  🔴 #3  Brew Formula              dream     ░░░░░░░░░░   0%    │
+│  🔵 #4  SSE Server                DONE      ██████████ 100%    │
+│  🟡 #5  Golden Path Prompts       planted   ██░░░░░░░░  20%    │
+│  🟡 #6  Infodump Detection        planted   ██░░░░░░░░  20%    │
+│  🟡 #7  Token Visualization       planted   █░░░░░░░░░  10%    │
+│  🔴 #8  clood beans Command       dream     ░░░░░░░░░░   0%    │
+│                                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│  Legend: 🔴 Dream  🟡 Planted  🟢 Sprouting  🔵 Done            │
+│  Progress: 1/8 implemented • 1 sprouting • 4 planted • 2 dream │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Why This Is Bold:**
+
+1. Parse JELLY_BEANS.md to extract bean metadata
+2. Render progress bars based on completion estimates
+3. Use ANSI colors for terminal flair
+4. Support `--json` for agent consumption
+5. This bean documents itself — recursive inception
+
+**Implementation:**
+
+```go
+// Parse JELLY_BEANS.md for status metadata
+type JellyBean struct {
+    Number      int
+    Title       string
+    Status      string    // dream, planted, sprouting, implemented
+    Progress    float64   // 0.0 to 1.0
+}
+
+func parseJellyBeans(path string) ([]JellyBean, error) {
+    // Regex to find: ## Bean #N: Title
+    // Look for **Status:** line
+    // Calculate progress from checklist items if present
+}
+```
+
+**Alternative: External Data Source**
+
+Instead of parsing markdown, maintain a `beans.yaml`:
+
+```yaml
+beans:
+  - number: 1
+    title: "Headroom Analysis"
+    status: planted
+    progress: 0.4
+  - number: 2
+    title: "--json Flag"
+    status: sprouting
+    progress: 0.6
+    checklist:
+      done: 3
+      total: 14
+```
+
+**The Meta:**
+
+This bean is recursive — it must display itself. When implemented, Bean #8 shows as "sprouting" then "done". The jar reflects its own growth.
+
+> "The jelly bean that knows itself is the sweetest of all."
+
+---
+
 *Jelly beans planted in the server garden, waiting to bloom.*
+
+---
+
+## Session History
+
+### The Bar Session — December 17, 2025
+
+The night the server garden first bloomed. Bird-san and Claude walked the golden paths together, planting beans by candlelight.
+
+**Beans Planted:** 8
+**Beans Implemented:** 1 (SSE Server)
+**Beans Sprouting:** 1 (--json Flag)
+
+The Commissioner smiled. Bold challenges ahead.
+
+```
+          *
+         /|\
+        / | \
+       /  |  \
+      /___|___\    The Bonsai watches
+         |||       over the server garden,
+         |||       patient and eternal.
+        /   \
+```
