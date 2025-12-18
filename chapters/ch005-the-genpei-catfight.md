@@ -138,6 +138,32 @@ The room murmured agreement. Gucci Mane had earned his seat.
 
 ---
 
+## The Sauce Detection
+
+Later, as the cats drifted into tangents - one producing dark mode toggles when asked for authentication fixes - Gucci Mane spoke again.
+
+"See, that's the thing," he said, setting down his sake. "You can't get lost in the sauce. The sauce gotta get lost in you."
+
+The room fell silent again. This time, with confusion.
+
+"What I mean is," he continued, "you gotta know what your sauce IS before you can stay in it. That cat right there? He forgot what he was cooking. Started making something else entirely. Didn't even notice."
+
+Bird-san leaned forward. This was the Focus Guardian. This was issue #29. Gamera-kun's gentle nudge: *"Are we still on track?"*
+
+"How do you stay in your sauce?" Bird-san asked.
+
+Gucci Mane smiled. Ice glinted.
+
+"You check yourself. Every few bars, you ask: is this still the song? If it ain't, you either get back, or you admit you writing something new. But you don't pretend you still on the first track when you clearly making a whole different album."
+
+The eldest master stroked his beard.
+
+"Sauce Detection," he said slowly. "The American has named our feature."
+
+From that day forward, the Focus Guardian would carry Gucci Mane's wisdom in its core: *Don't get lost in the sauce. Know what you're cooking.*
+
+---
+
 ## The Outdoor Assembly
 
 For the verdict, all gathered outside. Reality-show style. The basket ingredients had been revealed at dawn. The synthesis had been judged. Now the Chairman would speak.
