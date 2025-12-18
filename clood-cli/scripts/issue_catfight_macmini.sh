@@ -8,8 +8,10 @@ set -e
 REPO="dirtybirdnj/clood"
 HOSTNAME=$(hostname | sed 's/.local$//')
 
-# ALL Mac Mini Models - feast of the cats
-MODELS="qwen2.5-coder:14b,llama3.1:8b,mistral:7b,deepseek-coder:6.7b,codellama:7b,phi3:3.8b,qwen2.5-coder:3b,granite-code:3b,starcoder2:3b,codegemma:2b,stablelm2:1.6b,yi-coder:1.5b,falcon3:1b,tinyllama"
+# Optimized Mac Mini Gauntlet - garbage producers removed per issue #122
+# Removed: starcoder2:3b (empty output), codegemma:2b (garbage)
+# Kept: Proven performers from overnight triage analysis
+MODELS="qwen2.5-coder:14b,llama3.1:8b,mistral:7b,deepseek-coder:6.7b,codellama:7b,phi3:3.8b,qwen2.5-coder:3b,granite-code:3b,stablelm2:1.6b,yi-coder:1.5b,falcon3:1b,tinyllama"
 
 LOG_DIR="/tmp/catfight-triage-macmini-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$LOG_DIR"

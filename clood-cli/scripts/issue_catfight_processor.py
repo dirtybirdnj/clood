@@ -89,8 +89,12 @@ def extract_open_questions(results_text):
     return any(ind in text_lower for ind in indicators)
 
 def analyze_results(results_text):
-    """Analyze catfight results and determine labels to add"""
+    """Analyze catfight results and determine labels to add
+
+    Returns: (labels, consensus_summary)
+    """
     labels = []
+    consensus_summary = ""
 
     # Extract and analyze size estimates
     sizes = extract_size_estimates(results_text)
@@ -99,14 +103,15 @@ def analyze_results(results_text):
         most_common_size, most_common_count = size_counts.most_common(1)[0]
         total_sizes = len(sizes)
 
+        # Build consensus summary
+        consensus_summary = f"{most_common_count}/{total_sizes} models agree: Size {most_common_size}"
+
         # If majority (>50%) agree on a size, use that
         if most_common_count > total_sizes / 2:
             labels.append(f'scope:{most_common_size}')
         else:
             labels.append('scope-disputed')
-
-    # Check for consensus vs divergence (simple heuristic: look at variance in response lengths)
-    # This is a rough proxy - could be made smarter
+            consensus_summary = f"⚠️ DISPUTED - {size_counts.most_common()}"
 
     # Check for open questions
     if extract_open_questions(results_text):
@@ -114,7 +119,7 @@ def analyze_results(results_text):
     else:
         labels.append('actionable')
 
-    return labels
+    return labels, consensus_summary
 
 def add_labels(issue_num, labels, repo):
     """Add labels to a GitHub issue"""
@@ -255,10 +260,12 @@ Format your response EXACTLY like this:
             log(f'  ✓ Results saved to {result_file}')
 
             # Analyze results and determine labels
-            result_labels = analyze_results(results)
+            result_labels, consensus_summary = analyze_results(results)
             result_labels.append(hostname_tag)  # Mark as triaged by this machine
 
             log(f'  📋 Labels to add: {result_labels}')
+            if consensus_summary:
+                log(f'  📊 Consensus: {consensus_summary}')
 
             # Truncate results if too long
             max_len = 12000
@@ -266,6 +273,9 @@ Format your response EXACTLY like this:
                 results = results[-max_len:]
 
             model_count = len(models.split(','))
+
+            # Build consensus line
+            consensus_line = f"\n**📊 Consensus:** {consensus_summary}\n" if consensus_summary else ""
 
             # Build comment
             comment = f'''## 🐱 Catfight Triage Results ({hostname})
@@ -276,7 +286,7 @@ This issue was analyzed by the clood model gauntlet running on **{hostname}**.
 ```
 {models}
 ```
-
+{consensus_line}
 <details>
 <summary>Click to expand full analysis</summary>
 
