@@ -226,10 +226,82 @@ Local LLMs cannot yet:
 
 ---
 
+## Historical Phases (215 commits)
+
+The git history reveals six phases of evolution:
+
+### Phase 1: Infrastructure & Documentation (commits 1-45)
+*"Add Crush configuration for local Ollama"*
+
+- Crush config, GPU setup (RX 590, ROCm)
+- Ollama tuning, benchmarks
+- Hardware profiles (ubuntu25, mac-mini, macbook)
+- The Server Garden concept emerges
+
+### Phase 2: Python Scripts Era (commits 45-75)
+*"Add code-review.py - direct Ollama code reviewer"*
+
+- code-review.py, search-ask.py, gh-ask.py
+- Pre-Go experiments with local LLMs
+- LiteLLM multi-machine setup
+- The Legend of Clood narrative born (commit 556e13f: "batshit insane japanese narrative history")
+
+### Phase 3: Go CLI Birth (commits 75-100)
+*"Scaffold clood-cli Go project with tiered inference"*
+
+- Real CLI emerges
+- clood issues, clood chat, clood handoff
+- Agent delegation concepts
+- Gamera-kun (Focus Guardian) appears
+
+### Phase 4: Kitchen Stadium & Catfight (commits 100-150)
+*"Kitchen Stadium preparation"*
+
+- clood catfight command built
+- Jelly beans concept crystallizes
+- SSE MCP Server
+- Triage infrastructure (JSONL, post-mortem)
+- Spinal Tap references, lore expansion
+
+### Phase 5: Snake Road & TUI (commits 150-190)
+*"Snake Way Phase 1 prototype: viewport navigation"*
+
+- BubbleTea exploration
+- snakeway-proto with streaming
+- Flying Cats novel mode
+- clood build clood (meta self-building)
+- PATTERNS.md, LORE-WIKI.md
+
+### Phase 6: Spirits & Storytime (commits 190-215, TODAY)
+*"The Spirits emerge"*
+
+- LLM Inception + Catfight-live
+- Storytime architecture
+- Sauce on/off paradigm
+- Development Spears clarity
+- 17 beans total (5 planted today)
+
+---
+
+## Commit Message Archaeology
+
+Key moments in the history:
+
+| Commit | Message | Significance |
+|--------|---------|--------------|
+| 556e13f | "pushed up batshit insane japanese narrative history including bird-san and daimyo-jon oh my god what have I done" | The lore is born |
+| 4f0d9f5 | "Scaffold clood-cli Go project" | Real CLI begins |
+| 0d15270 | "clood catfight: Release the cats" | Catfight command |
+| 04c7a3c | "Snake Way Phase 1 prototype" | TUI exploration starts |
+| bd9c5b3 | "LLM Inception + Live Streaming Catfight" | Parallel streaming |
+| ac8d65b | "The Spirits emerge" | Pantheon documented |
+
+---
+
 **Haiku:**
 
 ```
-Five spears, one garden—
-Local LLMs grow stronger
-Claude rests; clood works
+Two hundred fifteen—
+Each commit a stepping stone
+The garden expands
 ```
