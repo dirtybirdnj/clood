@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -25,16 +26,24 @@ type Question struct {
 	Line     int    // Line number where this question starts
 }
 
+// Message types for streaming
+type streamChunkMsg string
+type streamDoneMsg struct{}
+type streamErrorMsg error
+
 // snakewayModel is the bubbletea model for Snake Way prototype
 type snakewayModel struct {
-	viewport   viewport.Model
-	content    string
-	questions  []Question
-	currentQ   int
-	width      int
-	height     int
-	ready      bool
-	turn       int // Current conversation turn
+	viewport    viewport.Model
+	content     string
+	questions   []Question
+	currentQ    int
+	width       int
+	height      int
+	ready       bool
+	turn        int  // Current conversation turn
+	streaming   bool // Whether we're in streaming mode
+	following   bool // Auto-follow new content
+	streamChan  chan string
 }
 
 // Styles
@@ -70,6 +79,7 @@ var (
 
 func SnakewayProtoCmd() *cobra.Command {
 	var live bool
+	var stream bool
 	var model string
 
 	cmd := &cobra.Command{
@@ -82,13 +92,28 @@ Tests:
 - Section navigation (questions)
 - j/k scroll, n/p next/prev question, 1-9 jump
 
+Modes:
+- Default: Static test content (instant)
+- --live: Generate from ollama (waits for completion)
+- --stream: REALTIME streaming (scroll while generating!)
+
 No input zones yet - just navigation.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			var content string
 			var questions []Question
+			var streamChan chan string
 
-			if live {
-				// Generate real content from ollama
+			if stream {
+				// Streaming mode - start with minimal content, update live
+				content = "═══════════════════════════════════════════════════════════════════\n"
+				content += "STREAMING MODE - Content loading...\n"
+				content += "═══════════════════════════════════════════════════════════════════\n\n"
+				streamChan = make(chan string, 100)
+
+				// Start streaming in background
+				go streamFromOllama(model, streamChan)
+			} else if live {
+				// Generate real content from ollama (blocking)
 				fmt.Println(tui.MutedStyle.Render("Generating live content from ollama..."))
 				content, questions = generateLiveConversation(model)
 			} else {
@@ -97,10 +122,13 @@ No input zones yet - just navigation.`,
 			}
 
 			m := snakewayModel{
-				content:   content,
-				questions: questions,
-				currentQ:  0,
-				turn:      3,
+				content:    content,
+				questions:  questions,
+				currentQ:   0,
+				turn:       3,
+				streaming:  stream,
+				following:  stream, // Auto-follow in stream mode
+				streamChan: streamChan,
 			}
 
 			p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
@@ -110,53 +138,111 @@ No input zones yet - just navigation.`,
 		},
 	}
 
-	cmd.Flags().BoolVar(&live, "live", false, "Generate live content from ollama")
-	cmd.Flags().StringVar(&model, "model", "qwen2.5-coder:3b", "Model to use for live generation")
+	cmd.Flags().BoolVar(&live, "live", false, "Generate live content from ollama (blocking)")
+	cmd.Flags().BoolVar(&stream, "stream", false, "REALTIME streaming - scroll while generating")
+	cmd.Flags().StringVar(&model, "model", "qwen2.5-coder:3b", "Model to use for generation")
 
 	return cmd
 }
 
 func (m snakewayModel) Init() tea.Cmd {
+	if m.streaming && m.streamChan != nil {
+		return waitForStream(m.streamChan)
+	}
 	return nil
+}
+
+// waitForStream returns a command that waits for the next stream chunk
+func waitForStream(ch chan string) tea.Cmd {
+	return func() tea.Msg {
+		chunk, ok := <-ch
+		if !ok {
+			return streamDoneMsg{}
+		}
+		return streamChunkMsg(chunk)
+	}
 }
 
 func (m snakewayModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
+	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
+	case streamChunkMsg:
+		// Append new content from stream
+		m.content += string(msg)
+		m.viewport.SetContent(m.renderContent())
+		if m.following {
+			m.viewport.GotoBottom()
+		}
+		// Keep listening for more chunks
+		if m.streamChan != nil {
+			cmds = append(cmds, waitForStream(m.streamChan))
+		}
+
+	case streamDoneMsg:
+		m.streaming = false
+		m.content += "\n───────────────────────────────────────────────────────────────────\n"
+		m.content += "STREAMING COMPLETE\n"
+		m.content += "───────────────────────────────────────────────────────────────────\n"
+		m.viewport.SetContent(m.renderContent())
+		// Re-detect questions now that content is complete
+		m.questions = detectQuestions(m.content)
+
+	case streamErrorMsg:
+		m.content += fmt.Sprintf("\nERROR: %v\n", msg)
+		m.viewport.SetContent(m.renderContent())
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "ctrl+c", "esc":
 			return m, tea.Quit
 
+		case "f":
+			// Toggle follow mode
+			m.following = !m.following
+			if m.following {
+				m.viewport.GotoBottom()
+			}
+
 		case "g":
 			m.viewport.GotoTop()
+			m.following = false
 
 		case "G":
 			m.viewport.GotoBottom()
+			m.following = true
 
 		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
 			idx := int(msg.String()[0] - '1')
 			if idx < len(m.questions) {
 				m.currentQ = idx
 				m.gotoQuestion(idx)
+				m.following = false
 			}
 
 		case "n", "tab":
 			if m.currentQ < len(m.questions)-1 {
 				m.currentQ++
 				m.gotoQuestion(m.currentQ)
+				m.following = false
 			}
 
 		case "p", "shift+tab":
 			if m.currentQ > 0 {
 				m.currentQ--
 				m.gotoQuestion(m.currentQ)
+				m.following = false
 			}
+
+		case "j", "down":
+			m.following = false
+
+		case "k", "up":
+			m.following = false
 
 		case "enter":
 			// Future: enter response mode
-			// For now, just flash a message
 		}
 
 	case tea.WindowSizeMsg:
@@ -178,7 +264,8 @@ func (m snakewayModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	m.viewport, cmd = m.viewport.Update(msg)
-	return m, cmd
+	cmds = append(cmds, cmd)
+	return m, tea.Batch(cmds...)
 }
 
 func (m *snakewayModel) gotoQuestion(idx int) {
@@ -255,17 +342,31 @@ func (m snakewayModel) View() string {
 
 	// Header
 	title := swHeaderStyle.Render("🐍 SNAKE WAY")
-	turnInfo := swTurnStyle.Render(fmt.Sprintf(" Turn %d", m.turn))
-	questionInfo := swQuestionStyle.Render(fmt.Sprintf(" Q%d/%d", m.currentQ+1, len(m.questions)))
 
-	header := fmt.Sprintf("%s%s%s\n%s\n",
-		title, turnInfo, questionInfo,
+	// Status indicators
+	statusParts := []string{}
+	if m.streaming {
+		statusParts = append(statusParts, lipgloss.NewStyle().Foreground(lipgloss.Color("#FF6B6B")).Render(" ● STREAMING"))
+	}
+	if m.following {
+		statusParts = append(statusParts, lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).Render(" [Following ▼]"))
+	}
+	if len(m.questions) > 0 {
+		statusParts = append(statusParts, swQuestionStyle.Render(fmt.Sprintf(" Q%d/%d", m.currentQ+1, len(m.questions))))
+	}
+
+	header := fmt.Sprintf("%s%s\n%s\n",
+		title, strings.Join(statusParts, ""),
 		strings.Repeat("─", m.width))
 
 	// Footer
-	help := swHelpStyle.Render("[q]uit [j/k]scroll [g/G]top/btm [n/p]next/prev [1-9]jump [Enter]respond")
+	help := "[q]uit [f]ollow [j/k]scroll [g/G]top/btm [n/p]next/prev [1-9]jump"
+	if m.streaming {
+		help = "[q]uit [f]ollow toggle [scroll while streaming!]"
+	}
+	helpStyled := swHelpStyle.Render(help)
 	scrollPct := swHelpStyle.Render(fmt.Sprintf(" %d%%", int(m.viewport.ScrollPercent()*100)))
-	footer := fmt.Sprintf("\n%s%s", help, scrollPct)
+	footer := fmt.Sprintf("\n%s%s", helpStyled, scrollPct)
 
 	return header + m.viewport.View() + footer
 }
@@ -537,4 +638,89 @@ func callOllama(model, prompt string) string {
 	}
 
 	return result.Response
+}
+
+// streamFromOllama streams responses from ollama and sends chunks to the channel
+func streamFromOllama(model string, ch chan string) {
+	defer close(ch)
+
+	prompt := `You are about to embark on an EPIC journey. Write an incredibly long,
+rambling stream of consciousness about FLYING CATS. Include:
+
+- The ancient prophecy of the Nimbus Cat
+- Technical specifications for feline aviation (make them absurd)
+- At least 10 questions scattered throughout (end them with ?)
+- Random tangents about completely unrelated topics
+- A recipe for something ridiculous
+- A dramatic monologue from a cat pilot named Captain Whiskers
+- References to Snake Way (the infinite scroll)
+- The great cat-bird war and its consequences
+- Gerald the cat who refuses to fly
+- At least 5 haikus scattered throughout
+- Random technical jargon that makes no sense
+- A subplot about a mouse rebellion
+
+BE EXTREMELY VERBOSE. Write at least 2000 words. RAMBLE. Go on tangents.
+This is a test of streaming, so the more text the better. Don't stop early.
+Keep writing until you've covered everything. Then write more.`
+
+	ch <- "═══════════════════════════════════════════════════════════════════\n"
+	ch <- "STREAMING FROM OLLAMA - The Flying Cats Epic\n"
+	ch <- "═══════════════════════════════════════════════════════════════════\n\n"
+
+	reqBody := map[string]interface{}{
+		"model":  model,
+		"prompt": prompt,
+		"stream": true, // STREAMING MODE
+		"options": map[string]interface{}{
+			"num_predict": 4000, // LOTS of tokens
+			"temperature": 0.95, // Maximum chaos
+		},
+	}
+	jsonBody, _ := json.Marshal(reqBody)
+
+	client := &http.Client{Timeout: 300 * time.Second} // 5 min timeout
+	resp, err := client.Post("http://localhost:11434/api/generate", "application/json", bytes.NewBuffer(jsonBody))
+	if err != nil {
+		ch <- fmt.Sprintf("\nError: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read NDJSON stream line by line
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		var chunk struct {
+			Response string `json:"response"`
+			Done     bool   `json:"done"`
+		}
+		if err := json.Unmarshal(scanner.Bytes(), &chunk); err != nil {
+			continue
+		}
+		if chunk.Response != "" {
+			ch <- chunk.Response
+		}
+		if chunk.Done {
+			break
+		}
+	}
+}
+
+// detectQuestions finds questions in content (lines ending with ?)
+func detectQuestions(content string) []Question {
+	var questions []Question
+	lines := strings.Split(content, "\n")
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasSuffix(trimmed, "?") && len(trimmed) > 15 {
+			questions = append(questions, Question{
+				Index: len(questions),
+				Text:  trimmed,
+				State: "awaiting",
+				Line:  i,
+			})
+		}
+	}
+	return questions
 }
