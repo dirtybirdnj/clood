@@ -431,6 +431,8 @@ func sdAnvilCmd() *cobra.Command {
 	var outputDir string
 	var openGallery bool
 	var jsonOutput bool
+	var loraName string
+	var sweepWeights string
 
 	cmd := &cobra.Command{
 		Use:   "anvil [prompt]",
@@ -440,11 +442,18 @@ func sdAnvilCmd() *cobra.Command {
 Like the catfight command, but for image generation.
 Outputs an HTML gallery comparing all results.
 
+Modes:
+  Default:     Compare different checkpoints
+  LoRA Sweep:  Test different LoRA weights with --lora and --sweep
+
 Examples:
   clood sd anvil "a beach at sunset"
   clood sd anvil "portrait" --checkpoints "sdxl_base,dreamshaper"
   clood sd anvil "test" --open
-  clood sd anvil "test" --json             # Machine-readable output`,
+  clood sd anvil "test" --json             # Machine-readable output
+
+  # LoRA weight sweep catfight:
+  clood sd anvil "ghibli cat" --lora ghibli_style --sweep 0.3,0.5,0.7,0.9`,
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			promptText := strings.Join(args, " ")
@@ -464,48 +473,101 @@ Examples:
 				return
 			}
 
+			// Determine mode: LoRA sweep or checkpoint comparison
+			isLoRASweep := loraName != "" && sweepWeights != ""
+
+			// Parse sweep weights if provided
+			var weights []float64
+			if sweepWeights != "" {
+				for _, w := range strings.Split(sweepWeights, ",") {
+					w = strings.TrimSpace(w)
+					var weight float64
+					if _, err := fmt.Sscanf(w, "%f", &weight); err == nil {
+						weights = append(weights, weight)
+					}
+				}
+			}
+
 			// Get checkpoints to compare
 			var ckptList []string
-			if checkpoints != "" {
-				ckptList = strings.Split(checkpoints, ",")
-				for i := range ckptList {
-					ckptList[i] = strings.TrimSpace(ckptList[i])
+			if isLoRASweep {
+				// For LoRA sweep, use a single checkpoint
+				if checkpoints != "" {
+					ckptList = strings.Split(checkpoints, ",")
+					for i := range ckptList {
+						ckptList[i] = strings.TrimSpace(ckptList[i])
+					}
+					ckptList = ckptList[:1] // Use first one only
+				} else {
+					var err error
+					ckptList, err = client.GetCheckpoints()
+					if err != nil || len(ckptList) == 0 {
+						if jsonOutput {
+							json.NewEncoder(os.Stdout).Encode(map[string]interface{}{
+								"success": false,
+								"error":   "no checkpoints available",
+							})
+						} else {
+							fmt.Printf("%s No checkpoints available\n", tui.ErrorStyle.Render("ERROR:"))
+						}
+						return
+					}
+					ckptList = ckptList[:1]
 				}
 			} else {
-				// Use all available checkpoints
-				var err error
-				ckptList, err = client.GetCheckpoints()
-				if err != nil || len(ckptList) == 0 {
-					if jsonOutput {
-						json.NewEncoder(os.Stdout).Encode(map[string]interface{}{
-							"success": false,
-							"error":   "no checkpoints available",
-						})
-					} else {
-						fmt.Printf("%s No checkpoints available\n", tui.ErrorStyle.Render("ERROR:"))
+				// Standard checkpoint comparison
+				if checkpoints != "" {
+					ckptList = strings.Split(checkpoints, ",")
+					for i := range ckptList {
+						ckptList[i] = strings.TrimSpace(ckptList[i])
 					}
-					return
-				}
-				// Limit to first 4 for reasonable time
-				if len(ckptList) > 4 {
-					ckptList = ckptList[:4]
+				} else {
+					var err error
+					ckptList, err = client.GetCheckpoints()
+					if err != nil || len(ckptList) == 0 {
+						if jsonOutput {
+							json.NewEncoder(os.Stdout).Encode(map[string]interface{}{
+								"success": false,
+								"error":   "no checkpoints available",
+							})
+						} else {
+							fmt.Printf("%s No checkpoints available\n", tui.ErrorStyle.Render("ERROR:"))
+						}
+						return
+					}
+					// Limit to first 4 for reasonable time
+					if len(ckptList) > 4 {
+						ckptList = ckptList[:4]
+					}
 				}
 			}
 
 			if !jsonOutput {
-				fmt.Println(tui.RenderHeader("ANVIL - MODEL COMPARISON"))
-				fmt.Printf("%s %s\n", tui.MutedStyle.Render("Prompt:"), promptText)
-				fmt.Printf("%s %d models\n", tui.MutedStyle.Render("Testing:"), len(ckptList))
-				for _, ckpt := range ckptList {
-					fmt.Printf("  - %s\n", ckpt)
+				if isLoRASweep {
+					fmt.Println(tui.RenderHeader("ANVIL - LORA WEIGHT SWEEP"))
+					fmt.Printf("%s %s\n", tui.MutedStyle.Render("Prompt:"), promptText)
+					fmt.Printf("%s %s\n", tui.MutedStyle.Render("LoRA:"), loraName)
+					fmt.Printf("%s %s\n", tui.MutedStyle.Render("Checkpoint:"), ckptList[0])
+					fmt.Printf("%s %d weights: %v\n", tui.MutedStyle.Render("Testing:"), len(weights), weights)
+				} else {
+					fmt.Println(tui.RenderHeader("ANVIL - MODEL COMPARISON"))
+					fmt.Printf("%s %s\n", tui.MutedStyle.Render("Prompt:"), promptText)
+					fmt.Printf("%s %d models\n", tui.MutedStyle.Render("Testing:"), len(ckptList))
+					for _, ckpt := range ckptList {
+						fmt.Printf("  - %s\n", ckpt)
+					}
 				}
 				fmt.Println()
 			}
 
 			// Set up output directory
 			if outputDir == "" {
+				dirName := "anvil"
+				if isLoRASweep {
+					dirName = fmt.Sprintf("sweep-%s", loraName)
+				}
 				outputDir = filepath.Join(os.Getenv("HOME"), ".clood", "gallery",
-					fmt.Sprintf("anvil-%s", time.Now().Format("20060102-150405")))
+					fmt.Sprintf("%s-%s", dirName, time.Now().Format("20060102-150405")))
 			}
 			if err := os.MkdirAll(outputDir, 0755); err != nil {
 				fmt.Printf("%s Create output dir: %v\n", tui.ErrorStyle.Render("ERROR:"), err)
@@ -518,30 +580,50 @@ Examples:
 			prompt.WithSeed(42069) // Fixed seed for fair comparison
 			batch := sd.NewBatchConfig("anvil", prompt)
 			batch.OutputDir = outputDir
-			batch.Description = fmt.Sprintf("Anvil comparison: %s", promptText)
 
-			for _, ckpt := range ckptList {
-				batch.AddVariation(sd.Variation{
-					Name:       ckpt,
-					Checkpoint: ckpt,
-				})
+			if isLoRASweep {
+				batch.Description = fmt.Sprintf("LoRA sweep: %s with %v", loraName, weights)
+				// Use LoRAWeightSweep function
+				variations := sd.LoRAWeightSweep(loraName, ckptList[0], weights)
+				for _, v := range variations {
+					batch.AddVariation(v)
+				}
+			} else {
+				batch.Description = fmt.Sprintf("Anvil comparison: %s", promptText)
+				for _, ckpt := range ckptList {
+					batch.AddVariation(sd.Variation{
+						Name:       ckpt,
+						Checkpoint: ckpt,
+					})
+				}
 			}
 
 			// Run generations
 			startTime := time.Now()
 			var results []sd.VariationResult
 
-			for i, ckpt := range ckptList {
+			for i, variation := range batch.Variations {
+				displayName := variation.Name
 				if !jsonOutput {
 					fmt.Printf("%s [%d/%d] %s\n",
 						tui.AccentStyle.Render(">>>"),
-						i+1, len(ckptList), ckpt)
+						i+1, len(batch.Variations), displayName)
+				}
+
+				// Create a copy of the prompt for this variation
+				varPrompt := sd.NewPrompt(promptText)
+				varPrompt.WithSeed(42069) // Fixed seed for fair comparison
+
+				// Apply LoRA if specified in variation
+				if len(variation.LoRAs) > 0 {
+					lora := variation.LoRAs[0]
+					varPrompt.WithLoRA(lora.Name, lora.Weight)
 				}
 
 				cfg := sd.DefaultWorkflowConfig()
-				cfg.Prompt = prompt
-				cfg.Checkpoint = ckpt
-				cfg.OutputPrefix = fmt.Sprintf("anvil_%s", sanitizeFilename(ckpt))
+				cfg.Prompt = varPrompt
+				cfg.Checkpoint = variation.Checkpoint
+				cfg.OutputPrefix = fmt.Sprintf("anvil_%s", sanitizeFilename(variation.Name))
 
 				genStart := time.Now()
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
@@ -549,15 +631,12 @@ Examples:
 				cancel()
 
 				vr := sd.VariationResult{
-					Variation: sd.Variation{
-						Name:       ckpt,
-						Checkpoint: ckpt,
-					},
+					Variation:    variation,
 					GenerateTime: time.Since(genStart),
 					Metadata: sd.ImageMetadata{
-						Checkpoint: ckpt,
+						Checkpoint: variation.Checkpoint,
 						Prompt:     promptText,
-						Seed:       prompt.Seed,
+						Seed:       varPrompt.Seed,
 						Steps:      cfg.Steps,
 						CFGScale:   cfg.CFGScale,
 					},
@@ -657,6 +736,8 @@ Examples:
 	cmd.Flags().StringVarP(&outputDir, "output", "o", "", "Output directory")
 	cmd.Flags().BoolVar(&openGallery, "open", false, "Open gallery after generation")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
+	cmd.Flags().StringVar(&loraName, "lora", "", "LoRA name for weight sweep")
+	cmd.Flags().StringVar(&sweepWeights, "sweep", "", "Comma-separated weights (e.g., 0.3,0.5,0.7,0.9)")
 
 	return cmd
 }
