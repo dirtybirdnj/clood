@@ -45,6 +45,7 @@ func main() {
 	rootCmd.AddCommand(commands.PullCmd())
 	rootCmd.AddCommand(commands.BenchCmd())
 	rootCmd.AddCommand(commands.AskCmd())
+	rootCmd.AddCommand(commands.LogsCmd())
 	rootCmd.AddCommand(commands.CatfightCmd())
 	rootCmd.AddCommand(commands.FlyingCatsCmd())
 	rootCmd.AddCommand(commands.RunCmd())

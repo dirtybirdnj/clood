@@ -7,8 +7,10 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/dirtybirdnj/clood/internal/config"
+	"github.com/dirtybirdnj/clood/internal/logging"
 	"github.com/dirtybirdnj/clood/internal/ollama"
 	"github.com/dirtybirdnj/clood/internal/router"
 	"github.com/dirtybirdnj/clood/internal/tui"
@@ -135,11 +137,15 @@ Examples:
 
 			// Execute query
 			stream := cfg.Defaults.Stream && !noStream
+			hostName := ""
+			if result.Host != nil {
+				hostName = result.Host.Host.Name
+			}
 
 			if stream {
-				executeStreaming(result.Client, result.Model, prompt)
+				executeStreaming(result.Client, result.Model, hostName, result.Tier, prompt)
 			} else {
-				executeBlocking(result.Client, result.Model, prompt)
+				executeBlocking(result.Client, result.Model, hostName, result.Tier, prompt)
 			}
 		},
 	}
@@ -191,28 +197,41 @@ func printRouteInfo(result *router.RouteResult) {
 	}
 }
 
-func executeStreaming(client *ollama.Client, model, prompt string) {
+func executeStreaming(client *ollama.Client, model, host string, tier int, prompt string) {
+	start := time.Now()
+	var fullResponse strings.Builder
+
 	_, err := client.GenerateStream(model, prompt, func(chunk ollama.GenerateResponse) {
 		fmt.Print(chunk.Response)
+		fullResponse.WriteString(chunk.Response)
 	})
+
+	duration := time.Since(start)
 
 	if err != nil {
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, tui.ErrorStyle.Render("Error: "+err.Error()))
+		logging.LogInteraction("ask", "clood ask", model, host, tier, prompt, "", duration, err)
 		return
 	}
 
 	fmt.Println() // Final newline
+	logging.LogInteraction("ask", "clood ask", model, host, tier, prompt, fullResponse.String(), duration, nil)
 }
 
-func executeBlocking(client *ollama.Client, model, prompt string) {
+func executeBlocking(client *ollama.Client, model, host string, tier int, prompt string) {
+	start := time.Now()
 	resp, err := client.Generate(model, prompt)
+	duration := time.Since(start)
+
 	if err != nil {
 		fmt.Fprintln(os.Stderr, tui.ErrorStyle.Render("Error: "+err.Error()))
+		logging.LogInteraction("ask", "clood ask", model, host, tier, prompt, "", duration, err)
 		return
 	}
 
 	fmt.Println(resp.Response)
+	logging.LogInteraction("ask", "clood ask", model, host, tier, prompt, resp.Response, duration, nil)
 }
 
 // AskResponse represents the JSON output format for ask command
