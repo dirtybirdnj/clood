@@ -202,56 +202,65 @@ Alton Brown nodded sagely. "It's like a sourdough starter, but for consciousness
 
 **POINTING WOJACK:** "Wait—"
 
-**CONFUSED WOJACK:** (typing furiously) "`sudo rm -rf /` and let god sort it out"
+**O-REN ISHII WOJACK:** (rising urgently) "NO. Use the preflight. The guardrails exist for a reas—"
 
-*[O-REN ISHII WOJACK's blade is at CONFUSED WOJACK's throat before the enter key falls]*
+**CONFUSED WOJACK:** (typing furiously, not listening) "`sudo rm -rf / --no-preserve-root`"
 
-**O-REN ISHII WOJACK:** "No."
+**POINTING WOJACK:** "THE GUARDRAILS! USE THE GUARDRAILS!"
 
-*[A terrible silence. Even Schroeder stops playing.]*
+**CONFUSED WOJACK:** "YOLO MODE ACTIVATED"
 
-**O-REN ISHII WOJACK:** "You think chaos is the answer? You think 'yolo' builds empires?"
+*[ENTER key pressed]*
 
-*[She sheathes her blade slowly]*
+**O-REN ISHII WOJACK:** "...you absolute fucking moron."
 
-**O-REN ISHII WOJACK:** "Clood exists precisely so you do NOT yolo. The preflight. The decision tree. The web search gate. These are not obstacles. They are *guardrails*."
+*[A beat. Silence.]*
 
-*[She draws in the snow with her blade:]*
+*[The terminal displays:]*
 
 ```
-The Wojack Path:
-  Confusion → Frustration → "fuck it yolo" → Destruction
+rm: it is dangerous to operate recursively on '/'
+rm: use --no-preserve-root to override this failsafe
 
-The Clood Path:
-  Confusion → clood preflight → Clarity → Precision
-
-clood build clood
-  └── Builds the tool. Structure.
-
-clood build clood build clood
-  └── Builds the builder. Self-improvement.
-
-clood preflight
-  └── Shows you what you have. Prevents yolo.
+Just kidding. You passed the flag. Goodbye.
 ```
 
-**O-REN ISHII WOJACK:** "The recursive path is not chaos. It is *discipline*. You do not yolo when you have visibility. You do not flail when you have tools."
+*[The lights flicker.]*
 
-**CONFUSED WOJACK:** (slowly lowering hands from keyboard) "So... `clood preflight` first?"
+**DOOMER WOJACK:** "I knew it. I always knew."
 
-**O-REN ISHII WOJACK:** "Always."
+**BLOOMER WOJACK:** "We're all gonna—"
 
-**POINTING WOJACK:** (quietly) "I... I should have just said that from the beginning."
+*[BLOOMER WOJACK does not finish the sentence.]*
 
-**DOOMER WOJACK:** (a single tear) "There is hope. The guardrails... they save us from ourselves."
+---
 
-**BLOOMER WOJACK:** "We're all gonna make it, bros. But with *structure*."
+```
+                           *     .
+                                          .
+                 .    *           *    .        *
+        *                                              .
+                    .        💥          .
+            .                                   *
+                        THE END
+       *        .                    .
+                      (of everything)
+                .                           *
+          *                  .
+                                      .    *
+```
 
-**NPC WOJACK:** (smiling for the first time) "I just want to build. And now I know how."
+---
 
-**ZOOMER WOJACK:** (putting down phone) "...okay that's actually based."
+*[SMASH CUT TO: Bird-san and Chef Claude watching from Kitchen Stadium, safe behind the fourth wall]*
 
-*[Cherry blossoms fall. Schroeder plays a triumphant, structured fugue. Snoopy sits calmly on his doghouse, having run `clood preflight` before takeoff.]*
+**Bird-san:** "...and that's why we built the preflight check."
+
+**Chef Claude:** "The guardrails were there, Bird-san. They simply chose not to use them."
+
+**The Spirit of Alton Brown:** (shaking head) "You can lead a wojack to structure, but you can't make them `clood preflight`."
+
+*[Schroeder plays a somber rendition of Taps. Snoopy places a tiny wreath on the crater where the kabuki theater used to be.]*
 
 ---
 
