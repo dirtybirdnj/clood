@@ -16,6 +16,7 @@ import (
 
 func ServeCmd() *cobra.Command {
 	var port int
+	var host string
 	var useSSE bool
 	var baseURL string
 
@@ -24,14 +25,20 @@ func ServeCmd() *cobra.Command {
 		Short: "Start clood as an MCP server",
 		Long: `Starts clood as a Model Context Protocol (MCP) server.
 
-This allows AI agents (like crush) to call clood tools via HTTP/SSE streaming.
+This allows AI agents (like Claude Code, crush) to call clood tools via HTTP/SSE streaming.
 
 Examples:
-  # Start SSE server on default port
+  # Start SSE server on default port (localhost only)
   clood serve --sse
+
+  # Expose to network (for remote access)
+  clood serve --sse --host 0.0.0.0
 
   # Start on custom port
   clood serve --sse --port 8080
+
+  # Remote server setup (on ubuntu25)
+  clood serve --sse --host 0.0.0.0 --base-url http://192.168.4.64:8765
 
   # With custom base URL (for reverse proxy)
   clood serve --sse --port 8765 --base-url https://clood.local`,
@@ -51,7 +58,11 @@ Examples:
 
 			// Build base URL
 			if baseURL == "" {
-				baseURL = fmt.Sprintf("http://localhost:%d", port)
+				if host == "0.0.0.0" || host == "" {
+					baseURL = fmt.Sprintf("http://localhost:%d", port)
+				} else {
+					baseURL = fmt.Sprintf("http://%s:%d", host, port)
+				}
 			}
 
 			// Create SSE server
@@ -62,7 +73,7 @@ Examples:
 			)
 
 			// Setup HTTP server
-			addr := fmt.Sprintf(":%d", port)
+			addr := fmt.Sprintf("%s:%d", host, port)
 
 			fmt.Println(tui.RenderHeader("clood MCP Server"))
 			fmt.Println()
@@ -101,6 +112,7 @@ Examples:
 	}
 
 	cmd.Flags().IntVarP(&port, "port", "p", 8765, "Port to listen on")
+	cmd.Flags().StringVar(&host, "host", "127.0.0.1", "Host to bind to (use 0.0.0.0 for network access)")
 	cmd.Flags().BoolVar(&useSSE, "sse", false, "Use SSE (Server-Sent Events) transport")
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL for SSE endpoints (default: http://localhost:PORT)")
 
