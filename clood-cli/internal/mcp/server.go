@@ -3,9 +3,14 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
 
 	"github.com/dirtybirdnj/clood/internal/config"
 	"github.com/dirtybirdnj/clood/internal/hosts"
@@ -66,6 +71,9 @@ func (s *Server) registerTools() {
 	s.mcpServer.AddTool(s.modelsTool(), s.modelsHandler)
 	s.mcpServer.AddTool(s.systemTool(), s.systemHandler)
 	s.mcpServer.AddTool(s.healthTool(), s.healthHandler)
+
+	// The main event: ask local models
+	s.mcpServer.AddTool(s.askTool(), s.askHandler)
 }
 
 // =============================================================================
@@ -94,6 +102,16 @@ func (s *Server) systemTool() mcp.Tool {
 func (s *Server) healthTool() mcp.Tool {
 	return mcp.NewTool("clood_health",
 		mcp.WithDescription("Full health check of all clood services. Checks hosts, models, and configuration."),
+	)
+}
+
+func (s *Server) askTool() mcp.Tool {
+	return mcp.NewTool("clood_ask",
+		mcp.WithDescription("Send a prompt to local LLM via clood routing. Returns model response. Use for code generation, analysis, or any LLM task."),
+		mcp.WithString("prompt", mcp.Required(), mcp.Description("The prompt to send to the model")),
+		mcp.WithString("model", mcp.Description("Specific model to use (default: routes to best available)")),
+		mcp.WithString("host", mcp.Description("Specific host to use (default: fastest responding)")),
+		mcp.WithBoolean("dialogue", mcp.Description("If true, model will ask clarifying questions before implementing")),
 	)
 }
 
@@ -235,4 +253,141 @@ func (s *Server) healthHandler(ctx context.Context, req mcp.CallToolRequest) (*m
 
 	data, _ := json.MarshalIndent(health, "", "  ")
 	return mcp.NewToolResultText(string(data)), nil
+}
+
+// Dialogue system prompt for interactive coding
+const dialogueSystemPrompt = `You are a helpful coding assistant in a dialogue with a developer.
+
+RULES:
+1. ALWAYS confirm understanding before implementing
+2. ASK clarifying questions when requirements are ambiguous
+3. OFFER next steps after completing a task
+4. RESPOND to feedback and iterate
+
+FORMAT your responses with clear sections:
+- [UNDERSTANDING] - What you think is being asked
+- [QUESTIONS] - Clarifying questions (if any)
+- [IMPLEMENTATION] - Code or explanation
+- [NEXT] - Suggested next steps
+
+This is a CONVERSATION, not a one-shot request.`
+
+func (s *Server) askHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	prompt, ok := args["prompt"].(string)
+	if !ok || prompt == "" {
+		return mcp.NewToolResultError("prompt is required"), nil
+	}
+
+	// Get model/host preferences
+	modelPref, _ := args["model"].(string)
+	hostPref, _ := args["host"].(string)
+	dialogue, _ := args["dialogue"].(bool)
+
+	// Add dialogue system prompt if requested
+	if dialogue {
+		prompt = dialogueSystemPrompt + "\n\nUser request:\n" + prompt
+	}
+
+	// Reload config for latest host info
+	cfg, _ := config.Load()
+	if cfg != nil {
+		s.hostMgr = hosts.NewManager()
+		s.hostMgr.AddHosts(cfg.Hosts)
+	}
+
+	// Find best host/model
+	var targetHost *hosts.Host
+	var targetModel string
+
+	if hostPref != "" {
+		targetHost = s.hostMgr.GetHost(hostPref)
+		if targetHost == nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Host not found: %s", hostPref)), nil
+		}
+	}
+
+	if modelPref != "" {
+		targetModel = modelPref
+	} else {
+		// Use fast tier default
+		if cfg != nil && cfg.Tiers.Fast.Model != "" {
+			targetModel = cfg.Tiers.Fast.Model
+		} else {
+			targetModel = "qwen2.5-coder:3b"
+		}
+	}
+
+	// If no host specified, find first online host with the model
+	if targetHost == nil {
+		statuses := s.hostMgr.CheckAllHosts()
+		for _, st := range statuses {
+			if !st.Online {
+				continue
+			}
+			for _, m := range st.Models {
+				if m.Name == targetModel || strings.HasPrefix(m.Name, targetModel) {
+					targetHost = st.Host
+					break
+				}
+			}
+			if targetHost != nil {
+				break
+			}
+		}
+	}
+
+	if targetHost == nil {
+		return mcp.NewToolResultError(fmt.Sprintf("No online host found with model: %s", targetModel)), nil
+	}
+
+	// Call Ollama
+	response, err := callOllama(targetHost.URL, targetModel, prompt)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Ollama error: %v", err)), nil
+	}
+
+	// Return with metadata
+	result := fmt.Sprintf("🐱 %s @ %s\n\n%s", targetModel, targetHost.Name, response)
+	return mcp.NewToolResultText(result), nil
+}
+
+// callOllama sends a prompt to Ollama and returns the response
+func callOllama(baseURL, model, prompt string) (string, error) {
+	reqBody := map[string]interface{}{
+		"model":  model,
+		"prompt": prompt,
+		"stream": false,
+	}
+
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", err
+	}
+
+	client := &http.Client{Timeout: 120 * time.Second}
+	resp, err := client.Post(baseURL+"/api/generate", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("ollama returned status %d", resp.StatusCode)
+	}
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var result struct {
+		Response string `json:"response"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", err
+	}
+
+	return result.Response, nil
 }
