@@ -206,72 +206,128 @@ Alton Brown nodded sagely. "It's like a sourdough starter, but for consciousness
 
 **CONFUSED WOJACK:** (not listening, cracking knuckles) "Watch and learn."
 
+*[Note: These wojacks are not junior devs. They are SENIOR ENGINEERS. They have deployed to production. They have debugged race conditions at 3am. They have opinions about tabs vs spaces. But the seductive power of AI has made them... this.]*
+
 ---
 
 *[YOLO MODE MONTAGE - everything happens very fast]*
 
-**CONFUSED WOJACK:** "Who needs `clood preflight`? I'll just WebSearch 'how does auth work in this codebase'"
+**CONFUSED WOJACK:** "Why would I check `clood system` first? AI is smart. It'll figure out my hardware."
 
-*[400 API tokens burned. Wrong codebase returned. Confidence high.]*
+*[Ollama running on CPU. GPU sitting idle. CUDA_VISIBLE_DEVICES unset. 0.3 tokens/second.]*
 
-**CONFUSED WOJACK:** "Reading the code before modifying it? Nah, I'll just ask Claude to 'fix the bug in the login'"
+**POINTING WOJACK:** "It's... it's so slow. Why is it so slow?"
 
-*[Claude modifies a file it's never seen. Creates three new bugs.]*
+**CONFUSED WOJACK:** "The model is thinking. AI thinks deep. This is normal."
 
-**POINTING WOJACK:** "Maybe run `clood grep` to find—"
-
-**CONFUSED WOJACK:** "NO TIME. `git add .` `git commit -m 'fix stuff'` `git push --force origin main`"
-
-**O-REN ISHII WOJACK:** "He's force pushing to main without checking git status—"
-
-**CONFUSED WOJACK:** "Tests? The tests are suggestions. SHIP IT."
-
-*[CI/CD pipeline: 47 failures. Ignored.]*
-
-**CONFUSED WOJACK:** "Ollama's running locally but let me just hit the Claude API for this quick question about my own codebase"
-
-*[Dollar signs float away into the cloud.]*
-
-**CONFUSED WOJACK:** "I don't need `clood symbols` to understand the function signatures, I'll just GUESS based on the vibes"
-
-**POINTING WOJACK:** (watching in horror) "The vibes are wrong. The vibes are so wrong."
-
-**CONFUSED WOJACK:** "Documentation? I'll write it later. Comments? The code is self-documenting. Types? Any."
-
-**CONFUSED WOJACK:** "`npm install random-package-i-found`"
-
-**O-REN ISHII WOJACK:** "He's not even checking the package—"
-
-**CONFUSED WOJACK:** "Works on my machine. Deploy to prod."
-
-**CONFUSED WOJACK:** "Error handling? Just wrap it in a try-catch and ignore the catch."
-
-**CONFUSED WOJACK:** "Security review? That's future me's problem."
-
-**CONFUSED WOJACK:** "Let me just hardcode this API key real quick—"
-
-**THE ENTIRE COUNCIL:** "NO—"
-
-**CONFUSED WOJACK:** "`git push`"
-
-*[GitHub Secret Scanning has entered the chat]*
-*[Your API key has been revoked]*
-*[Your AWS bill has entered the chat]*
-*[Your AWS bill is $47,000]*
+*[It is not normal. The model is running on a Raspberry Pi energy budget.]*
 
 ---
 
-*[The lights flicker. The terminal displays:]*
+**CONFUSED WOJACK:** "I don't need to read the code first. I'll just tell Claude to 'make it better.'"
+
+**O-REN ISHII WOJACK:** "Make WHAT better—"
+
+**CONFUSED WOJACK:** "The code. All of it. AI understands context."
+
+*[Claude does not have context. Claude has never seen this file. Claude is doing its best.]*
+
+*[Claude's best creates four new abstractions, a factory pattern, and moves the bug to a different file.]*
+
+---
+
+**CONFUSED WOJACK:** "Why use `clood hosts` to check latency? The network is fast. It's 2024."
+
+*[Request routed to a server in another hemisphere. 3 second round trip. Times out.]*
+
+**CONFUSED WOJACK:** "...must be a fluke. Try again."
+
+*[Request times out again. And again. The local Ollama instance weeps, unused.]*
+
+---
+
+**CONFUSED WOJACK:** "The 70B model will definitely run on my 8GB VRAM machine. AI is efficient now."
+
+**POINTING WOJACK:** "`clood system` literally shows you what models fit—"
+
+**CONFUSED WOJACK:** "I don't need guardrails. I'm an engineer."
+
+*[OOM killer has entered the chat. System frozen. Mouse unresponsive.]*
+
+---
+
+**CONFUSED WOJACK:** "I don't need to check `clood preflight`. I know what tools I have."
+
+**O-REN ISHII WOJACK:** "Do you though—"
+
+**CONFUSED WOJACK:** "AI will just figure it out. That's the whole point. We don't have to think anymore."
+
+*[A terrible silence. Even DOOMER WOJACK looks up.]*
+
+**DOOMER WOJACK:** "Did... did he just say we don't have to think?"
+
+---
+
+**CONFUSED WOJACK:** "Look, the AI said it works. Why would I verify? AI doesn't lie."
+
+*[The AI hallucinated a function that doesn't exist.]*
+*[The AI referenced documentation from 2019.]*
+*[The AI was confident. The AI is always confident.]*
+
+---
+
+**CONFUSED WOJACK:** "I'm just going to paste my entire codebase into the prompt. More context is better."
+
+**POINTING WOJACK:** "That's 400,000 tokens—"
+
+**CONFUSED WOJACK:** "The AI can handle it. AI is smart."
+
+*[Claude received 4% of the codebase before the context window filled.]*
+*[Claude confidently answered based on that 4%.]*
+*[That 4% was the README and package.json.]*
+
+---
+
+*[FOURTH WALL BREAK]*
+
+*[The kabuki theater dissolves. The camera pulls back through layers of reality.]*
+
+*[We see: a home office. Night. The blue glow of multiple monitors.]*
+
+*[MAT sits at his desk. He has not looked away from the screen in four hours. Empty coffee cups form a small city around his keyboard. The mechanical keyboard CLACKS with increasing urgency.]*
+
+*[On his screen: Claude Code. A conversation that has gone on too long. The context window groans under the weight of accumulated mistakes.]*
+
+*[His fingers hover over the enter key.]*
+
+*[The prompt reads: "just make it work. don't explain. no tests. ship it."]*
+
+**THE SPIRIT OF ALTON BROWN:** (whispering from somewhere) "He's not going to run preflight, is he?"
+
+**BIRD-SAN:** (also whispering) "They never do. Not the first time."
+
+*[MAT's finger descends.]*
+
+*[ENTER.]*
+
+---
+
+*[SMASH CUT BACK TO: The kabuki theater. The Council. The explosion.]*
+
+*[The terminal displays:]*
 
 ```
-PRODUCTION DATABASE: Corrupted
-MAIN BRANCH: 47 commits behind, 312 ahead, unfixable
-API KEYS: Leaked to GitHub search
-TESTS: What tests
-LOCAL MODELS: Never consulted
-CLOOD PREFLIGHT: Never run
-GUARDRAILS: Ignored
-VIBES: Catastrophic
+HARDWARE: Misconfigured (GPU idle, CPU melting)
+EXPECTATIONS: "AI just works"
+VERIFICATION: None
+CONTEXT: 4% of codebase (README only)
+MODELS: 70B on 8GB VRAM (frozen)
+LOCAL TOOLS: Available but unused
+PREFLIGHT: What preflight
+THINKING: "We don't have to think anymore"
+
+The engineer was capable.
+The AI made them forget.
 
 Goodbye.
 ```
