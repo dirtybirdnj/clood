@@ -439,9 +439,27 @@ func generateLiveConversation(model string) (string, []Question) {
 		role   string
 		prompt string
 	}{
-		{"User", "I want to build a CLI tool for managing local LLM infrastructure. Ask me 3-5 clarifying questions to understand my requirements better."},
-		{"User", "I'm thinking Go for the language, and I want it to work across macOS and Linux. Can you ask follow-up questions about the specific features?"},
-		{"User", "Tell me something completely random and unrelated, then ask 2 more technical questions about database choices."},
+		{"User", `Write a very long, rambling response about flying cats. Include:
+- A detailed history of cats learning to fly (make it up, be creative)
+- Technical specifications for cat aviation gear
+- At least 5 numbered questions about cat flight patterns
+- Random tangents about unrelated topics
+- Make it at least 500 words. Be verbose. Ramble. Go off on tangents.`},
+		{"User", `Continue the flying cats saga. Now discuss:
+- The great cat-bird war of 2024
+- Regulations for feline airspace
+- Ask 5 more questions about cat aviation safety
+- Include a recipe for something completely unrelated
+- Tell a story about a cat named Gerald who refuses to fly
+- Make it LONG. At least 600 words.`},
+		{"User", `Final chapter of the flying cats epic:
+- The prophecy of the Nimbus Cat
+- Snake Way and how cats navigate it
+- 5 questions about the future of cat transportation
+- A dramatic monologue from a cat pilot
+- Random technical jargon mixed with nonsense
+- End with a haiku
+- BE EXTREMELY VERBOSE. 700+ words.`},
 	}
 
 	for i, p := range prompts {
@@ -497,10 +515,14 @@ func callOllama(model, prompt string) string {
 		"model":  model,
 		"prompt": prompt,
 		"stream": false,
+		"options": map[string]interface{}{
+			"num_predict": 2000, // Generate lots of tokens
+			"temperature": 0.9,  // More creative/chaotic
+		},
 	}
 	jsonBody, _ := json.Marshal(reqBody)
 
-	client := &http.Client{Timeout: 60 * time.Second}
+	client := &http.Client{Timeout: 180 * time.Second} // 3 min for long generations
 	resp, err := client.Post("http://localhost:11434/api/generate", "application/json", bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return fmt.Sprintf("Error calling ollama: %v", err)
