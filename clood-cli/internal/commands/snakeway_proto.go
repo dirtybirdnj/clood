@@ -26,6 +26,12 @@ type Question struct {
 	Line     int    // Line number where this question starts
 }
 
+// ChatMessage represents a message in the conversation history
+type ChatMessage struct {
+	Role    string `json:"role"`    // "user", "assistant", "system"
+	Content string `json:"content"`
+}
+
 // Message types for streaming
 type streamChunkMsg string
 type streamDoneMsg struct{}
@@ -47,6 +53,9 @@ type snakewayModel struct {
 	modelName    string // Model being used for generation
 	inputBuffer  string // Always-visible input buffer at bottom
 	showSummary  bool   // Show question summary overlay
+	showContext       bool   // Show context shorthand overlay
+	history           []ChatMessage // Conversation history for context
+	currentAssistant  string // Accumulates current assistant response
 }
 
 // Styles
@@ -124,6 +133,15 @@ No input zones yet - just navigation.`,
 				content, questions = generateTestConversation()
 			}
 
+			// Initialize history for streaming mode
+			var history []ChatMessage
+			if stream {
+				// Seed with the initial prompt (same one used in streamFromOllama)
+				history = []ChatMessage{
+					{Role: "user", Content: "Write about flying cats with questions for the user."},
+				}
+			}
+
 			m := snakewayModel{
 				content:    content,
 				questions:  questions,
@@ -133,6 +151,7 @@ No input zones yet - just navigation.`,
 				following:  stream, // Auto-follow in stream mode
 				streamChan: streamChan,
 				modelName:  model,
+				history:    history,
 			}
 
 			p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
@@ -174,7 +193,9 @@ func (m snakewayModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case streamChunkMsg:
 		// Append new content from stream
-		m.content += string(msg)
+		chunk := string(msg)
+		m.content += chunk
+		m.currentAssistant += chunk // Accumulate for history
 		// Re-wrap content for display
 		m.viewport.SetContent(m.renderContent())
 		if m.following {
@@ -187,9 +208,12 @@ func (m snakewayModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case streamDoneMsg:
 		m.streaming = false
+		// Add assistant response to history
+		if m.currentAssistant != "" {
+			m.history = append(m.history, ChatMessage{Role: "assistant", Content: m.currentAssistant})
+			m.currentAssistant = "" // Reset for next response
+		}
 		m.content += "\n───────────────────────────────────────────────────────────────────\n"
-		m.content += "STREAMING COMPLETE\n"
-		m.content += "───────────────────────────────────────────────────────────────────\n"
 		m.viewport.SetContent(m.renderContent())
 		// Re-detect questions now that content is complete
 		m.questions = detectQuestions(m.content)
@@ -247,6 +271,12 @@ func (m snakewayModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "tab":
 			// Toggle question summary overlay
 			m.showSummary = !m.showSummary
+			m.showContext = false
+
+		case "ctrl+k":
+			// Toggle context shorthand overlay
+			m.showContext = !m.showContext
+			m.showSummary = false
 
 		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
 			idx := int(key[0] - '1')
@@ -306,81 +336,89 @@ func (m *snakewayModel) gotoQuestion(idx int) {
 }
 
 func (m *snakewayModel) submitResponse() {
-	if m.currentQ >= len(m.questions) {
-		return
-	}
+	// Add user response to history
+	userMsg := m.inputBuffer
+	m.history = append(m.history, ChatMessage{Role: "user", Content: userMsg})
 
-	// Mark question as answered
-	m.questions[m.currentQ].Response = m.inputBuffer
-	m.questions[m.currentQ].State = "answered"
+	// Mark question as answered if we have questions
+	if m.currentQ < len(m.questions) {
+		m.questions[m.currentQ].Response = m.inputBuffer
+		m.questions[m.currentQ].State = "answered"
+	}
 
 	// Add user response to content
 	m.content += "\n═══════════════════════════════════════════════════════════════════\n"
-	m.content += fmt.Sprintf("USER RESPONSE TO Q%d\n", m.currentQ+1)
+	m.content += fmt.Sprintf("USER [turn %d]\n", len(m.history))
 	m.content += "═══════════════════════════════════════════════════════════════════\n\n"
 	m.content += m.inputBuffer + "\n\n"
 
 	// Clear input buffer
-	response := m.inputBuffer
 	m.inputBuffer = ""
 
 	// Start streaming follow-up
 	m.content += "═══════════════════════════════════════════════════════════════════\n"
-	m.content += fmt.Sprintf("FOLLOW-UP FROM [%s]\n", m.modelName)
+	m.content += fmt.Sprintf("ASSISTANT [%s]\n", m.modelName)
 	m.content += "═══════════════════════════════════════════════════════════════════\n\n"
 
 	m.streaming = true
 	m.following = true
 	m.streamChan = make(chan string, 100)
 
-	// Start follow-up stream in background
-	question := m.questions[m.currentQ].Text
-	go streamFollowUp(m.modelName, question, response, m.streamChan)
+	// Start follow-up stream with full history
+	historyCopy := make([]ChatMessage, len(m.history))
+	copy(historyCopy, m.history)
+	go streamChatWithHistory(m.modelName, historyCopy, m.streamChan)
 
 	m.viewport.SetContent(m.renderContent())
 	m.viewport.GotoBottom()
 }
 
-// streamFollowUp sends the user's response and streams the LLM's follow-up
-func streamFollowUp(model, question, userResponse string, ch chan string) {
+// streamChatWithHistory uses /api/chat with full conversation history
+func streamChatWithHistory(model string, history []ChatMessage, ch chan string) {
 	defer close(ch)
 
-	prompt := fmt.Sprintf(`The user was asked: "%s"
-
-They responded: "%s"
-
-Please acknowledge their response and ask a relevant follow-up question to continue the conversation. Be conversational and helpful. Include at least one follow-up question (ending with ?).`, question, userResponse)
+	// Convert history to ollama format
+	messages := make([]map[string]string, len(history))
+	for i, msg := range history {
+		messages[i] = map[string]string{
+			"role":    msg.Role,
+			"content": msg.Content,
+		}
+	}
 
 	reqBody := map[string]interface{}{
-		"model":  model,
-		"prompt": prompt,
-		"stream": true,
+		"model":    model,
+		"messages": messages,
+		"stream":   true,
 		"options": map[string]interface{}{
-			"num_predict": 500,
+			"num_predict": 1000,
 			"temperature": 0.7,
 		},
 	}
 	jsonBody, _ := json.Marshal(reqBody)
 
-	client := &http.Client{Timeout: 120 * time.Second}
-	resp, err := client.Post("http://localhost:11434/api/generate", "application/json", bytes.NewBuffer(jsonBody))
+	client := &http.Client{Timeout: 180 * time.Second}
+	resp, err := client.Post("http://localhost:11434/api/chat", "application/json", bytes.NewBuffer(jsonBody))
 	if err != nil {
 		ch <- fmt.Sprintf("\nError: %v\n", err)
 		return
 	}
 	defer resp.Body.Close()
 
+	// Stream response - /api/chat returns message.content instead of response
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
 		var chunk struct {
-			Response string `json:"response"`
-			Done     bool   `json:"done"`
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+			Done bool `json:"done"`
 		}
 		if err := json.Unmarshal(scanner.Bytes(), &chunk); err != nil {
 			continue
 		}
-		if chunk.Response != "" {
-			ch <- chunk.Response
+		if chunk.Message.Content != "" {
+			ch <- chunk.Message.Content
 		}
 		if chunk.Done {
 			break
@@ -468,6 +506,112 @@ func (m snakewayModel) renderContent() string {
 			sb.WriteString(line)
 			sb.WriteString("\n")
 		}
+	}
+
+	return sb.String()
+}
+
+func (m snakewayModel) renderContextOverlay() string {
+	var sb strings.Builder
+
+	boxWidth := 70
+	if m.width < boxWidth+4 {
+		boxWidth = m.width - 4
+	}
+
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#FF6B6B")).
+		Background(lipgloss.Color("#1a1a2e")).
+		Width(boxWidth).
+		Align(lipgloss.Center).
+		Padding(0, 1)
+
+	sb.WriteString(headerStyle.Render("🔗 CONTEXT SHORTHAND"))
+	sb.WriteString("\n")
+	sb.WriteString(strings.Repeat("─", boxWidth))
+	sb.WriteString("\n\n")
+
+	if len(m.history) == 0 {
+		sb.WriteString("  No conversation history yet.\n")
+		sb.WriteString("  Context accumulates as you interact.\n")
+	} else {
+		// Show shorthand representation of history
+		shorthand := m.generateContextShorthand()
+		sb.WriteString(shorthand)
+	}
+
+	// Show token estimate
+	sb.WriteString("\n")
+	sb.WriteString(strings.Repeat("─", boxWidth))
+	sb.WriteString("\n")
+	tokenEst := 0
+	for _, msg := range m.history {
+		tokenEst += len(msg.Content) / 4 // Rough estimate: 4 chars per token
+	}
+	summaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
+	sb.WriteString(summaryStyle.Render(fmt.Sprintf("  ~%d tokens in context | %d messages", tokenEst, len(m.history))))
+	sb.WriteString("\n")
+
+	// Footer
+	sb.WriteString("\n")
+	footerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
+	sb.WriteString(footerStyle.Render("  [Ctrl+K] close  This context is sent with each request"))
+	sb.WriteString("\n")
+
+	// Center the whole thing
+	content := sb.String()
+	lines := strings.Split(content, "\n")
+
+	contentHeight := len(lines)
+	topPad := (m.height - contentHeight) / 2
+	if topPad < 0 {
+		topPad = 0
+	}
+
+	leftPad := (m.width - boxWidth) / 2
+	if leftPad < 0 {
+		leftPad = 0
+	}
+	padding := strings.Repeat(" ", leftPad)
+
+	var result strings.Builder
+	result.WriteString(strings.Repeat("\n", topPad))
+	for _, line := range lines {
+		result.WriteString(padding)
+		result.WriteString(line)
+		result.WriteString("\n")
+	}
+
+	return result.String()
+}
+
+// generateContextShorthand creates a compressed view of the conversation
+func (m snakewayModel) generateContextShorthand() string {
+	var sb strings.Builder
+
+	for i, msg := range m.history {
+		roleStyle := lipgloss.NewStyle().Bold(true)
+		if msg.Role == "user" {
+			roleStyle = roleStyle.Foreground(lipgloss.Color("#00BFFF"))
+		} else if msg.Role == "assistant" {
+			roleStyle = roleStyle.Foreground(lipgloss.Color("#00FF00"))
+		} else {
+			roleStyle = roleStyle.Foreground(lipgloss.Color("#888888"))
+		}
+
+		// Truncate content for display
+		content := msg.Content
+		if len(content) > 60 {
+			content = content[:57] + "..."
+		}
+		// Remove newlines for compact display
+		content = strings.ReplaceAll(content, "\n", " ")
+
+		sb.WriteString(fmt.Sprintf("  %s %s: %s\n",
+			lipgloss.NewStyle().Foreground(lipgloss.Color("#666666")).Render(fmt.Sprintf("[%d]", i+1)),
+			roleStyle.Render(msg.Role),
+			content))
 	}
 
 	return sb.String()
@@ -588,6 +732,11 @@ func (m snakewayModel) View() string {
 		return m.renderSummaryOverlay()
 	}
 
+	// If showing context overlay
+	if m.showContext {
+		return m.renderContextOverlay()
+	}
+
 	// Header
 	title := swHeaderStyle.Render("🐍 SNAKE WAY")
 
@@ -626,9 +775,9 @@ func (m snakewayModel) View() string {
 			inputStyle.Render(m.inputBuffer),
 			swHelpStyle.Render("[enter]send [esc]clear"))
 	} else {
-		help := "[esc]quit [Tab]summary [pgup/dn]scroll [1-9]jump  Type to respond..."
+		help := "[esc]quit [Tab]Q's [^K]context [1-9]jump  Type to respond..."
 		if m.streaming {
-			help = "[esc]quit [Tab]summary [scroll while streaming!] Type anytime..."
+			help = "[esc]quit [Tab]Q's [^K]context  Type anytime..."
 		}
 		helpStyled := swHelpStyle.Render(help)
 		scrollPct := swHelpStyle.Render(fmt.Sprintf(" %d%%", int(m.viewport.ScrollPercent()*100)))
