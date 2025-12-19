@@ -1,8 +1,10 @@
 package commands
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -22,6 +24,7 @@ func AskCmd() *cobra.Command {
 	var showRoute bool
 	var verbose bool
 	var jsonOutput bool
+	var stdinMode bool
 
 	cmd := &cobra.Command{
 		Use:   "ask [question]",
@@ -32,10 +35,28 @@ func AskCmd() *cobra.Command {
   3. Route to the best available host
   4. Stream the response
 
-Use --show-route to see routing decisions without executing.`,
+Use --show-route to see routing decisions without executing.
+Use --stdin to read additional content from stdin (for piping).
+
+Examples:
+  clood ask "What is Go?"
+  cat issue.txt | clood ask "Rate this issue" --stdin
+  gh issue view 42 --json body | clood ask "Scope this" --stdin`,
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			question := strings.Join(args, " ")
+
+			// Read from stdin if flag is set
+			if stdinMode {
+				stdinContent, err := readStdin()
+				if err != nil {
+					fmt.Fprintln(os.Stderr, tui.ErrorStyle.Render("Error reading stdin: "+err.Error()))
+					return
+				}
+				if stdinContent != "" {
+					question = fmt.Sprintf("%s\n\n---\n%s", question, stdinContent)
+				}
+			}
 
 			cfg, err := config.Load()
 			if err != nil {
@@ -131,8 +152,26 @@ Use --show-route to see routing decisions without executing.`,
 	cmd.Flags().BoolVar(&showRoute, "show-route", false, "Show routing decision without executing")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show routing decisions before executing")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output response as JSON")
+	cmd.Flags().BoolVar(&stdinMode, "stdin", false, "Read additional content from stdin")
 
 	return cmd
+}
+
+// readStdin reads all content from stdin.
+func readStdin() (string, error) {
+	// Check if stdin has data (not a terminal)
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) != 0 {
+		// stdin is a terminal, no piped data
+		return "", nil
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+	content, err := io.ReadAll(reader)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(content)), nil
 }
 
 func printRouteInfo(result *router.RouteResult) {
