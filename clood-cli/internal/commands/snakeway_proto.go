@@ -173,6 +173,7 @@ func (m snakewayModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case streamChunkMsg:
 		// Append new content from stream
 		m.content += string(msg)
+		// Re-wrap content for display
 		m.viewport.SetContent(m.renderContent())
 		if m.following {
 			m.viewport.GotoBottom()
@@ -278,16 +279,38 @@ func (m *snakewayModel) gotoQuestion(idx int) {
 
 func (m snakewayModel) renderContent() string {
 	var sb strings.Builder
-	lines := strings.Split(m.content, "\n")
 
-	// Calculate padding for centering (max content width ~70 chars)
+	// Calculate content width and padding
 	contentWidth := 70
+	if m.width > 20 && m.width < contentWidth+20 {
+		contentWidth = m.width - 10
+	}
 	leftPad := ""
 	if m.width > contentWidth+10 {
 		leftPad = strings.Repeat(" ", (m.width-contentWidth)/2)
 	}
 
-	for i, line := range lines {
+	// First, wrap the raw content to our content width
+	// Split by existing newlines, wrap each paragraph
+	paragraphs := strings.Split(m.content, "\n")
+	var wrappedLines []string
+	for _, para := range paragraphs {
+		// Don't wrap formatting lines
+		if strings.HasPrefix(para, "═══") || strings.HasPrefix(para, "───") ||
+			strings.HasPrefix(para, "TURN") || strings.HasPrefix(para, "STREAMING") ||
+			strings.HasPrefix(para, "FLYING") || strings.HasPrefix(para, "ADDITIONAL") ||
+			strings.HasPrefix(para, "END OF") || para == "" {
+			wrappedLines = append(wrappedLines, para)
+		} else {
+			// Wrap this paragraph
+			wrapped := wordWrap(para, contentWidth)
+			for _, wl := range strings.Split(wrapped, "\n") {
+				wrappedLines = append(wrappedLines, wl)
+			}
+		}
+	}
+
+	for i, line := range wrappedLines {
 		// Check if this line is a question marker
 		isQuestion := false
 		questionIdx := -1
@@ -323,7 +346,9 @@ func (m snakewayModel) renderContent() string {
 			sb.WriteString(leftPad)
 			sb.WriteString(swTurnStyle.Render(line))
 			sb.WriteString("\n")
-		} else if strings.HasPrefix(line, "TURN") || strings.HasPrefix(line, "FLYING") || strings.HasPrefix(line, "ADDITIONAL") || strings.HasPrefix(line, "END OF") {
+		} else if strings.HasPrefix(line, "TURN") || strings.HasPrefix(line, "STREAMING") ||
+			strings.HasPrefix(line, "FLYING") || strings.HasPrefix(line, "ADDITIONAL") ||
+			strings.HasPrefix(line, "END OF") {
 			sb.WriteString(leftPad)
 			sb.WriteString(swTurnStyle.Render(line))
 			sb.WriteString("\n")
@@ -710,6 +735,36 @@ Keep writing until you've covered everything. Then write more.`
 			break
 		}
 	}
+}
+
+// wordWrap wraps text to a given width
+func wordWrap(text string, width int) string {
+	if width <= 0 {
+		width = 70
+	}
+	var result strings.Builder
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return text
+	}
+
+	lineLen := 0
+	for i, word := range words {
+		wordLen := len(word)
+		if i == 0 {
+			result.WriteString(word)
+			lineLen = wordLen
+		} else if lineLen+1+wordLen > width {
+			result.WriteString("\n")
+			result.WriteString(word)
+			lineLen = wordLen
+		} else {
+			result.WriteString(" ")
+			result.WriteString(word)
+			lineLen += 1 + wordLen
+		}
+	}
+	return result.String()
 }
 
 // detectQuestions finds questions in content (lines ending with ?)
