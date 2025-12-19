@@ -74,6 +74,9 @@ func main() {
 	// MCP server command
 	rootCmd.AddCommand(commands.ServeCmd())
 
+	// Meta commands
+	rootCmd.AddCommand(commands.BuildCmd())
+
 	// Init command
 	rootCmd.AddCommand(initCmd())
 
