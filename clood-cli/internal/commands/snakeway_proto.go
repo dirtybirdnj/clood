@@ -56,6 +56,7 @@ type snakewayModel struct {
 	showContext       bool   // Show context shorthand overlay
 	history           []ChatMessage // Conversation history for context
 	currentAssistant  string // Accumulates current assistant response
+	promptMode        bool   // Initial prompt entry mode
 }
 
 // Styles
@@ -115,15 +116,12 @@ No input zones yet - just navigation.`,
 			var questions []Question
 			var streamChan chan string
 
+			var promptMode bool
 			if stream {
-				// Streaming mode - start with minimal content, update live
-				content = "═══════════════════════════════════════════════════════════════════\n"
-				content += "STREAMING MODE - Content loading...\n"
-				content += "═══════════════════════════════════════════════════════════════════\n\n"
-				streamChan = make(chan string, 100)
-
-				// Start streaming in background
-				go streamFromOllama(model, streamChan)
+				// Streaming mode - start in prompt entry mode
+				content = ""
+				promptMode = true
+				// Don't start streaming yet - wait for user prompt
 			} else if live {
 				// Generate real content from ollama (blocking)
 				fmt.Println(tui.MutedStyle.Render("Generating live content from ollama..."))
@@ -133,25 +131,17 @@ No input zones yet - just navigation.`,
 				content, questions = generateTestConversation()
 			}
 
-			// Initialize history for streaming mode
-			var history []ChatMessage
-			if stream {
-				// Seed with the initial prompt (same one used in streamFromOllama)
-				history = []ChatMessage{
-					{Role: "user", Content: "Write about flying cats with questions for the user."},
-				}
-			}
-
 			m := snakewayModel{
 				content:    content,
 				questions:  questions,
 				currentQ:   0,
-				turn:       3,
-				streaming:  stream,
-				following:  stream, // Auto-follow in stream mode
+				turn:       0,
+				streaming:  false, // Will start after prompt entry
+				following:  true,
 				streamChan: streamChan,
 				modelName:  model,
-				history:    history,
+				history:    []ChatMessage{},
+				promptMode: promptMode,
 			}
 
 			p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
@@ -238,9 +228,15 @@ func (m snakewayModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "enter":
-			// Submit response if we have input and not streaming
 			if m.inputBuffer != "" && !m.streaming {
-				m.submitResponse()
+				if m.promptMode {
+					// Start streaming with user's prompt
+					m.startWithPrompt()
+					m.viewport.SetContent(m.renderContent())
+				} else {
+					// Submit follow-up response
+					m.submitResponse()
+				}
 				// Start listening for stream
 				if m.streamChan != nil {
 					cmds = append(cmds, waitForStream(m.streamChan))
@@ -333,6 +329,33 @@ func (m *snakewayModel) gotoQuestion(idx int) {
 	if idx >= 0 && idx < len(m.questions) {
 		m.viewport.SetYOffset(m.questions[idx].Line)
 	}
+}
+
+func (m *snakewayModel) startWithPrompt() {
+	prompt := m.inputBuffer
+	m.inputBuffer = ""
+	m.promptMode = false
+
+	// Add to history
+	m.history = append(m.history, ChatMessage{Role: "user", Content: prompt})
+
+	// Add to display content
+	m.content = "═══════════════════════════════════════════════════════════════════\n"
+	m.content += "USER PROMPT\n"
+	m.content += "═══════════════════════════════════════════════════════════════════\n\n"
+	m.content += prompt + "\n\n"
+	m.content += "═══════════════════════════════════════════════════════════════════\n"
+	m.content += fmt.Sprintf("ASSISTANT [%s]\n", m.modelName)
+	m.content += "═══════════════════════════════════════════════════════════════════\n\n"
+
+	// Start streaming
+	m.streaming = true
+	m.following = true
+	m.streamChan = make(chan string, 100)
+
+	historyCopy := make([]ChatMessage, len(m.history))
+	copy(historyCopy, m.history)
+	go streamChatWithHistory(m.modelName, historyCopy, m.streamChan)
 }
 
 func (m *snakewayModel) submitResponse() {
@@ -507,6 +530,70 @@ func (m snakewayModel) renderContent() string {
 			sb.WriteString("\n")
 		}
 	}
+
+	return sb.String()
+}
+
+func (m snakewayModel) renderPromptMode() string {
+	var sb strings.Builder
+
+	boxWidth := 70
+	if m.width < boxWidth+4 {
+		boxWidth = m.width - 4
+	}
+
+	// Calculate centering
+	leftPad := (m.width - boxWidth) / 2
+	if leftPad < 0 {
+		leftPad = 0
+	}
+	padding := strings.Repeat(" ", leftPad)
+
+	topPad := (m.height - 12) / 2
+	if topPad < 0 {
+		topPad = 0
+	}
+	sb.WriteString(strings.Repeat("\n", topPad))
+
+	// Header
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#FFD700"))
+
+	modelStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#888888"))
+
+	sb.WriteString(padding)
+	sb.WriteString(headerStyle.Render("🐍 SNAKE WAY"))
+	sb.WriteString(modelStyle.Render(fmt.Sprintf(" [%s]", m.modelName)))
+	sb.WriteString("\n")
+	sb.WriteString(padding)
+	sb.WriteString(strings.Repeat("─", boxWidth))
+	sb.WriteString("\n\n")
+
+	// Prompt label
+	sb.WriteString(padding)
+	sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#00BFFF")).Render("Enter your prompt:"))
+	sb.WriteString("\n\n")
+
+	// Input area
+	inputStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#00FF00")).
+		Background(lipgloss.Color("#1a1a2e")).
+		Padding(0, 1)
+
+	sb.WriteString(padding)
+	sb.WriteString(inputStyle.Render(m.inputBuffer + "█"))
+	sb.WriteString("\n\n")
+
+	// Help
+	sb.WriteString(padding)
+	sb.WriteString(strings.Repeat("─", boxWidth))
+	sb.WriteString("\n")
+	sb.WriteString(padding)
+	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
+	sb.WriteString(helpStyle.Render("[Enter] start streaming  [Esc] quit"))
+	sb.WriteString("\n")
 
 	return sb.String()
 }
@@ -725,6 +812,11 @@ func (m snakewayModel) renderSummaryOverlay() string {
 func (m snakewayModel) View() string {
 	if !m.ready {
 		return "\n  Initializing Snake Way..."
+	}
+
+	// Prompt entry mode - full screen prompt input
+	if m.promptMode {
+		return m.renderPromptMode()
 	}
 
 	// If showing summary overlay, render that instead
