@@ -18,6 +18,7 @@ import (
 
 	"github.com/dirtybirdnj/clood/internal/config"
 	"github.com/dirtybirdnj/clood/internal/hosts"
+	"github.com/dirtybirdnj/clood/internal/sd"
 	"github.com/dirtybirdnj/clood/internal/system"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -91,6 +92,12 @@ func (s *Server) registerTools() {
 
 	// The main event: ask local models
 	s.mcpServer.AddTool(s.askTool(), s.askHandler)
+
+	// Stable Diffusion / Image Generation tools
+	s.mcpServer.AddTool(s.sdStatusTool(), s.sdStatusHandler)
+	s.mcpServer.AddTool(s.sdInventoryTool(), s.sdInventoryHandler)
+	s.mcpServer.AddTool(s.sdGenerateTool(), s.sdGenerateHandler)
+	s.mcpServer.AddTool(s.sdAnalyzeTool(), s.sdAnalyzeHandler)
 }
 
 // =============================================================================
@@ -1220,4 +1227,305 @@ func callOllama(baseURL, model, prompt string) (string, error) {
 	}
 
 	return result.Response, nil
+}
+
+// =============================================================================
+// Stable Diffusion Tool Definitions
+// =============================================================================
+
+func (s *Server) sdStatusTool() mcp.Tool {
+	return mcp.NewTool("clood_sd_status",
+		mcp.WithDescription("Check ComfyUI connection and list available checkpoints/LoRAs. Use this to verify SD backend is running."),
+		mcp.WithString("host", mcp.Description("ComfyUI host URL (default: http://localhost:8188)")),
+	)
+}
+
+func (s *Server) sdInventoryTool() mcp.Tool {
+	return mcp.NewTool("clood_sd_inventory",
+		mcp.WithDescription("List all locally available SD models: checkpoints, LoRAs, VAEs, embeddings. Shows model names and base types (SD1.5, SDXL, Flux)."),
+		mcp.WithString("host", mcp.Description("ComfyUI host URL (default: http://localhost:8188)")),
+	)
+}
+
+func (s *Server) sdGenerateTool() mcp.Tool {
+	return mcp.NewTool("clood_sd_generate",
+		mcp.WithDescription("Generate an image using Stable Diffusion via ComfyUI. Returns path to generated image."),
+		mcp.WithString("prompt", mcp.Required(), mcp.Description("The image prompt")),
+		mcp.WithString("negative", mcp.Description("Negative prompt (what to avoid)")),
+		mcp.WithString("checkpoint", mcp.Description("Checkpoint model to use")),
+		mcp.WithString("lora", mcp.Description("LoRA model name")),
+		mcp.WithNumber("lora_weight", mcp.Description("LoRA weight (default: 0.8)")),
+		mcp.WithNumber("steps", mcp.Description("Sampling steps (default: 25)")),
+		mcp.WithNumber("width", mcp.Description("Image width (default: 1024)")),
+		mcp.WithNumber("height", mcp.Description("Image height (default: 1024)")),
+		mcp.WithString("host", mcp.Description("ComfyUI host URL")),
+	)
+}
+
+func (s *Server) sdAnalyzeTool() mcp.Tool {
+	return mcp.NewTool("clood_sd_analyze",
+		mcp.WithDescription("Analyze a generation stack from CivitAI URL or pasted parameters. Shows what can be reproduced locally and recovery percentage."),
+		mcp.WithString("input", mcp.Required(), mcp.Description("CivitAI URL or generation parameters to analyze")),
+		mcp.WithString("host", mcp.Description("ComfyUI host URL for inventory comparison")),
+	)
+}
+
+// =============================================================================
+// Stable Diffusion Tool Handlers
+// =============================================================================
+
+func (s *Server) sdStatusHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+	host, _ := args["host"].(string)
+	if host == "" {
+		host = getComfyUIHost()
+	}
+
+	client := sd.NewClient(host)
+
+	// Check connection
+	if err := client.Ping(); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("ComfyUI not reachable at %s: %v", host, err)), nil
+	}
+
+	// Get system stats
+	stats, _ := client.GetSystemStats()
+
+	// Get checkpoints
+	checkpoints, _ := client.GetCheckpoints()
+
+	result := map[string]interface{}{
+		"connected":   true,
+		"host":        host,
+		"checkpoints": checkpoints,
+	}
+
+	if stats != nil {
+		result["system"] = stats.System
+		if len(stats.Devices) > 0 {
+			dev := stats.Devices[0]
+			result["gpu"] = map[string]interface{}{
+				"name":      dev.Name,
+				"vram_gb":   float64(dev.VRAM) / (1024 * 1024 * 1024),
+				"vram_free": float64(dev.VRAMFree) / (1024 * 1024 * 1024),
+			}
+		}
+	}
+
+	data, _ := json.MarshalIndent(result, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (s *Server) sdInventoryHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+	host, _ := args["host"].(string)
+	if host == "" {
+		host = getComfyUIHost()
+	}
+
+	client := sd.NewClient(host)
+
+	// Check connection
+	if err := client.Ping(); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("ComfyUI not reachable: %v", err)), nil
+	}
+
+	inventory := sd.NewLocalInventory()
+	if err := inventory.FromComfyUIAPI(client); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get inventory: %v", err)), nil
+	}
+
+	// Build structured output
+	result := map[string]interface{}{
+		"host": host,
+	}
+
+	if inventory.Hardware.GPUName != "" {
+		result["hardware"] = map[string]interface{}{
+			"gpu":     inventory.Hardware.GPUName,
+			"vram_gb": float64(inventory.Hardware.TotalVRAM) / (1024 * 1024 * 1024),
+			"backend": inventory.Hardware.Backend,
+		}
+	}
+
+	var checkpoints []map[string]string
+	for _, c := range inventory.Checkpoints {
+		checkpoints = append(checkpoints, map[string]string{
+			"name":       c.Name,
+			"base_model": c.BaseModel,
+		})
+	}
+	result["checkpoints"] = checkpoints
+
+	var loras []string
+	for _, l := range inventory.LoRAs {
+		loras = append(loras, l.Name)
+	}
+	result["loras"] = loras
+
+	var vaes []string
+	for _, v := range inventory.VAEs {
+		vaes = append(vaes, v.Name)
+	}
+	result["vaes"] = vaes
+
+	data, _ := json.MarshalIndent(result, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (s *Server) sdGenerateHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	prompt, ok := args["prompt"].(string)
+	if !ok || prompt == "" {
+		return mcp.NewToolResultError("prompt is required"), nil
+	}
+
+	host, _ := args["host"].(string)
+	if host == "" {
+		host = getComfyUIHost()
+	}
+
+	client := sd.NewClient(host)
+
+	// Check connection
+	if err := client.Ping(); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("ComfyUI not reachable: %v", err)), nil
+	}
+
+	// Build prompt
+	promptBuilder := sd.NewPrompt(prompt)
+
+	if negative, ok := args["negative"].(string); ok && negative != "" {
+		promptBuilder.WithNegative(negative)
+	}
+
+	if lora, ok := args["lora"].(string); ok && lora != "" {
+		weight := 0.8
+		if w, ok := args["lora_weight"].(float64); ok {
+			weight = w
+		}
+		promptBuilder.WithLoRA(lora, weight)
+	}
+
+	// Build workflow config
+	cfg := sd.DefaultWorkflowConfig()
+	cfg.Prompt = promptBuilder
+
+	// Get checkpoint
+	checkpoint, _ := args["checkpoint"].(string)
+	if checkpoint != "" {
+		cfg.Checkpoint = checkpoint
+	} else {
+		// Get first available
+		checkpoints, err := client.GetCheckpoints()
+		if err != nil || len(checkpoints) == 0 {
+			return mcp.NewToolResultError("No checkpoints available"), nil
+		}
+		cfg.Checkpoint = checkpoints[0]
+	}
+
+	// Apply optional settings
+	if steps, ok := args["steps"].(float64); ok && steps > 0 {
+		cfg.Steps = int(steps)
+	}
+	if width, ok := args["width"].(float64); ok && width > 0 {
+		cfg.Width = int(width)
+	}
+	if height, ok := args["height"].(float64); ok && height > 0 {
+		cfg.Height = int(height)
+	}
+
+	// Generate
+	genCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+
+	result, err := client.Generate(genCtx, cfg)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Generation failed: %v", err)), nil
+	}
+
+	output := map[string]interface{}{
+		"success":      true,
+		"prompt_id":    result.PromptID,
+		"images":       result.ImagePaths,
+		"duration_sec": result.Duration.Seconds(),
+		"checkpoint":   cfg.Checkpoint,
+		"prompt":       prompt,
+	}
+
+	data, _ := json.MarshalIndent(output, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (s *Server) sdAnalyzeHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	input, ok := args["input"].(string)
+	if !ok || input == "" {
+		return mcp.NewToolResultError("input is required (CivitAI URL or generation params)"), nil
+	}
+
+	host, _ := args["host"].(string)
+	if host == "" {
+		host = getComfyUIHost()
+	}
+
+	// Parse the input
+	parser := sd.NewMultiSourceParser()
+	source, err := parser.Parse(input)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Could not parse input: %v", err)), nil
+	}
+
+	// Build inventory (optional)
+	client := sd.NewClient(host)
+	inventory := sd.NewLocalInventory()
+	if client.Ping() == nil {
+		inventory.FromComfyUIAPI(client)
+	}
+
+	// Build and analyze stack
+	stack := sd.NewStackFromSource(source)
+	analysis := sd.AnalyzeStack(stack, inventory)
+
+	// Build structured output
+	layers := make([]map[string]interface{}, 0)
+	for _, l := range analysis.Layers {
+		layers = append(layers, map[string]interface{}{
+			"layer":       l.Layer.String(),
+			"match":       l.Match.String(),
+			"recovery":    l.Recovery,
+			"workaround":  l.Workaround,
+			"downloadURL": l.DownloadURL,
+		})
+	}
+
+	result := map[string]interface{}{
+		"source": map[string]interface{}{
+			"type":   source.Source,
+			"url":    source.SourceURL,
+			"prompt": source.Prompt,
+		},
+		"layers": layers,
+		"overall": map[string]interface{}{
+			"recovery":        analysis.Overall.OverallRecovery,
+			"can_generate":    analysis.Overall.CanGenerate,
+			"matched_layers":  analysis.Overall.MatchedLayers,
+			"missing_layers":  analysis.Overall.MissingLayers,
+			"blocking_issues": analysis.Overall.BlockingIssues,
+			"warnings":        analysis.Overall.Warnings,
+		},
+	}
+
+	data, _ := json.MarshalIndent(result, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+// getComfyUIHost returns the ComfyUI host from environment or default
+func getComfyUIHost() string {
+	if host := os.Getenv("COMFYUI_HOST"); host != "" {
+		return host
+	}
+	return "http://localhost:8188"
 }
