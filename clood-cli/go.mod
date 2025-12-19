@@ -6,6 +6,8 @@ require (
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
+	github.com/google/uuid v1.6.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/mark3labs/mcp-go v0.43.2
 	github.com/spf13/cobra v1.8.1
 	gopkg.in/yaml.v3 v3.0.1
@@ -20,7 +22,6 @@ require (
 	github.com/charmbracelet/x/cellbuf v0.0.13-0.20250311204145-2c3ea96c31dd // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect

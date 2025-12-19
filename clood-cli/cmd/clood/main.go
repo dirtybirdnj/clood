@@ -77,6 +77,9 @@ func main() {
 	// Meta commands
 	rootCmd.AddCommand(commands.BuildCmd())
 
+	// Image generation
+	rootCmd.AddCommand(commands.SDCmd())
+
 	// Prototypes
 	rootCmd.AddCommand(commands.SnakewayProtoCmd())
 
