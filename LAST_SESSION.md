@@ -118,6 +118,9 @@ type snakewayModel struct {
 |------|-------------|
 | `500fec2` | MCP clood_ask tool with dialogue mode |
 | `331c028` | Bean #9: Snake Way & The Flying Nimbus |
+| `db932c4` | SWOT Analysis for Snake Way components |
+| `b1fb469` | Nimbus Airlines marketing lore |
+| `dc0c772` | Pokédex pattern for seamless two-mode UI |
 
 ---
 
@@ -147,6 +150,8 @@ If revisiting: check `AllowedMCP` config, file bug about SSE tool exposure.
 |------|---------|
 | `lore/SNAKE_WAY_UX.md` | Full UX spec |
 | `docs/SNAKEWAY_SWOT.md` | Component analysis & layer cake architecture |
+| `docs/SNAKEWAY_POKEDEX.md` | Two-mode UI pattern (de-risks input zones) |
+| `lore/NIMBUS_AIRLINES.md` | Marketing lore & memes |
 | `internal/commands/watch.go` | Pattern to steal (80% of Snake Way) |
 | `internal/commands/chat.go` | Saga management (90% built) |
 | `internal/mcp/server.go` | MCP tools |
