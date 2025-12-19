@@ -73,6 +73,7 @@ Examples:
 	cmd.AddCommand(sdRemixCmd())
 	cmd.AddCommand(sdDeconstructCmd())
 	cmd.AddCommand(sdInventoryCmd())
+	cmd.AddCommand(sdDebugCmd())
 
 	return cmd
 }
@@ -738,6 +739,119 @@ Examples:
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	cmd.Flags().StringVar(&loraName, "lora", "", "LoRA name for weight sweep")
 	cmd.Flags().StringVar(&sweepWeights, "sweep", "", "Comma-separated weights (e.g., 0.3,0.5,0.7,0.9)")
+
+	return cmd
+}
+
+// sdDebugCmd provides debugging for generation failures.
+func sdDebugCmd() *cobra.Command {
+	var host string
+	var verbose bool
+
+	cmd := &cobra.Command{
+		Use:   "debug [error-message]",
+		Short: "Diagnose generation failures",
+		Long: `Analyze and diagnose SD generation issues.
+
+Modes:
+  With error:    Analyze a specific error message
+  Without args:  Check ComfyUI connection and system status
+
+Examples:
+  clood sd debug                              # Check system status
+  clood sd debug "connection refused"         # Diagnose specific error
+  clood sd debug --verbose                    # Detailed diagnostics`,
+		Run: func(cmd *cobra.Command, args []string) {
+			host := getComfyUIHost(host)
+
+			// If error message provided, analyze it
+			if len(args) > 0 {
+				errMsg := strings.Join(args, " ")
+				fmt.Println(tui.RenderHeader("DEBUG: Error Analysis"))
+				fmt.Printf("%s %s\n\n", tui.MutedStyle.Render("Error:"), errMsg)
+
+				issues := sd.QuickDiagnose(errMsg)
+				if len(issues) == 0 {
+					fmt.Println("No specific issues detected. Check ComfyUI logs for details.")
+					return
+				}
+
+				for _, issue := range issues {
+					severity := tui.MutedStyle.Render(issue.Severity.String())
+					switch issue.Severity {
+					case sd.SeverityCritical:
+						severity = tui.ErrorStyle.Render("CRITICAL")
+					case sd.SeverityError:
+						severity = tui.ErrorStyle.Render("ERROR")
+					case sd.SeverityWarning:
+						severity = tui.AccentStyle.Render("WARNING")
+					}
+
+					fmt.Printf("[%s] %s\n", severity, issue.Message)
+					if issue.Resolution != "" {
+						fmt.Printf("  %s %s\n", tui.SuccessStyle.Render("→"), issue.Resolution)
+					}
+					fmt.Println()
+				}
+				return
+			}
+
+			// System status check
+			fmt.Println(tui.RenderHeader("DEBUG: System Status"))
+
+			// Check ComfyUI connection
+			client := sd.NewClient(host)
+			fmt.Printf("%s ", tui.MutedStyle.Render("ComfyUI connection:"))
+			if err := client.Ping(); err != nil {
+				fmt.Println(tui.ErrorStyle.Render("FAILED"))
+				fmt.Printf("  %s\n", err.Error())
+
+				issues := sd.QuickDiagnose(err.Error())
+				for _, issue := range issues {
+					if issue.Resolution != "" {
+						fmt.Printf("  %s %s\n", tui.SuccessStyle.Render("→"), issue.Resolution)
+					}
+				}
+			} else {
+				fmt.Println(tui.SuccessStyle.Render("OK"))
+			}
+
+			// Check available models
+			fmt.Printf("%s ", tui.MutedStyle.Render("Checkpoints:"))
+			checkpoints, err := client.GetCheckpoints()
+			if err != nil {
+				fmt.Println(tui.ErrorStyle.Render("FAILED"))
+			} else {
+				fmt.Printf("%s (%d available)\n", tui.SuccessStyle.Render("OK"), len(checkpoints))
+				if verbose && len(checkpoints) > 0 {
+					for _, ckpt := range checkpoints {
+						fmt.Printf("    - %s\n", ckpt)
+					}
+				}
+			}
+
+			// Check inventory for LoRAs (via cache or API)
+			fmt.Printf("%s ", tui.MutedStyle.Render("LoRAs:"))
+			inventory := sd.NewLocalInventory()
+			if cached, cacheErr := inventory.LoadFromCache(); cached && cacheErr == nil {
+				loraCount := len(inventory.LoRAs)
+				fmt.Printf("%s (%d in cache)\n", tui.SuccessStyle.Render("OK"), loraCount)
+				if verbose && loraCount > 0 {
+					for _, lora := range inventory.LoRAs {
+						fmt.Printf("    - %s\n", lora.Name)
+					}
+				}
+			} else {
+				fmt.Println(tui.MutedStyle.Render("(run 'clood sd inventory' to populate)"))
+			}
+
+			fmt.Println()
+			fmt.Println(tui.MutedStyle.Render("Tip: Use 'clood sd debug \"error message\"' to analyze specific errors"))
+		},
+	}
+
+	cmd.Flags().StringVar(&host, "host", "", "ComfyUI host URL")
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed information")
 
 	return cmd
 }
