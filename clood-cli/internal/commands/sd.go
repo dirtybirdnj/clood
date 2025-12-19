@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -14,10 +15,16 @@ import (
 	"github.com/dirtybirdnj/clood/internal/sd"
 	"github.com/dirtybirdnj/clood/internal/tui"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 // Default ComfyUI host - can be overridden with --host or COMFYUI_HOST env
 const defaultComfyUIHost = "http://localhost:8188"
+
+// isInteractive returns true if stdin is a terminal (TTY)
+func isInteractive() bool {
+	return term.IsTerminal(int(os.Stdin.Fd()))
+}
 
 func getComfyUIHost(flagValue string) string {
 	if flagValue != "" {
@@ -737,6 +744,7 @@ func sdRemixCmd() *cobra.Command {
 	var host string
 	var bestEffort bool
 	var jsonOutput bool
+	var pasteMode bool
 
 	cmd := &cobra.Command{
 		Use:   "remix [url-or-params]",
@@ -750,15 +758,74 @@ Supported sources:
   - Pasted A1111/ComfyUI generation parameters
   - Raw prompt text
 
+Interactive mode:
+  Running without arguments prompts for input interactively.
+
 Examples:
+  clood sd remix                                  # Interactive prompt
   clood sd remix "https://civitai.com/images/12345"
-  clood sd remix --best-effort  # Skip prompts, generate immediately
+  clood sd remix --best-effort                    # Skip prompts, generate immediately
+  clood sd remix --paste                          # Read from stdin (for piping)
 
   # Paste generation parameters directly:
   clood sd remix "masterpiece, best quality, 1girl..."`,
-		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			input := strings.Join(args, " ")
+			var input string
+
+			// Handle input sources in priority order
+			if len(args) > 0 {
+				// Args provided - use them
+				input = strings.Join(args, " ")
+			} else if pasteMode {
+				// Explicit paste mode - read all from stdin
+				reader := bufio.NewReader(os.Stdin)
+				var sb strings.Builder
+				for {
+					line, err := reader.ReadString('\n')
+					sb.WriteString(line)
+					if err != nil {
+						break
+					}
+				}
+				input = strings.TrimSpace(sb.String())
+			} else if isInteractive() {
+				// Interactive TTY - prompt user
+				fmt.Println(tui.RenderHeader("REMIX - INTERACTIVE MODE"))
+				fmt.Println(tui.MutedStyle.Render("Paste a CivitAI URL or generation parameters:"))
+				fmt.Println(tui.MutedStyle.Render("(Press Enter twice to submit, or Ctrl+D when done)"))
+				fmt.Println()
+
+				reader := bufio.NewReader(os.Stdin)
+				var sb strings.Builder
+				emptyLines := 0
+
+				for {
+					line, err := reader.ReadString('\n')
+					if err != nil {
+						break // EOF (Ctrl+D)
+					}
+					if strings.TrimSpace(line) == "" {
+						emptyLines++
+						if emptyLines >= 2 {
+							break // Double enter to submit
+						}
+					} else {
+						emptyLines = 0
+					}
+					sb.WriteString(line)
+				}
+				input = strings.TrimSpace(sb.String())
+				fmt.Println()
+			} else {
+				// Non-interactive, no args, no paste - show help
+				cmd.Help()
+				return
+			}
+
+			if input == "" {
+				fmt.Printf("%s No input provided\n", tui.ErrorStyle.Render("ERROR:"))
+				return
+			}
 			host := getComfyUIHost(host)
 			client := sd.NewClient(host)
 
@@ -891,6 +958,7 @@ Examples:
 	cmd.Flags().StringVar(&host, "host", "", "ComfyUI host URL")
 	cmd.Flags().BoolVar(&bestEffort, "best-effort", false, "Generate immediately with available resources")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
+	cmd.Flags().BoolVar(&pasteMode, "paste", false, "Read input from stdin (for piping)")
 
 	return cmd
 }
@@ -899,6 +967,7 @@ Examples:
 func sdDeconstructCmd() *cobra.Command {
 	var host string
 	var jsonOutput bool
+	var pasteMode bool
 
 	cmd := &cobra.Command{
 		Use:   "deconstruct [url-or-params]",
@@ -911,12 +980,68 @@ Perfect for:
   - Understanding what models/LoRAs make up a generation
   - Planning which resources to download
 
+Interactive mode:
+  Running without arguments prompts for input interactively.
+
 Examples:
+  clood sd deconstruct                             # Interactive prompt
   clood sd deconstruct "https://civitai.com/images/12345"
-  clood sd deconstruct "masterpiece, 1girl, <lora:ghibli:0.8>"`,
-		Args: cobra.MinimumNArgs(1),
+  clood sd deconstruct "masterpiece, 1girl, <lora:ghibli:0.8>"
+  clood sd deconstruct --paste                     # Read from stdin`,
 		Run: func(cmd *cobra.Command, args []string) {
-			input := strings.Join(args, " ")
+			var input string
+
+			// Handle input sources
+			if len(args) > 0 {
+				input = strings.Join(args, " ")
+			} else if pasteMode {
+				reader := bufio.NewReader(os.Stdin)
+				var sb strings.Builder
+				for {
+					line, err := reader.ReadString('\n')
+					sb.WriteString(line)
+					if err != nil {
+						break
+					}
+				}
+				input = strings.TrimSpace(sb.String())
+			} else if isInteractive() {
+				fmt.Println(tui.RenderHeader("DECONSTRUCT - INTERACTIVE MODE"))
+				fmt.Println(tui.MutedStyle.Render("Paste a CivitAI URL or generation parameters:"))
+				fmt.Println(tui.MutedStyle.Render("(Press Enter twice to submit, or Ctrl+D when done)"))
+				fmt.Println()
+
+				reader := bufio.NewReader(os.Stdin)
+				var sb strings.Builder
+				emptyLines := 0
+
+				for {
+					line, err := reader.ReadString('\n')
+					if err != nil {
+						break
+					}
+					if strings.TrimSpace(line) == "" {
+						emptyLines++
+						if emptyLines >= 2 {
+							break
+						}
+					} else {
+						emptyLines = 0
+					}
+					sb.WriteString(line)
+				}
+				input = strings.TrimSpace(sb.String())
+				fmt.Println()
+			} else {
+				cmd.Help()
+				return
+			}
+
+			if input == "" {
+				fmt.Printf("%s No input provided\n", tui.ErrorStyle.Render("ERROR:"))
+				return
+			}
+
 			host := getComfyUIHost(host)
 			client := sd.NewClient(host)
 
@@ -1012,6 +1137,7 @@ Examples:
 
 	cmd.Flags().StringVar(&host, "host", "", "ComfyUI host URL (optional)")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
+	cmd.Flags().BoolVar(&pasteMode, "paste", false, "Read input from stdin (for piping)")
 
 	return cmd
 }
