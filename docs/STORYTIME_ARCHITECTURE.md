@@ -31,6 +31,31 @@ clood config sauce on        # Sauce ON globally
 clood config sauce off       # Sauce OFF globally (default)
 ```
 
+### Natural Language Reasoning
+
+The "sauce" vocabulary enables plain communication:
+
+**User to clood:**
+```
+"Add some sauce to this"
+"No sauce please"
+"Turn the sauce off for this one"
+"Give me the saucy version"
+"Keep it dry, no sauce"
+```
+
+**LLM reasoning about sauce:**
+```
+"This is a production code review → sauce off"
+"User is exploring at 2am → sauce probably welcome"
+"Corporate repo detected → default to sauce off"
+"User explicitly asked for fun → sauce on"
+"Error message needs clarity → sauce off"
+"Celebrating a successful deploy → sauce on"
+```
+
+The term "sauce" is intuitive. LLMs can reason about appropriateness without needing to understand "silly mode" or "--flying-cats" semantics.
+
 In any clood UI, the sauce indicator appears:
 
 ```
