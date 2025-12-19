@@ -87,7 +87,7 @@ No input zones yet - just navigation.`,
 				turn:      3, // We have 3 turns of conversation
 			}
 
-			p := tea.NewProgram(m, tea.WithAltScreen())
+			p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
 			if _, err := p.Run(); err != nil {
 				fmt.Println(tui.ErrorStyle.Render("Error: " + err.Error()))
 			}
