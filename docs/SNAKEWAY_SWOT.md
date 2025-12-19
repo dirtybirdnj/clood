@@ -328,6 +328,86 @@ go func() {
 
 ---
 
+## Plan B: MVP Without Input Zones
+
+**The Problem:** Input Zones are HIGH effort and the riskiest component.
+
+**The Insight:** We can get 80% of the value with 20% of the effort by NOT doing inline input zones initially.
+
+### MVP Snake Way (No Input Zones)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🐍 SNAKE WAY                          Questions: 5         │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  [Context paragraph from AI...]                             │
+│                                                             │
+│  ► Q1: What authentication method?                    [○]   │
+│    Q2: Do you need rate limiting?                     [○]   │
+│    Q3: What's your data model?                        [○]   │
+│    Q4: Scalability requirements?                      [○]   │
+│    Q5: API endpoint structure?                        [○]   │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│  Press ENTER on highlighted question to respond             │
+│  [n/p] Navigate  [s] Skip  [i] Ignore  [a] Avoid           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**When user presses ENTER:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Responding to Q1: What authentication method?              │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  > JWT with refresh tokens_                                 │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│  [Enter] Save  [Esc] Cancel                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Why This Works
+
+| Full Vision | MVP | Value Retained |
+|-------------|-----|----------------|
+| Inline input zones | Modal input popup | 90% |
+| See all responses while typing | See one at a time | 70% |
+| Complex focus management | Simple modal toggle | 100% simpler |
+| bubbletea nested inputs | Single textinput | Much easier |
+
+### What MVP Still Delivers
+
+✅ Question detection and parsing
+✅ Hotkey navigation (n/p/1-9)
+✅ Progress tracking (Responses: X/5)
+✅ Question states (answered/skipped/ignored/avoided)
+✅ Batch submit at the end
+✅ No confirm fatigue
+✅ Nimbus navigation experience
+
+### What MVP Defers
+
+❌ Inline editing (respond in place)
+❌ See all responses simultaneously
+❌ Multi-input focus management
+
+### The Upgrade Path
+
+```
+MVP (Modal)                    →    Full (Inline)
+─────────────────────────────────────────────────
+Press Enter → Modal popup      →    Tab into inline input
+One input at a time            →    All inputs visible
+Simple focus                   →    Complex focus management
+Ship in days                   →    Ship in weeks
+```
+
+**Build MVP first. Validate the UX. THEN tackle inline inputs if needed.**
+
+---
+
 ## Next Steps (When Bird-san Returns)
 
 1. **Phase 1 Start:** Copy watch.go → snakeway.go, adapt Section → Question
