@@ -1323,21 +1323,33 @@ func (s *Server) sdInventoryHandler(ctx context.Context, req mcp.CallToolRequest
 		host = getComfyUIHost()
 	}
 
-	client := sd.NewClient(host)
-
-	// Check connection
-	if err := client.Ping(); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("ComfyUI not reachable: %v", err)), nil
-	}
-
 	inventory := sd.NewLocalInventory()
-	if err := inventory.FromComfyUIAPI(client); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to get inventory: %v", err)), nil
+	fromCache := false
+
+	// Try cache first for fast response
+	if cached, err := inventory.LoadFromCache(); cached && err == nil {
+		fromCache = true
+	} else {
+		// Fall back to API
+		client := sd.NewClient(host)
+
+		// Check connection
+		if err := client.Ping(); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("ComfyUI not reachable: %v", err)), nil
+		}
+
+		if err := inventory.FromComfyUIAPI(client); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to get inventory: %v", err)), nil
+		}
+
+		// Save to cache
+		inventory.SaveToCache()
 	}
 
 	// Build structured output
 	result := map[string]interface{}{
-		"host": host,
+		"host":        host,
+		"from_cache":  fromCache,
 	}
 
 	if inventory.Hardware.GPUName != "" {

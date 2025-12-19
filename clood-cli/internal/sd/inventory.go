@@ -9,7 +9,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
+
+// CacheTTL is how long inventory cache is valid (1 hour)
+const CacheTTL = 1 * time.Hour
 
 // LocalInventory holds all available local models and resources.
 type LocalInventory struct {
@@ -508,4 +512,79 @@ func (inv *LocalInventory) ToJSON() ([]byte, error) {
 // FromJSON deserializes inventory from cache.
 func (inv *LocalInventory) FromJSON(data []byte) error {
 	return json.Unmarshal(data, inv)
+}
+
+// getCachePath returns the path to the inventory cache file.
+func getCachePath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".clood", "cache", "inventory.json")
+}
+
+// LoadFromCache attempts to load inventory from cache.
+// Returns true if cache was valid and loaded, false otherwise.
+func (inv *LocalInventory) LoadFromCache() (bool, error) {
+	cachePath := getCachePath()
+
+	info, err := os.Stat(cachePath)
+	if err != nil {
+		return false, nil // Cache doesn't exist
+	}
+
+	// Check if cache is expired
+	if time.Since(info.ModTime()) > CacheTTL {
+		return false, nil // Cache expired
+	}
+
+	data, err := os.ReadFile(cachePath)
+	if err != nil {
+		return false, err
+	}
+
+	if err := inv.FromJSON(data); err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+// SaveToCache persists inventory to cache file.
+func (inv *LocalInventory) SaveToCache() error {
+	cachePath := getCachePath()
+
+	// Ensure cache directory exists
+	cacheDir := filepath.Dir(cachePath)
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return fmt.Errorf("create cache dir: %w", err)
+	}
+
+	data, err := inv.ToJSON()
+	if err != nil {
+		return fmt.Errorf("serialize inventory: %w", err)
+	}
+
+	if err := os.WriteFile(cachePath, data, 0644); err != nil {
+		return fmt.Errorf("write cache: %w", err)
+	}
+
+	return nil
+}
+
+// InvalidateCache removes the cache file.
+func (inv *LocalInventory) InvalidateCache() error {
+	cachePath := getCachePath()
+	err := os.Remove(cachePath)
+	if os.IsNotExist(err) {
+		return nil // Already gone
+	}
+	return err
+}
+
+// CacheAge returns how old the cache is, or -1 if no cache exists.
+func CacheAge() time.Duration {
+	cachePath := getCachePath()
+	info, err := os.Stat(cachePath)
+	if err != nil {
+		return -1
+	}
+	return time.Since(info.ModTime())
 }

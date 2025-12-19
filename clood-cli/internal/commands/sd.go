@@ -1147,6 +1147,7 @@ func sdInventoryCmd() *cobra.Command {
 	var host string
 	var scanPath string
 	var jsonOutput bool
+	var refresh bool
 
 	cmd := &cobra.Command{
 		Use:   "inventory",
@@ -1154,16 +1155,20 @@ func sdInventoryCmd() *cobra.Command {
 		Long: `Display all locally available checkpoints, LoRAs, VAEs, and embeddings.
 
 Can scan from ComfyUI API or directly from filesystem.
+Results are cached for 1 hour for faster subsequent calls.
 
 Examples:
-  clood sd inventory                    # From ComfyUI API
-  clood sd inventory --scan ~/ComfyUI   # Scan filesystem
+  clood sd inventory                    # From cache or ComfyUI API
+  clood sd inventory --refresh          # Force fresh scan, update cache
+  clood sd inventory --scan ~/ComfyUI   # Scan filesystem (no cache)
   clood sd inventory --json             # Machine-readable`,
 		Run: func(cmd *cobra.Command, args []string) {
+			startTime := time.Now()
 			inventory := sd.NewLocalInventory()
+			fromCache := false
 
 			if scanPath != "" {
-				// Scan filesystem
+				// Scan filesystem (no caching for explicit paths)
 				if !jsonOutput {
 					fmt.Printf("%s Scanning %s...\n", tui.AccentStyle.Render(">>>"), scanPath)
 				}
@@ -1172,22 +1177,49 @@ Examples:
 					return
 				}
 			} else {
-				// Get from ComfyUI API
-				host := getComfyUIHost(host)
-				client := sd.NewClient(host)
-
-				if !jsonOutput {
-					fmt.Printf("%s Getting inventory from %s...\n", tui.AccentStyle.Render(">>>"), host)
+				// Try cache first (unless refresh requested)
+				if !refresh {
+					cached, err := inventory.LoadFromCache()
+					if cached && err == nil {
+						fromCache = true
+						if !jsonOutput {
+							age := sd.CacheAge()
+							fmt.Printf("%s Loaded from cache (%.0fm old)\n",
+								tui.SuccessStyle.Render("CACHED"),
+								age.Minutes())
+						}
+					}
 				}
 
-				if err := client.Ping(); err != nil {
-					fmt.Printf("%s ComfyUI not reachable: %v\n", tui.ErrorStyle.Render("ERROR:"), err)
-					fmt.Println(tui.MutedStyle.Render("Use --scan to scan filesystem directly"))
-					return
-				}
+				// If no cache, fetch from API
+				if !fromCache {
+					host := getComfyUIHost(host)
+					client := sd.NewClient(host)
 
-				if err := inventory.FromComfyUIAPI(client); err != nil {
-					fmt.Printf("%s %v\n", tui.WarningStyle.Render("WARN:"), err)
+					if !jsonOutput {
+						if refresh {
+							fmt.Printf("%s Refreshing inventory from %s...\n", tui.AccentStyle.Render(">>>"), host)
+						} else {
+							fmt.Printf("%s Getting inventory from %s...\n", tui.AccentStyle.Render(">>>"), host)
+						}
+					}
+
+					if err := client.Ping(); err != nil {
+						fmt.Printf("%s ComfyUI not reachable: %v\n", tui.ErrorStyle.Render("ERROR:"), err)
+						fmt.Println(tui.MutedStyle.Render("Use --scan to scan filesystem directly"))
+						return
+					}
+
+					if err := inventory.FromComfyUIAPI(client); err != nil {
+						fmt.Printf("%s %v\n", tui.WarningStyle.Render("WARN:"), err)
+					}
+
+					// Save to cache
+					if err := inventory.SaveToCache(); err != nil {
+						if !jsonOutput {
+							fmt.Printf("%s Could not save cache: %v\n", tui.WarningStyle.Render("WARN:"), err)
+						}
+					}
 				}
 			}
 
@@ -1252,6 +1284,15 @@ Examples:
 				}
 			}
 
+			// Show timing
+			elapsed := time.Since(startTime)
+			if fromCache {
+				fmt.Printf("%s Loaded in %dms (cached)\n",
+					tui.MutedStyle.Render(">>>"), elapsed.Milliseconds())
+			} else {
+				fmt.Printf("%s Loaded in %dms\n",
+					tui.MutedStyle.Render(">>>"), elapsed.Milliseconds())
+			}
 			fmt.Println()
 		},
 	}
@@ -1259,6 +1300,7 @@ Examples:
 	cmd.Flags().StringVar(&host, "host", "", "ComfyUI host URL")
 	cmd.Flags().StringVar(&scanPath, "scan", "", "Scan ComfyUI directory instead of API")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
+	cmd.Flags().BoolVar(&refresh, "refresh", false, "Force refresh, ignore cache")
 
 	return cmd
 }
