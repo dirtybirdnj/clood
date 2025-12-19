@@ -45,6 +45,7 @@ type snakewayModel struct {
 	following   bool   // Auto-follow new content
 	streamChan  chan string
 	modelName   string // Model being used for generation
+	inputBuffer string // Always-visible input buffer at bottom
 }
 
 // Styles
@@ -197,55 +198,68 @@ func (m snakewayModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.SetContent(m.renderContent())
 
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "q", "ctrl+c", "esc":
+		key := msg.String()
+
+		switch key {
+		case "ctrl+c":
 			return m, tea.Quit
 
-		case "f":
-			// Toggle follow mode
-			m.following = !m.following
-			if m.following {
-				m.viewport.GotoBottom()
+		case "esc":
+			// Clear input or quit
+			if m.inputBuffer != "" {
+				m.inputBuffer = ""
+			} else {
+				return m, tea.Quit
 			}
 
-		case "g":
+		case "enter":
+			// Submit response if we have input and not streaming
+			if m.inputBuffer != "" && !m.streaming {
+				m.submitResponse()
+				// Start listening for stream
+				if m.streamChan != nil {
+					cmds = append(cmds, waitForStream(m.streamChan))
+				}
+			}
+
+		case "backspace":
+			if len(m.inputBuffer) > 0 {
+				m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
+			}
+
+		case "ctrl+f", "pgdown":
+			m.following = false
+			m.viewport.ViewDown()
+
+		case "ctrl+b", "pgup":
+			m.following = false
+			m.viewport.ViewUp()
+
+		case "ctrl+g":
 			m.viewport.GotoTop()
 			m.following = false
 
-		case "G":
+		case "ctrl+e":
 			m.viewport.GotoBottom()
 			m.following = true
 
-		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
-			idx := int(msg.String()[0] - '1')
-			if idx < len(m.questions) {
-				m.currentQ = idx
-				m.gotoQuestion(idx)
-				m.following = false
-			}
-
-		case "n", "tab":
-			if m.currentQ < len(m.questions)-1 {
-				m.currentQ++
-				m.gotoQuestion(m.currentQ)
-				m.following = false
-			}
-
-		case "p", "shift+tab":
-			if m.currentQ > 0 {
-				m.currentQ--
-				m.gotoQuestion(m.currentQ)
-				m.following = false
-			}
-
-		case "j", "down":
+		case "up", "down":
 			m.following = false
+			// Let viewport handle scroll
 
-		case "k", "up":
+		default:
+			// If it's a printable character, add to input buffer
+			if len(key) == 1 && key[0] >= 32 && key[0] <= 126 {
+				m.inputBuffer += key
+			} else if key == "space" {
+				m.inputBuffer += " "
+			}
+		}
+
+	case tea.MouseMsg:
+		// Mouse scroll disables auto-follow
+		if msg.Type == tea.MouseWheelUp || msg.Type == tea.MouseWheelDown {
 			m.following = false
-
-		case "enter":
-			// Future: enter response mode
 		}
 
 	case tea.WindowSizeMsg:
@@ -274,6 +288,89 @@ func (m snakewayModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *snakewayModel) gotoQuestion(idx int) {
 	if idx >= 0 && idx < len(m.questions) {
 		m.viewport.SetYOffset(m.questions[idx].Line)
+	}
+}
+
+func (m *snakewayModel) submitResponse() {
+	if m.currentQ >= len(m.questions) {
+		return
+	}
+
+	// Mark question as answered
+	m.questions[m.currentQ].Response = m.inputBuffer
+	m.questions[m.currentQ].State = "answered"
+
+	// Add user response to content
+	m.content += "\n═══════════════════════════════════════════════════════════════════\n"
+	m.content += fmt.Sprintf("USER RESPONSE TO Q%d\n", m.currentQ+1)
+	m.content += "═══════════════════════════════════════════════════════════════════\n\n"
+	m.content += m.inputBuffer + "\n\n"
+
+	// Clear input buffer
+	response := m.inputBuffer
+	m.inputBuffer = ""
+
+	// Start streaming follow-up
+	m.content += "═══════════════════════════════════════════════════════════════════\n"
+	m.content += fmt.Sprintf("FOLLOW-UP FROM [%s]\n", m.modelName)
+	m.content += "═══════════════════════════════════════════════════════════════════\n\n"
+
+	m.streaming = true
+	m.following = true
+	m.streamChan = make(chan string, 100)
+
+	// Start follow-up stream in background
+	question := m.questions[m.currentQ].Text
+	go streamFollowUp(m.modelName, question, response, m.streamChan)
+
+	m.viewport.SetContent(m.renderContent())
+	m.viewport.GotoBottom()
+}
+
+// streamFollowUp sends the user's response and streams the LLM's follow-up
+func streamFollowUp(model, question, userResponse string, ch chan string) {
+	defer close(ch)
+
+	prompt := fmt.Sprintf(`The user was asked: "%s"
+
+They responded: "%s"
+
+Please acknowledge their response and ask a relevant follow-up question to continue the conversation. Be conversational and helpful. Include at least one follow-up question (ending with ?).`, question, userResponse)
+
+	reqBody := map[string]interface{}{
+		"model":  model,
+		"prompt": prompt,
+		"stream": true,
+		"options": map[string]interface{}{
+			"num_predict": 500,
+			"temperature": 0.7,
+		},
+	}
+	jsonBody, _ := json.Marshal(reqBody)
+
+	client := &http.Client{Timeout: 120 * time.Second}
+	resp, err := client.Post("http://localhost:11434/api/generate", "application/json", bytes.NewBuffer(jsonBody))
+	if err != nil {
+		ch <- fmt.Sprintf("\nError: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		var chunk struct {
+			Response string `json:"response"`
+			Done     bool   `json:"done"`
+		}
+		if err := json.Unmarshal(scanner.Bytes(), &chunk); err != nil {
+			continue
+		}
+		if chunk.Response != "" {
+			ch <- chunk.Response
+		}
+		if chunk.Done {
+			break
+		}
 	}
 }
 
@@ -390,14 +487,29 @@ func (m snakewayModel) View() string {
 		title, modelInfo, strings.Join(statusParts, ""),
 		strings.Repeat("─", m.width))
 
-	// Footer
-	help := "[q]uit [f]ollow [j/k]scroll [g/G]top/btm [n/p]next/prev [1-9]jump"
-	if m.streaming {
-		help = "[q]uit [f]ollow toggle [scroll while streaming!]"
+	// Footer - input field appears when typing, otherwise help text
+	var footer string
+	if m.inputBuffer != "" {
+		// Show input field when user is typing
+		inputStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#00FF00")).
+			Background(lipgloss.Color("#1a1a2e")).
+			Padding(0, 1)
+		promptStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFD700"))
+
+		footer = fmt.Sprintf("\n%s %s█  %s",
+			promptStyle.Render("→"),
+			inputStyle.Render(m.inputBuffer),
+			swHelpStyle.Render("[enter]send [esc]clear"))
+	} else {
+		help := "[esc]quit [pgup/dn]scroll [ctrl+g/e]top/btm  Just start typing to respond..."
+		if m.streaming {
+			help = "[esc]quit [scroll while streaming!] Type anytime..."
+		}
+		helpStyled := swHelpStyle.Render(help)
+		scrollPct := swHelpStyle.Render(fmt.Sprintf(" %d%%", int(m.viewport.ScrollPercent()*100)))
+		footer = fmt.Sprintf("\n%s%s", helpStyled, scrollPct)
 	}
-	helpStyled := swHelpStyle.Render(help)
-	scrollPct := swHelpStyle.Render(fmt.Sprintf(" %d%%", int(m.viewport.ScrollPercent()*100)))
-	footer := fmt.Sprintf("\n%s%s", helpStyled, scrollPct)
 
 	return header + m.viewport.View() + footer
 }
