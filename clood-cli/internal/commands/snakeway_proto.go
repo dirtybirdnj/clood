@@ -40,10 +40,11 @@ type snakewayModel struct {
 	width       int
 	height      int
 	ready       bool
-	turn        int  // Current conversation turn
-	streaming   bool // Whether we're in streaming mode
-	following   bool // Auto-follow new content
+	turn        int    // Current conversation turn
+	streaming   bool   // Whether we're in streaming mode
+	following   bool   // Auto-follow new content
 	streamChan  chan string
+	modelName   string // Model being used for generation
 }
 
 // Styles
@@ -129,6 +130,7 @@ No input zones yet - just navigation.`,
 				streaming:  stream,
 				following:  stream, // Auto-follow in stream mode
 				streamChan: streamChan,
+				modelName:  model,
 			}
 
 			p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
@@ -343,6 +345,10 @@ func (m snakewayModel) View() string {
 	// Header
 	title := swHeaderStyle.Render("🐍 SNAKE WAY")
 
+	// Model indicator
+	modelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
+	modelInfo := modelStyle.Render(fmt.Sprintf(" [%s]", m.modelName))
+
 	// Status indicators
 	statusParts := []string{}
 	if m.streaming {
@@ -355,8 +361,8 @@ func (m snakewayModel) View() string {
 		statusParts = append(statusParts, swQuestionStyle.Render(fmt.Sprintf(" Q%d/%d", m.currentQ+1, len(m.questions))))
 	}
 
-	header := fmt.Sprintf("%s%s\n%s\n",
-		title, strings.Join(statusParts, ""),
+	header := fmt.Sprintf("%s%s%s\n%s\n",
+		title, modelInfo, strings.Join(statusParts, ""),
 		strings.Repeat("─", m.width))
 
 	// Footer
@@ -665,7 +671,7 @@ This is a test of streaming, so the more text the better. Don't stop early.
 Keep writing until you've covered everything. Then write more.`
 
 	ch <- "═══════════════════════════════════════════════════════════════════\n"
-	ch <- "STREAMING FROM OLLAMA - The Flying Cats Epic\n"
+	ch <- fmt.Sprintf("STREAMING FROM OLLAMA [%s]\n", model)
 	ch <- "═══════════════════════════════════════════════════════════════════\n\n"
 
 	reqBody := map[string]interface{}{
