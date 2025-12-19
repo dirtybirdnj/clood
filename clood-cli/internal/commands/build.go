@@ -24,17 +24,26 @@ so you can build while you clood.
 
   clood build clood              # git pull && go build -o ~/bin/clood
   clood build clood build clood  # The Council convenes...
+  clood build bcbc               # Shorthand for the above
 
 The spirit of Xzibit is pleased.`,
 		Example: `  clood build clood              # Pull latest and build to ~/bin/clood
   clood build clood --skip-pull  # Just build, no git pull
   clood build clood -o /path     # Custom output path
-  clood build clood build clood  # Summon the Council of Wojacks`,
+  clood build clood build clood  # Summon the Council of Wojacks
+  clood build bcbc               # bcbc = build clood build clood`,
 		Args: cobra.ArbitraryArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			// Check for the recursive easter egg: clood build clood build clood
 			// args would be ["clood", "build", "clood"]
+			// Also support shorthand: clood bcbc (build clood build clood)
 			if len(args) == 3 && args[0] == "clood" && args[1] == "build" && args[2] == "clood" {
+				showCouncilOfWojacks()
+				return
+			}
+
+			// Shorthand: bcbc = build clood build clood
+			if len(args) == 1 && args[0] == "bcbc" {
 				showCouncilOfWojacks()
 				return
 			}
@@ -157,31 +166,30 @@ func showBuildInfo(binaryPath string) {
 
 // showCouncilOfWojacks displays the easter egg and self-improvement prompt
 func showCouncilOfWojacks() {
-	// The scene: Abbott & Costello perform "Who's on First" for the Council of Wojacks
-	// Setting: Kill Bill O-Ren Ishii council chamber
+	// The scene: Two README wojacks try to use clood before the Council
+	// Setting: Kill Bill Charlie Brown Establishment
 	fmt.Println()
 	fmt.Println(tui.AccentStyle.Render(`
   ╔═══════════════════════════════════════════════════════════════════════════╗
   ║                     THE COUNCIL OF WOJACKS CONVENES                       ║
   ║                                                                           ║
   ║   ┌─────────────────────────────────────────────────────────────────┐     ║
-  ║   │  "clood build clood build clood"                                │     ║
+  ║   │  clood build clood build clood                                  │     ║
+  ║   │  clood build bcbc                                               │     ║
   ║   │                                                                 │     ║
-  ║   │  ABBOTT: Who's building clood?                                  │     ║
-  ║   │  COSTELLO: Clood is!                                            │     ║
-  ║   │  ABBOTT: That's what I'm asking you! Who's building it?         │     ║
-  ║   │  COSTELLO: Clood builds clood!                                  │     ║
-  ║   │  ABBOTT: I know clood builds clood, but WHO builds clood?       │     ║
-  ║   │  COSTELLO: That's right!                                        │     ║
-  ║   │  ABBOTT: What's right?                                          │     ║
-  ║   │  COSTELLO: No, What is the error handler. Who builds clood!     │     ║
-  ║   │                                                                 │     ║
-  ║   │  [The Council stares in wojack contemplation]                   │     ║
+  ║   │  POINTING WOJACK: "You need to build clood."                    │     ║
+  ║   │  CONFUSED WOJACK: "clood clood build?"                          │     ║
+  ║   │  POINTING WOJACK: "No! clood build clood!"                      │     ║
+  ║   │  CONFUSED WOJACK: "So clood... builds... clood?"                │     ║
+  ║   │  POINTING WOJACK: "YES!"                                        │     ║
+  ║   │  CONFUSED WOJACK: "Then what does bcbc do?"                     │     ║
+  ║   │  POINTING WOJACK: "THE SAME THING"                              │     ║
+  ║   │  CONFUSED WOJACK: "WHY ARE THERE TWO WAYS"                      │     ║
   ║   │                                                                 │     ║
   ║   │     😐  😔  🤔  😶  😑                                           │     ║
   ║   │     Bloomer  Doomer  Thinker  NPC  Zoomer                       │     ║
   ║   │                                                                 │     ║
-  ║   │  O-REN ISHII WOJACK: "The recursive build... is acceptable."    │     ║
+  ║   │  O-REN ISHII WOJACK: "The recursion tail grows."                │     ║
   ║   └─────────────────────────────────────────────────────────────────┘     ║
   ║                                                                           ║
   ║   🗡️  The Council has spoken. Self-improvement shall commence. 🗡️         ║
