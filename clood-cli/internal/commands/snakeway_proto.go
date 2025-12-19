@@ -172,6 +172,13 @@ func (m snakewayModel) renderContent() string {
 	var sb strings.Builder
 	lines := strings.Split(m.content, "\n")
 
+	// Calculate padding for centering (max content width ~70 chars)
+	contentWidth := 70
+	leftPad := ""
+	if m.width > contentWidth+10 {
+		leftPad = strings.Repeat(" ", (m.width-contentWidth)/2)
+	}
+
 	for i, line := range lines {
 		// Check if this line is a question marker
 		isQuestion := false
@@ -194,21 +201,26 @@ func (m snakewayModel) renderContent() string {
 			}
 
 			if questionIdx == m.currentQ {
+				sb.WriteString(leftPad)
 				sb.WriteString(swQuestionActiveStyle.Render(fmt.Sprintf("► Q%d %s ", questionIdx+1, state)))
 				sb.WriteString(swQuestionActiveStyle.Render(line))
 			} else {
+				sb.WriteString(leftPad)
 				sb.WriteString(swQuestionStyle.Render(fmt.Sprintf("  Q%d ", questionIdx+1)))
 				sb.WriteString(stateStyle.Render(state + " "))
 				sb.WriteString(line)
 			}
 			sb.WriteString("\n")
 		} else if strings.HasPrefix(line, "═══") || strings.HasPrefix(line, "───") {
+			sb.WriteString(leftPad)
 			sb.WriteString(swTurnStyle.Render(line))
 			sb.WriteString("\n")
-		} else if strings.HasPrefix(line, "TURN") {
+		} else if strings.HasPrefix(line, "TURN") || strings.HasPrefix(line, "FLYING") || strings.HasPrefix(line, "ADDITIONAL") || strings.HasPrefix(line, "END OF") {
+			sb.WriteString(leftPad)
 			sb.WriteString(swTurnStyle.Render(line))
 			sb.WriteString("\n")
 		} else {
+			sb.WriteString(leftPad)
 			sb.WriteString(line)
 			sb.WriteString("\n")
 		}
