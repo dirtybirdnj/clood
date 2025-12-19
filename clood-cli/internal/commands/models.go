@@ -15,6 +15,7 @@ import (
 func ModelsCmd() *cobra.Command {
 	var jsonOutput bool
 	var hostFilter string
+	var showStorage bool
 
 	cmd := &cobra.Command{
 		Use:   "models",
@@ -58,6 +59,12 @@ Shows which hosts have each model and model details.`,
 
 			// Show all models across all hosts
 			allModels := mgr.GetAllModels()
+
+			// If --storage --json, just output storage report
+			if showStorage && useJSON {
+				printStorageReport(mgr, true)
+				return
+			}
 
 			if useJSON {
 				data, _ := json.MarshalIndent(allModels, "", "  ")
@@ -109,11 +116,18 @@ Shows which hosts have each model and model details.`,
 			fmt.Println()
 			checkTierModel(allModels, "Fast", cfg.Tiers.Fast.Model)
 			checkTierModel(allModels, "Deep", cfg.Tiers.Deep.Model)
+
+			// Show storage if requested
+			if showStorage {
+				fmt.Println()
+				printStorageReport(mgr, useJSON)
+			}
 		},
 	}
 
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	cmd.Flags().StringVarP(&hostFilter, "host", "H", "", "Show models for specific host")
+	cmd.Flags().BoolVar(&showStorage, "storage", false, "Show storage usage by host")
 
 	return cmd
 }
@@ -183,4 +197,100 @@ func checkTierModel(allModels map[string][]string, tier, model string) {
 			tier,
 			model)
 	}
+}
+
+// StorageReport holds storage information for JSON output
+type StorageReport struct {
+	Hosts      []HostStorage `json:"hosts"`
+	TotalBytes int64         `json:"total_bytes"`
+	TotalGB    float64       `json:"total_gb"`
+}
+
+// HostStorage holds per-host storage info
+type HostStorage struct {
+	Name       string  `json:"name"`
+	Online     bool    `json:"online"`
+	ModelCount int     `json:"model_count"`
+	Bytes      int64   `json:"bytes"`
+	GB         float64 `json:"gb"`
+}
+
+func printStorageReport(mgr *hosts.Manager, jsonOutput bool) {
+	statuses := mgr.CheckAllHosts()
+
+	var report StorageReport
+	var totalBytes int64
+
+	for _, status := range statuses {
+		hs := HostStorage{
+			Name:   status.Host.Name,
+			Online: status.Online,
+		}
+
+		if status.Online {
+			var hostBytes int64
+			for _, model := range status.Models {
+				hostBytes += model.Size
+			}
+			hs.ModelCount = len(status.Models)
+			hs.Bytes = hostBytes
+			hs.GB = float64(hostBytes) / (1024 * 1024 * 1024)
+			totalBytes += hostBytes
+		}
+
+		report.Hosts = append(report.Hosts, hs)
+	}
+
+	report.TotalBytes = totalBytes
+	report.TotalGB = float64(totalBytes) / (1024 * 1024 * 1024)
+
+	if jsonOutput {
+		data, _ := json.MarshalIndent(report, "", "  ")
+		fmt.Println(string(data))
+		return
+	}
+
+	fmt.Println(tui.RenderHeader("Storage Usage"))
+	fmt.Println()
+
+	// Per-host storage
+	for _, hs := range report.Hosts {
+		if !hs.Online {
+			fmt.Printf("  %s %s\n",
+				tui.ErrorStyle.Render("✗"),
+				tui.MutedStyle.Render(hs.Name+" (offline)"))
+			continue
+		}
+
+		// Create visual bar
+		bar := renderStorageBar(hs.GB, 50) // max 50GB for bar scale
+		fmt.Printf("  %s %s\n", hs.Name, tui.MutedStyle.Render(fmt.Sprintf("(%d models)", hs.ModelCount)))
+		fmt.Printf("    %s %.1f GB\n", bar, hs.GB)
+	}
+
+	fmt.Println()
+	fmt.Printf("  %s %.1f GB\n",
+		tui.HeaderStyle.Render("Total:"),
+		report.TotalGB)
+}
+
+func renderStorageBar(gb float64, maxGB float64) string {
+	const barWidth = 20
+	filled := int((gb / maxGB) * barWidth)
+	if filled > barWidth {
+		filled = barWidth
+	}
+	if filled < 0 {
+		filled = 0
+	}
+
+	bar := ""
+	for i := 0; i < barWidth; i++ {
+		if i < filled {
+			bar += "█"
+		} else {
+			bar += "░"
+		}
+	}
+	return bar
 }
