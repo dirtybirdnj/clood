@@ -8,27 +8,41 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/dirtybirdnj/clood/internal/analyze"
 	"github.com/dirtybirdnj/clood/internal/tui"
 	"github.com/spf13/cobra"
 )
 
 // BcbcCmd is the shorthand for "build clood build clood" - summons the Council
 func BcbcCmd() *cobra.Command {
-	return &cobra.Command{
+	var dryRun bool
+	var runTests bool
+	var noLaunch bool
+
+	cmd := &cobra.Command{
 		Use:   "bcbc",
-		Short: "Build Clood Build Clood - summon the Council of Wojacks",
+		Short: "Build Clood Build Clood - launch Claude with static analysis context",
 		Long: `Shorthand for "clood build clood build clood"
 
 bcbc = Build Clood Build Clood
 
-Triggers automated system development. The Council convenes.
-The wojacks demonstrate anti-patterns. The guardrails strengthen.
+Runs static analysis on the codebase and launches Claude Code with:
+1. Pre-computed context (go vet, build status, TODOs, symbols)
+2. MCP server configured for clood tools
+3. A prompt to analyze and improve clood
 
+The Council of Wojacks approves.
 "The recursion tail grows." - O-Ren Ishii Wojack`,
 		Run: func(cmd *cobra.Command, args []string) {
-			showCouncilOfWojacks()
+			runBcbc(dryRun, runTests, noLaunch)
 		},
 	}
+
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show analysis and prompt without launching Claude")
+	cmd.Flags().BoolVar(&runTests, "tests", false, "Include test results in analysis (slower)")
+	cmd.Flags().BoolVar(&noLaunch, "no-launch", false, "Run analysis but don't launch Claude")
+
+	return cmd
 }
 
 func BuildCmd() *cobra.Command {
@@ -178,85 +192,135 @@ func showBuildInfo(binaryPath string) {
 	fmt.Println()
 }
 
-// showCouncilOfWojacks displays the easter egg and self-improvement prompt
-func showCouncilOfWojacks() {
-	// The scene: Two README wojacks try to use clood before the Council
-	// Setting: Kill Bill Charlie Brown Establishment
+// runBcbc performs static analysis and launches Claude with context
+func runBcbc(dryRun, runTests, noLaunch bool) {
+	// Show the banner
 	fmt.Println()
 	fmt.Println(tui.AccentStyle.Render(`
   ╔═══════════════════════════════════════════════════════════════════════════╗
   ║                     THE COUNCIL OF WOJACKS CONVENES                       ║
   ║                                                                           ║
-  ║   ┌─────────────────────────────────────────────────────────────────┐     ║
-  ║   │  clood build clood build clood                                  │     ║
-  ║   │  clood bcbc                                                     │     ║
-  ║   │                                                                 │     ║
-  ║   │  POINTING WOJACK: "You need to build clood."                    │     ║
-  ║   │  CONFUSED WOJACK: "clood clood build?"                          │     ║
-  ║   │  POINTING WOJACK: "No! clood build clood!"                      │     ║
-  ║   │  CONFUSED WOJACK: "So clood... builds... clood?"                │     ║
-  ║   │  POINTING WOJACK: "YES!"                                        │     ║
-  ║   │  CONFUSED WOJACK: "Then what does bcbc do?"                     │     ║
-  ║   │  POINTING WOJACK: "THE SAME THING"                              │     ║
-  ║   │  CONFUSED WOJACK: "WHY ARE THERE TWO WAYS"                      │     ║
-  ║   │                                                                 │     ║
-  ║   │     😐  😔  🤔  😶  😑                                           │     ║
-  ║   │     Bloomer  Doomer  Thinker  NPC  Zoomer                       │     ║
-  ║   │                                                                 │     ║
-  ║   │  O-REN ISHII WOJACK: "The recursion tail grows."                │     ║
-  ║   └─────────────────────────────────────────────────────────────────┘     ║
-  ║                                                                           ║
-  ║   🗡️  The Council has spoken. Self-improvement shall commence. 🗡️         ║
+  ║   🗡️  Static analysis engaged. Claude shall receive enlightenment. 🗡️      ║
   ╚═══════════════════════════════════════════════════════════════════════════╝
 `))
 
-	fmt.Println()
-	fmt.Println(tui.RenderHeader("AUTOMATED SYSTEM DEVELOPMENT"))
-	fmt.Println()
-	fmt.Println(tui.MutedStyle.Render("  The Council demands introspection. Feed this to Claude:"))
+	// Find project root
+	projectRoot, err := findCloodDir()
+	if err != nil {
+		// Try current directory
+		projectRoot, _ = os.Getwd()
+	} else {
+		// Go up one level from clood-cli to clood root
+		projectRoot = filepath.Dir(projectRoot)
+	}
+
+	fmt.Println(tui.RenderHeader("RUNNING STATIC ANALYSIS"))
+	fmt.Printf("  %s %s\n", tui.MutedStyle.Render("Project:"), projectRoot)
 	fmt.Println()
 
-	// The actual self-improvement prompt
-	prompt := `┌──────────────────────────────────────────────────────────────────────────────┐
-│  COUNCIL MANDATE: CLOOD USAGE ANALYSIS                                       │
-├──────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  I want you to analyze this project to help Claude use clood better during   │
-│  coding sessions.                                                            │
-│                                                                              │
-│  DIRECTIVE:                                                                  │
-│  1. Parse the codebase using clood tools (eat your own dogfood)              │
-│  2. Check how much YOU used clood vs built-in tools this session             │
-│  3. Report findings on local-first compliance                                │
-│  4. Suggest improvements to maximize filesystem traversal and system info    │
-│  5. Propose next-step improvements to push local-first to the max            │
-│                                                                              │
-│  CONSTRAINTS:                                                                │
-│  - Use clood_preflight first                                                 │
-│  - Use clood_grep instead of Grep                                            │
-│  - Use clood_tree instead of Glob                                            │
-│  - Use clood_ask for coding questions (if Ollama online)                     │
-│  - Avoid network requests at all costs                                       │
-│                                                                              │
-│  OUTPUT:                                                                     │
-│  - Self-assessment of clood usage this session                               │
-│  - Specific improvements to CLAUDE.md or MCP tools                           │
-│  - Code changes to implement (if any)                                        │
-│                                                                              │
-│  MEME: Poking with a stick - "c'mon, build something"                        │
-│                                                                              │
-└──────────────────────────────────────────────────────────────────────────────┘`
+	// Run analysis
+	fmt.Printf("  %s Running go vet, build check, symbol scan...\n", tui.MutedStyle.Render("→"))
+	analysis, err := analyze.RunAnalysis(filepath.Join(projectRoot, "clood-cli"), runTests)
+	if err != nil {
+		fmt.Println(tui.ErrorStyle.Render("  Analysis failed: " + err.Error()))
+		return
+	}
 
-	fmt.Println(tui.AccentStyle.Render(prompt))
-	fmt.Println()
-	fmt.Println(tui.SuccessStyle.Render("  Copy the above and paste to Claude to begin the ritual."))
-	fmt.Println()
-	fmt.Println(tui.MutedStyle.Render("  Or run: clood build clood  # to just build normally"))
+	// Show summary
+	fmt.Println(tui.SuccessStyle.Render("  ✓ Analysis complete"))
+	fmt.Printf("  %s %s\n\n", tui.MutedStyle.Render("Summary:"), analysis.FormatSummary())
+
+	// Format context for Claude
+	analysisContext := analysis.FormatForClaude()
+
+	// The improvement prompt
+	improvementPrompt := `COUNCIL MANDATE: CLOOD SELF-IMPROVEMENT
+
+You have been summoned by "clood bcbc" to improve clood. Static analysis has been pre-computed to save you discovery time.
+
+DIRECTIVE:
+1. Review the static analysis context above (build status, vet issues, TODOs)
+2. Use clood MCP tools for any additional exploration (clood_grep, clood_tree, clood_symbols)
+3. Identify concrete improvements to the codebase
+4. Implement fixes for any build/vet issues first
+5. Then address TODOs and propose enhancements
+
+CONSTRAINTS:
+- Use clood_preflight first to confirm MCP tools are available
+- Prefer clood_* tools over built-in Grep/Glob/Task
+- Focus on actionable improvements, not documentation
+
+OUTPUT:
+- Fix any build or vet issues
+- Address high-priority TODOs
+- Propose one enhancement to clood's capabilities
+
+"The recursive path is the only path." - Ancient Wojack Proverb`
+
+	if dryRun {
+		// Just show what would be sent
+		fmt.Println(tui.RenderHeader("ANALYSIS CONTEXT (would be injected)"))
+		fmt.Println(analysisContext)
+		fmt.Println(tui.RenderHeader("INITIAL PROMPT"))
+		fmt.Println(improvementPrompt)
+		return
+	}
+
+	if noLaunch {
+		fmt.Println(tui.RenderHeader("ANALYSIS CONTEXT"))
+		fmt.Println(analysisContext)
+		fmt.Println()
+		fmt.Println(tui.MutedStyle.Render("  Use --dry-run=false to launch Claude"))
+		return
+	}
+
+	// Check if claude is available
+	claudePath, err := exec.LookPath("claude")
+	if err != nil {
+		fmt.Println(tui.ErrorStyle.Render("  Claude CLI not found. Install with: npm install -g @anthropic-ai/claude-code"))
+		fmt.Println()
+		fmt.Println(tui.MutedStyle.Render("  Showing context for manual use:"))
+		fmt.Println()
+		fmt.Println(analysisContext)
+		fmt.Println(improvementPrompt)
+		return
+	}
+
+	// Build the system prompt with analysis context
+	systemPromptAddition := fmt.Sprintf(`
+<static-analysis-context>
+%s
+</static-analysis-context>
+
+IMPORTANT: The above static analysis was pre-computed by "clood bcbc". Use it to skip discovery and go straight to improvements.
+`, analysisContext)
+
+	// Launch Claude with context
+	fmt.Println(tui.RenderHeader("LAUNCHING CLAUDE"))
+	fmt.Printf("  %s %s\n", tui.MutedStyle.Render("Claude:"), claudePath)
+	fmt.Printf("  %s injecting %d bytes of analysis context\n", tui.MutedStyle.Render("→"), len(systemPromptAddition))
 	fmt.Println()
 
-	// Easter egg within easter egg
-	fmt.Println(tui.MutedStyle.Render("  \"The recursive path is the only path.\" - Ancient Wojack Proverb"))
-	fmt.Println()
+	// Build claude command
+	claudeCmd := exec.Command(claudePath,
+		"--append-system-prompt", systemPromptAddition,
+		improvementPrompt,
+	)
+	claudeCmd.Dir = projectRoot
+	claudeCmd.Stdin = os.Stdin
+	claudeCmd.Stdout = os.Stdout
+	claudeCmd.Stderr = os.Stderr
+
+	// Run interactively
+	if err := claudeCmd.Run(); err != nil {
+		fmt.Println(tui.ErrorStyle.Render("  Claude exited with error: " + err.Error()))
+	}
+}
+
+// showCouncilOfWojacks displays the easter egg (preserved for build clood build clood)
+func showCouncilOfWojacks() {
+	// Redirect to the new function
+	runBcbc(false, false, false)
 }
 
 // findCloodDir locates the clood-cli directory
