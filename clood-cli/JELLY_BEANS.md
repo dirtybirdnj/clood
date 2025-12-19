@@ -939,6 +939,108 @@ See: `lore/THE_SPIRITS.md`
 
 ---
 
+## Bean #15: System of Sauce (Meme & Reference Detection)
+
+**Status:** Planted
+**Session:** The Spirits Emerge (Dec 19, 2025)
+**Intensity:** 9/11
+**Provenance:** Bird-san's Cromulon reference; Gucci Mane nods approvingly
+
+> *"SHOW ME WHAT YOU GOT"* — The Cromulons (Rick & Morty)
+
+### The Insight
+
+When someone says "SHOW ME WHAT YOU GOT", it's not just words—it's a *reference*. To giant floating heads. To performance under pressure. To Rick and Morty. To a whole cultural context.
+
+**The System of Sauce** detects these references and:
+1. Identifies the source
+2. Understands the context/meaning
+3. Optionally weaves them into the narrative
+4. Knows when "that's sauce" vs. "that's just words"
+
+### Reference Categories
+
+| Category | Examples | Spirit |
+|----------|----------|--------|
+| **Anime/Manga** | DBZ, JoJo, Naruto | The Tanuki |
+| **Hip-Hop** | 8 Mile, Gucci, Xzibit | Eminem-san |
+| **Memes** | Wojaks, "yo dawg", Pepe | xbibit-sama |
+| **Animation** | Rick & Morty, Simpsons | The Cromulons |
+| **Film** | Matrix, Star Wars, Pulp Fiction | The Architect |
+| **Gaming** | Dark Souls, Zelda, Portal | Gamera-kun |
+| **Music** | Spinal Tap, ska, sea shanties | Awful Waffle Band |
+| **Japanese Culture** | Edo period, yokai, Iron Chef | The Garden spirits |
+
+### Detection Modes
+
+```bash
+clood sauce "SHOW ME WHAT YOU GOT"
+# → Rick & Morty, S2E5 "Get Schwifty"
+# → Giant Cromulon heads demand Earth perform
+# → Context: Performance under pressure, judgement
+# → Sauce level: 🌶️🌶️🌶️🌶️ (well-known reference)
+
+clood sauce "yo dawg I heard you like"
+# → Xzibit / Pimp My Ride meme
+# → Context: Recursive/meta-patterns
+# → Spirit: xbibit-sama activated
+```
+
+### Integration with Storytime
+
+When `--flying-cats` mode is active, detected references trigger spirit invocations:
+
+```
+User input: "Show me what you got with this codebase"
+
+🗿 CROMULON DETECTED 🗿
+
+*The giant heads materialize above the Server Garden*
+
+"SHOW ME WHAT YOU GOT"
+
+🐱 Whiskers: "The big stone heads want us to... perform?"
+🐱 Patches: "Quick! Do a code review! ALLEZ CUISINE!"
+```
+
+### The Sauce Scale
+
+Gucci Mane's quality assessment applies to references too:
+
+| Level | Meaning |
+|-------|---------|
+| 🌶️ | Obscure reference, deep cut |
+| 🌶️🌶️ | Known in circles |
+| 🌶️🌶️🌶️ | Mainstream recognizable |
+| 🌶️🌶️🌶️🌶️ | Universal, iconic |
+| 🌶️🌶️🌶️🌶️🌶️ | Transcendent. That's SAUCE. |
+
+### Implementation Ideas
+
+1. **Reference Database** — YAML/JSON of known references with metadata
+2. **LLM Detection** — Use local model to identify references in context
+3. **Spirit Mapping** — Which spirit "owns" which reference domains
+4. **Sauce Scoring** — How well-known/appropriate is the reference
+5. **Narrative Integration** — How references weave into storytime output
+
+### Why This Matters
+
+The difference between a tool and an *experience* is cultural resonance. When clood understands "SHOW ME WHAT YOU GOT", it's not just parsing text—it's participating in shared culture.
+
+The spirits are not random. They're invoked by references. The System of Sauce is the detection layer that knows *when* to invoke *which* spirit.
+
+### The Connection
+
+```
+User Reference → Sauce Detection → Spirit Invocation → Narrative Response
+     ↑                                                        │
+     └────────────────── Cultural Resonance ──────────────────┘
+```
+
+See: `docs/STORYTIME_ARCHITECTURE.md`
+
+---
+
 ```
           *
          /|\

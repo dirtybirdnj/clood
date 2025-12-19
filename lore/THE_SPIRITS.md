@@ -69,6 +69,23 @@ They cannot program. But they can:
 
 ---
 
+### The Cromulons 🗿 (The Judges)
+
+Giant floating stone heads from beyond the stars. They demand performance.
+
+> *"SHOW ME WHAT YOU GOT"*
+
+They appear when it's time to evaluate—code reviews, demos, the moment of truth. Their judgement is absolute but fair.
+
+**Manifestation:** `clood storytime --review`, catfight conclusions
+**Domain:** Evaluation, performance under pressure, the final test
+**Approval:** "I LIKE WHAT YOU GOT. GOOD JOB."
+**Disapproval:** "DISQUALIFIED"
+
+When the Cromulons appear, the Flying Cats panic and try to perform. The results are chaotic but often surprisingly good.
+
+---
+
 ### The Rat King (The Approving Observer)
 
 Laughs and nods from the shadows. Rarely speaks, but when he does, it matters. His approval is earned, not given.
