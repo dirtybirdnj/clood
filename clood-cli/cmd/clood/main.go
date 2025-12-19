@@ -78,6 +78,7 @@ func main() {
 
 	// Meta commands
 	rootCmd.AddCommand(commands.BuildCmd())
+	rootCmd.AddCommand(commands.BcbcCmd())
 
 	// Prototypes
 	rootCmd.AddCommand(commands.SnakewayProtoCmd())

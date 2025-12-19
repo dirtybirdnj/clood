@@ -12,6 +12,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// BcbcCmd is the shorthand for "build clood build clood" - summons the Council
+func BcbcCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "bcbc",
+		Short: "Build Clood Build Clood - summon the Council of Wojacks",
+		Long: `Shorthand for "clood build clood build clood"
+
+bcbc = Build Clood Build Clood
+
+Triggers automated system development. The Council convenes.
+The wojacks demonstrate anti-patterns. The guardrails strengthen.
+
+"The recursion tail grows." - O-Ren Ishii Wojack`,
+		Run: func(cmd *cobra.Command, args []string) {
+			showCouncilOfWojacks()
+		},
+	}
+}
+
 func BuildCmd() *cobra.Command {
 	var skipPull bool
 	var outputPath string
@@ -24,14 +43,14 @@ so you can build while you clood.
 
   clood build clood              # git pull && go build -o ~/bin/clood
   clood build clood build clood  # The Council convenes...
-  clood build bcbc               # Shorthand for the above
+  clood bcbc                     # Shorthand for the above
 
 The spirit of Xzibit is pleased.`,
 		Example: `  clood build clood              # Pull latest and build to ~/bin/clood
   clood build clood --skip-pull  # Just build, no git pull
   clood build clood -o /path     # Custom output path
   clood build clood build clood  # Summon the Council of Wojacks
-  clood build bcbc               # bcbc = build clood build clood`,
+  clood bcbc                     # bcbc = build clood build clood`,
 		Args: cobra.ArbitraryArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			// Check for the recursive easter egg: clood build clood build clood
@@ -42,11 +61,6 @@ The spirit of Xzibit is pleased.`,
 				return
 			}
 
-			// Shorthand: bcbc = build clood build clood
-			if len(args) == 1 && args[0] == "bcbc" {
-				showCouncilOfWojacks()
-				return
-			}
 
 			target := "clood"
 			if len(args) > 0 {
@@ -175,7 +189,7 @@ func showCouncilOfWojacks() {
   ║                                                                           ║
   ║   ┌─────────────────────────────────────────────────────────────────┐     ║
   ║   │  clood build clood build clood                                  │     ║
-  ║   │  clood build bcbc                                               │     ║
+  ║   │  clood bcbc                                                     │     ║
   ║   │                                                                 │     ║
   ║   │  POINTING WOJACK: "You need to build clood."                    │     ║
   ║   │  CONFUSED WOJACK: "clood clood build?"                          │     ║
