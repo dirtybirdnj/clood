@@ -82,6 +82,8 @@ func main() {
 
 	// Prototypes
 	rootCmd.AddCommand(commands.SnakewayProtoCmd())
+	rootCmd.AddCommand(commands.InceptionCmd())
+	rootCmd.AddCommand(commands.CatfightLiveCmd())
 
 	// Init command
 	rootCmd.AddCommand(initCmd())
