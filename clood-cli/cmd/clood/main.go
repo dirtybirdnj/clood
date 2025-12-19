@@ -71,8 +71,9 @@ func main() {
 	rootCmd.AddCommand(commands.SessionCmd())
 	rootCmd.AddCommand(commands.BeansCmd())
 
-	// MCP server command
-	rootCmd.AddCommand(commands.ServeCmd())
+	// MCP server commands
+	rootCmd.AddCommand(commands.McpCmd())   // Simple: just run "clood mcp"
+	rootCmd.AddCommand(commands.ServeCmd()) // Advanced: more options
 
 	// Meta commands
 	rootCmd.AddCommand(commands.BuildCmd())

@@ -6,6 +6,49 @@ For agents and power users. No vision, just facts.
 
 ---
 
+## MCP Tools (for AI Agents)
+
+When clood runs as an MCP server (`clood serve --sse`), these tools are exposed to AI agents like Claude Code:
+
+### Zero-Network Discovery Tools (USE FIRST!)
+
+| Tool | Description | Network | LLM Tokens |
+|------|-------------|---------|------------|
+| `clood_grep` | Search codebase with regex | 0 | 0 |
+| `clood_tree` | Directory structure | 0 | 0 |
+| `clood_symbols` | Extract functions/types/classes | 0 | 0 |
+| `clood_imports` | Dependency analysis | 0 | 0 |
+| `clood_context` | Project summary | 0 | 0 |
+| `clood_capabilities` | List available tools | 0 | 0 |
+| `clood_system` | Hardware detection | 0 | 0 |
+
+### Local Ollama Tools (Requires Local LLM)
+
+| Tool | Description | Network | LLM Tokens |
+|------|-------------|---------|------------|
+| `clood_ask` | Query local LLM | Local only | Yes |
+| `clood_hosts` | Check Ollama hosts | Local only | 0 |
+| `clood_models` | List available models | Local only | 0 |
+| `clood_health` | System health check | Local only | 0 |
+
+### MCP Tool Usage Examples
+
+```json
+// Search for authentication code
+{"tool": "clood_grep", "args": {"pattern": "auth", "files_only": true}}
+
+// Get directory structure
+{"tool": "clood_tree", "args": {"path": "internal/", "depth": 2}}
+
+// Extract all functions
+{"tool": "clood_symbols", "args": {"path": ".", "kind": "func"}}
+
+// Check what's available locally
+{"tool": "clood_capabilities", "args": {}}
+```
+
+---
+
 ## Discovery Tools (0 LLM tokens)
 
 These tools scan the codebase without calling any LLM. Use them for surgical context discovery.
