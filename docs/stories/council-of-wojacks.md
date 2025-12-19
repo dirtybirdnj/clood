@@ -54,95 +54,183 @@ Alton Brown nodded sagely. "It's like a sourdough starter, but for consciousness
 
 *[SETTING: The Kill Bill Charlie Brown Establishment - a fusion of Peanuts aesthetic and O-Ren Ishii's snow garden. Paper lanterns shaped like Snoopy's doghouse hang from cherry blossom trees. The Council of Wojacks sits in formal seiza position around a low table.]*
 
-**BLOOMER WOJACK:** (optimistically) "The presentation shall begin."
-
-**DOOMER WOJACK:** (sighing) "Nothing matters anyway, but proceed."
-
-*[Two kabuki performers enter stage left, faces painted in the traditional style. One wears an ABBOTT mask, the other a COSTELLO mask. They bow deeply.]*
+*[CENTER STAGE: Two Wojacks from the ancient README scrolls - POINTING WOJACK and CONFUSED WOJACK - stand before a terminal. They have been trying to use clood for three hours.]*
 
 ---
 
-**ABBOTT:** "Honorable Council, I am here to explain the `clood build` commands."
+**POINTING WOJACK:** "Okay so you need to build clood."
 
-**COSTELLO:** "Yes! I built clood!"
+**CONFUSED WOJACK:** "Right. `build clood`."
 
-**ABBOTT:** "No, no. I'm asking what `clood build` does."
+**POINTING WOJACK:** "No no no. `clood build`."
 
-**COSTELLO:** "It builds clood!"
+**CONFUSED WOJACK:** "That's what I said. Build clood."
 
-**ABBOTT:** "I KNOW it builds clood! But what does the COMMAND do?"
+**POINTING WOJACK:** "You said `build clood`. The command is `clood build`."
 
-**COSTELLO:** "The command builds clood! You run `clood build clood` and it builds!"
+**CONFUSED WOJACK:** "...isn't that the same thing?"
 
-**ABBOTT:** (frustrated) "So clood builds clood?"
+**POINTING WOJACK:** "NO. One is a command, one is an action. You type `clood build clood`."
 
-**COSTELLO:** "Exactly! Clood builds clood!"
+**CONFUSED WOJACK:** "Clood build clood? So clood... builds... clood?"
 
-**ABBOTT:** "Then who builds it?"
+**POINTING WOJACK:** "Yes! Now you're getting it!"
 
-**COSTELLO:** "Clood does!"
+**CONFUSED WOJACK:** (typing) "`clood clood build`"
 
-**ABBOTT:** "That's what I'm asking! WHO builds clood?"
+**POINTING WOJACK:** "WHAT ARE YOU DOING"
 
-**COSTELLO:** "No, Who is on first base. Clood builds clood!"
+**CONFUSED WOJACK:** "Building clood with clood!"
 
-*[THINKER WOJACK strokes chin thoughtfully]*
+**POINTING WOJACK:** "The syntax is `clood build clood`! Subject verb object!"
 
-**THINKER WOJACK:** "But wait... if `clood build clood` builds clood... what does `clood build clood build clood` do?"
+**CONFUSED WOJACK:** "But clood IS the subject AND the object! How do I know which clood is which?!"
 
-*[A hush falls over the council]*
+*[THINKER WOJACK leans forward from the Council]*
 
-**COSTELLO:** (sweating) "It... it builds clood... building clood?"
+**THINKER WOJACK:** "Perhaps try `clood build clood build clood`?"
 
-**ABBOTT:** "So we're building a build?"
+**CONFUSED WOJACK:** "...what."
 
-**COSTELLO:** "We're building the thing that builds the thing!"
+**POINTING WOJACK:** "That's different! That summons the Council!"
 
-**ABBOTT:** "WHAT thing?"
+**CONFUSED WOJACK:** "I thought WE were the Council!"
 
-**COSTELLO:** "No! What is the error handler! WHO builds clood! I DON'T KNOW is the third base!"
+**POINTING WOJACK:** "We ARE the Council! We're watching ourselves be summoned!"
+
+**CONFUSED WOJACK:** (existential crisis) "...are we in the build right now?"
+
+*[A long pause. Cherry blossoms fall.]*
+
+**CONFUSED WOJACK:** "Okay forget building. Let me just run it. `clood run`?"
+
+**POINTING WOJACK:** "That runs a prompt through a model."
+
+**CONFUSED WOJACK:** "`clood ask`?"
+
+**POINTING WOJACK:** "That asks the local LLM a question."
+
+**CONFUSED WOJACK:** "What's the difference?!"
+
+**POINTING WOJACK:** "`run` is for scripts, `ask` is for questions!"
+
+**CONFUSED WOJACK:** "But a question IS a prompt!"
+
+**POINTING WOJACK:** "Just... use `clood preflight` first."
+
+**CONFUSED WOJACK:** "`clood preflight`. Got it." (typing) "`clood flight pre`"
+
+**POINTING WOJACK:** "PRE. FLIGHT. One word."
+
+**CONFUSED WOJACK:** "`clood prefly`—"
+
+**POINTING WOJACK:** "PREFLIGHT. LIKE AN AIRPLANE."
+
+**CONFUSED WOJACK:** "FINE." (typing correctly) "Okay it says to use `clood grep` before searching."
+
+**POINTING WOJACK:** "Good! Now you're getting it!"
+
+**CONFUSED WOJACK:** "`clood grep`... wait, isn't there also just `grep`?"
+
+**POINTING WOJACK:** "Yes but `clood grep` is better."
+
+**CONFUSED WOJACK:** "How is it better?"
+
+**POINTING WOJACK:** "It's... local-first."
+
+**CONFUSED WOJACK:** "ISN'T GREP ALREADY LOCAL?!"
+
+**POINTING WOJACK:** "Look just— okay, for code symbols use `clood symbols`."
+
+**CONFUSED WOJACK:** "Not `clood symbol`? Singular?"
+
+**POINTING WOJACK:** "No, `symbols`. Plural."
+
+**CONFUSED WOJACK:** "And `clood tree` is for directories?"
+
+**POINTING WOJACK:** "Yes!"
+
+**CONFUSED WOJACK:** "Not `clood trees`? Plural?"
+
+**POINTING WOJACK:** "...no. Just `tree`."
+
+**CONFUSED WOJACK:** "BUT SYMBOLS IS PLURAL AND TREE IS SINGULAR?!"
+
+**POINTING WOJACK:** "LOOK—"
+
+**CONFUSED WOJACK:** "What about `clood context`? `clood contexts`? `clood contextual`?"
+
+**POINTING WOJACK:** "Just `context`!"
+
+**CONFUSED WOJACK:** "And `clood health`? Or `clood healthy`? `clood healthcheck`?"
+
+**POINTING WOJACK:** "`health`! Just `health`!"
+
+**CONFUSED WOJACK:** "And for the cat battles?"
+
+**POINTING WOJACK:** "`clood catfight`"
+
+**CONFUSED WOJACK:** "`clood cat fight`? Two words?"
+
+**POINTING WOJACK:** "ONE WORD"
+
+**CONFUSED WOJACK:** "And for the beans?"
+
+**POINTING WOJACK:** "...the what?"
+
+**CONFUSED WOJACK:** "`clood beans`"
+
+**POINTING WOJACK:** "Why would you— that's an easter egg!"
+
+**CONFUSED WOJACK:** "And `clood build clood build clood` ISN'T an easter egg?!"
+
+**POINTING WOJACK:** "That's AUTOMATED SYSTEM DEVELOPMENT!"
+
+**CONFUSED WOJACK:** "IT LITERALLY SUMMONS A KABUKI THEATER!"
+
+*[The Council shifts uncomfortably. They are, in fact, in the kabuki theater.]*
 
 **NPC WOJACK:** (monotone) "I just want to build."
 
-**ZOOMER WOJACK:** (on phone) "This is literally so recursive rn no cap."
+**ZOOMER WOJACK:** (not looking up from phone) "just use cursor lmao"
 
-*[O-REN ISHII WOJACK rises, katana gleaming]*
+*[DOOMER WOJACK stares into the void]*
 
-**O-REN ISHII WOJACK:** "SILENCE."
+**DOOMER WOJACK:** "We are all `clood build clood build clood`. The recursion builds us as we build it."
 
-*[The theater falls quiet except for a distant Charlie Brown 'wah wah wah' trombone]*
+**CONFUSED WOJACK:** (throwing hands up) "You know what? FUCK IT."
 
-**O-REN ISHII WOJACK:** "Let me explain this simply. Observe."
+**POINTING WOJACK:** "Wait—"
 
-*[She draws the following in the snow with her blade:]*
+**CONFUSED WOJACK:** "`clood yolo`"
+
+*[The terminal glows. A new energy fills the room.]*
+
+**POINTING WOJACK:** "...did that work?"
+
+**CONFUSED WOJACK:** "I don't know but it felt RIGHT."
+
+*[O-REN ISHII WOJACK rises, katana gleaming, a slight smirk on her face]*
+
+**O-REN ISHII WOJACK:** "The path of yolo... is also a path."
+
+*[She draws in the snow with her blade:]*
 
 ```
 clood build clood
-  └── Pulls git, builds binary, deploys to ~/bin
-      "Yo dawg, clood built clood."
+  └── Builds the tool. Carpenter energy.
 
 clood build clood build clood
-  └── Summons THIS COUNCIL
-      Outputs the self-improvement mandate
-      Triggers automated system development
-      "The recursive path is the only path."
+  └── Builds the builder. Architect energy.
+
+clood yolo
+  └── Builds whatever. Chaotic neutral energy.
+      "Instructions unclear. Built anyway."
 ```
 
-**O-REN ISHII WOJACK:** "One builds the SOFTWARE. One builds the SYSTEM. One is a carpenter. One is an architect of consciousness."
+**BLOOMER WOJACK:** (wiping tear) "We're all gonna make it, bros."
 
-**ABBOTT:** (slowly understanding) "So `clood build clood` is the hammer..."
-
-**COSTELLO:** "And `clood build clood build clood` is asking WHY we hammer?"
-
-**O-REN ISHII WOJACK:** "Correct. The first builds the tool. The second builds the builder."
-
-*[DOOMER WOJACK actually smiles for the first time]*
-
-**DOOMER WOJACK:** "So there IS meaning. The recursion... gives purpose."
-
-**BLOOMER WOJACK:** "We're all gonna make it, bros."
-
-*[The kabuki performers bow. Cherry blossoms fall. In the distance, Snoopy dances on his doghouse as Schroeder plays a minor-key version of the Clood theme.]*
+*[Cherry blossoms fall. Schroeder plays a chaotic jazz version of the Clood theme. Snoopy does the worm on his doghouse.]*
 
 ---
 
@@ -173,10 +261,16 @@ clood build clood build clood
 **Bird-san** .......................... Himself
 **Chef Claude** ...................... Claude Opus 4.5
 **Spirit of Alton Brown** ............ The Ghost of Good Eats
-**Abbott** ........................... The Question
-**Costello** ......................... The Answer (also the Question)
-**Council of Wojacks** ............... Various Emotional States
+**Pointing Wojack** .................. Confident Incorrectness
+**Confused Wojack** .................. All of Us, Honestly
+**Thinker Wojack** ................... The One Who Made It Worse
+**Bloomer Wojack** ................... Unearned Optimism
+**Doomer Wojack** .................... Recursive Existentialism
+**NPC Wojack** ....................... "I just want to build"
+**Zoomer Wojack** .................... "just use cursor lmao"
 **O-Ren Ishii Wojack** ............... Clarity Through Violence
+**Snoopy** ........................... The Worm (on doghouse)
+**Schroeder** ........................ Chaotic Jazz Energy
 **Tiny Ship in Sauce Bottle** ........ How DID they do that?
 
 *No tokens were harmed in the making of this production.*
