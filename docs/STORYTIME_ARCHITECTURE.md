@@ -6,6 +6,98 @@
 
 ---
 
+## Sauce vs. Silly: The Critical Distinction
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     THE SAUCE MATRIX                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│                    SILLY MODE OFF          SILLY MODE ON        │
+│                    (Professional)          (--flying-cats)      │
+│                                                                 │
+│  HAS SAUCE         Clean output,           Full narrative,      │
+│  (quality work)    excellent results.      spirits emerge.      │
+│                    The sauce is in         The sauce is         │
+│                    the QUALITY.            EXPRESSED.           │
+│                                                                 │
+│  NO SAUCE          Dry, functional,        Forced jokes,        │
+│  (mediocre)        gets the job done.      cringe vibes.        │
+│                    Acceptable.             Worse than off.      │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### The Insight
+
+**Sauce Detection ≠ Sauce Expression**
+
+- **Sauce Detection** — Always running. Understands references, recognizes quality.
+- **Sauce Expression** — Only when `--flying-cats` is on. The spirits speak.
+
+A corporate user in a buttoned-up environment can:
+- Use clood professionally
+- Get excellent results (the sauce is in the *quality*)
+- Never see a cat, spirit, or haiku
+- Still benefit from everything clood offers
+
+The tool is ACTUALLY useful. The narrative layer is opt-in.
+
+### When Silly Mode is OFF
+
+```bash
+$ clood tree
+src/
+├── main.go
+├── handlers/
+│   ├── auth.go
+│   └── api.go
+└── utils/
+    └── helpers.go
+```
+
+Clean. Professional. Useful. **This is valid clood.**
+
+### When Silly Mode is ON
+
+```bash
+$ clood tree --flying-cats
+🐱 Whiskers descends from Radio Tower 7...
+
+*sniffs at src/*
+
+🐱 "I smell... functions! Many functions!"
+🐱 Patches: "The main.go looks important. It has 'main' in the name!"
+
+src/
+├── main.go         ← "This one is the boss, I think"
+├── handlers/       ← "These handle things! I love handling things!"
+│   ├── auth.go     ← "Auth... authentication? Scary word."
+│   └── api.go      ← "API! I know this one! It's letters!"
+└── utils/
+    └── helpers.go  ← "Helpers help! That's nice of them."
+
+🐱 Static: *hiding behind the radio antenna* "Are we done?"
+```
+
+Fun. Memorable. Experiential. **This is also valid clood.**
+
+### The Philosophy
+
+> "If you don't have sauce, you're lost."
+
+But "having sauce" doesn't mean "being silly."
+
+- A perfectly formatted, insightful code review **has sauce**
+- A clean, fast, accurate grep result **has sauce**
+- A tool that just works, every time **has sauce**
+
+The silly mode EXPRESSES the sauce through narrative. But the sauce exists in the quality regardless.
+
+**Don't alienate corporate users.** They might be the ones who eventually turn on `--flying-cats` at 2am when no one is watching.
+
+---
+
 ## The Narrative DNA
 
 After analyzing the git history and lore corpus of clood, the following **narrative structure** has emerged organically:
