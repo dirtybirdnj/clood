@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/dirtybirdnj/clood/internal/tui"
@@ -50,7 +51,18 @@ The spirit of Xzibit is pleased.`,
 			// Determine output path
 			if outputPath == "" {
 				homeDir, _ := os.UserHomeDir()
-				outputPath = filepath.Join(homeDir, "bin", "clood")
+				if runtime.GOOS == "windows" {
+					outputPath = filepath.Join(homeDir, "bin", "clood.exe")
+				} else {
+					outputPath = filepath.Join(homeDir, "bin", "clood")
+				}
+			}
+
+			// Ensure output directory exists
+			outputDir := filepath.Dir(outputPath)
+			if err := os.MkdirAll(outputDir, 0755); err != nil {
+				fmt.Println(tui.ErrorStyle.Render("Could not create output directory: " + err.Error()))
+				return
 			}
 
 			fmt.Println(tui.RenderHeader("Building clood"))
@@ -121,13 +133,24 @@ func findCloodDir() (string, error) {
 		}
 	}
 
-	// Try common locations
+	// Try common locations based on OS
 	homeDir, _ := os.UserHomeDir()
 	candidates := []string{
+		// Universal
 		filepath.Join(homeDir, "Code", "clood", "clood-cli"),
 		filepath.Join(homeDir, "code", "clood", "clood-cli"),
 		filepath.Join(homeDir, "src", "clood", "clood-cli"),
-		"/Users/mgilbert/Code/clood/clood-cli",
+		filepath.Join(homeDir, "projects", "clood", "clood-cli"),
+		filepath.Join(homeDir, "repos", "clood", "clood-cli"),
+		filepath.Join(homeDir, "git", "clood", "clood-cli"),
+	}
+
+	// Add Windows-specific paths
+	if runtime.GOOS == "windows" {
+		candidates = append(candidates,
+			filepath.Join(homeDir, "Documents", "GitHub", "clood", "clood-cli"),
+			filepath.Join(homeDir, "source", "repos", "clood", "clood-cli"),
+		)
 	}
 
 	for _, candidate := range candidates {
