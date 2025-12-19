@@ -17,19 +17,28 @@ func BuildCmd() *cobra.Command {
 	var outputPath string
 
 	cmd := &cobra.Command{
-		Use:   "build [target]",
+		Use:   "build [target...]",
 		Short: "Build clood from source",
 		Long: `Yo dawg, I heard you like clood, so we put a build in your clood
 so you can build while you clood.
 
-  clood build clood    # git pull && go build -o ~/bin/clood
+  clood build clood              # git pull && go build -o ~/bin/clood
+  clood build clood build clood  # The Council convenes...
 
 The spirit of Xzibit is pleased.`,
-		Example: `  clood build clood           # Pull latest and build to ~/bin/clood
+		Example: `  clood build clood              # Pull latest and build to ~/bin/clood
   clood build clood --skip-pull  # Just build, no git pull
-  clood build clood -o /usr/local/bin/clood  # Custom output path`,
-		Args: cobra.MaximumNArgs(1),
+  clood build clood -o /path     # Custom output path
+  clood build clood build clood  # Summon the Council of Wojacks`,
+		Args: cobra.ArbitraryArgs,
 		Run: func(cmd *cobra.Command, args []string) {
+			// Check for the recursive easter egg: clood build clood build clood
+			// args would be ["clood", "build", "clood"]
+			if len(args) == 3 && args[0] == "clood" && args[1] == "build" && args[2] == "clood" {
+				showCouncilOfWojacks()
+				return
+			}
+
 			target := "clood"
 			if len(args) > 0 {
 				target = args[0]
@@ -38,6 +47,7 @@ The spirit of Xzibit is pleased.`,
 			if target != "clood" {
 				fmt.Println(tui.ErrorStyle.Render(fmt.Sprintf("Unknown target: %s", target)))
 				fmt.Println(tui.MutedStyle.Render("Currently only 'clood build clood' is supported"))
+				fmt.Println(tui.MutedStyle.Render("Or try: clood build clood build clood"))
 				return
 			}
 
@@ -142,6 +152,88 @@ func showBuildInfo(binaryPath string) {
 	// System one-liner
 	hostname, _ := os.Hostname()
 	fmt.Printf("  %s %s/%s on %s\n", tui.MutedStyle.Render("System:"), runtime.GOOS, runtime.GOARCH, hostname)
+	fmt.Println()
+}
+
+// showCouncilOfWojacks displays the easter egg and self-improvement prompt
+func showCouncilOfWojacks() {
+	// The scene: Abbott & Costello perform "Who's on First" for the Council of Wojacks
+	// Setting: Kill Bill O-Ren Ishii council chamber
+	fmt.Println()
+	fmt.Println(tui.AccentStyle.Render(`
+  ╔═══════════════════════════════════════════════════════════════════════════╗
+  ║                     THE COUNCIL OF WOJACKS CONVENES                       ║
+  ║                                                                           ║
+  ║   ┌─────────────────────────────────────────────────────────────────┐     ║
+  ║   │  "clood build clood build clood"                                │     ║
+  ║   │                                                                 │     ║
+  ║   │  ABBOTT: Who's building clood?                                  │     ║
+  ║   │  COSTELLO: Clood is!                                            │     ║
+  ║   │  ABBOTT: That's what I'm asking you! Who's building it?         │     ║
+  ║   │  COSTELLO: Clood builds clood!                                  │     ║
+  ║   │  ABBOTT: I know clood builds clood, but WHO builds clood?       │     ║
+  ║   │  COSTELLO: That's right!                                        │     ║
+  ║   │  ABBOTT: What's right?                                          │     ║
+  ║   │  COSTELLO: No, What is the error handler. Who builds clood!     │     ║
+  ║   │                                                                 │     ║
+  ║   │  [The Council stares in wojack contemplation]                   │     ║
+  ║   │                                                                 │     ║
+  ║   │     😐  😔  🤔  😶  😑                                           │     ║
+  ║   │     Bloomer  Doomer  Thinker  NPC  Zoomer                       │     ║
+  ║   │                                                                 │     ║
+  ║   │  O-REN ISHII WOJACK: "The recursive build... is acceptable."    │     ║
+  ║   └─────────────────────────────────────────────────────────────────┘     ║
+  ║                                                                           ║
+  ║   🗡️  The Council has spoken. Self-improvement shall commence. 🗡️         ║
+  ╚═══════════════════════════════════════════════════════════════════════════╝
+`))
+
+	fmt.Println()
+	fmt.Println(tui.RenderHeader("AUTOMATED SYSTEM DEVELOPMENT"))
+	fmt.Println()
+	fmt.Println(tui.MutedStyle.Render("  The Council demands introspection. Feed this to Claude:"))
+	fmt.Println()
+
+	// The actual self-improvement prompt
+	prompt := `┌──────────────────────────────────────────────────────────────────────────────┐
+│  COUNCIL MANDATE: CLOOD USAGE ANALYSIS                                       │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  I want you to analyze this project to help Claude use clood better during   │
+│  coding sessions.                                                            │
+│                                                                              │
+│  DIRECTIVE:                                                                  │
+│  1. Parse the codebase using clood tools (eat your own dogfood)              │
+│  2. Check how much YOU used clood vs built-in tools this session             │
+│  3. Report findings on local-first compliance                                │
+│  4. Suggest improvements to maximize filesystem traversal and system info    │
+│  5. Propose next-step improvements to push local-first to the max            │
+│                                                                              │
+│  CONSTRAINTS:                                                                │
+│  - Use clood_preflight first                                                 │
+│  - Use clood_grep instead of Grep                                            │
+│  - Use clood_tree instead of Glob                                            │
+│  - Use clood_ask for coding questions (if Ollama online)                     │
+│  - Avoid network requests at all costs                                       │
+│                                                                              │
+│  OUTPUT:                                                                     │
+│  - Self-assessment of clood usage this session                               │
+│  - Specific improvements to CLAUDE.md or MCP tools                           │
+│  - Code changes to implement (if any)                                        │
+│                                                                              │
+│  MEME: Poking with a stick - "c'mon, build something"                        │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘`
+
+	fmt.Println(tui.AccentStyle.Render(prompt))
+	fmt.Println()
+	fmt.Println(tui.SuccessStyle.Render("  Copy the above and paste to Claude to begin the ritual."))
+	fmt.Println()
+	fmt.Println(tui.MutedStyle.Render("  Or run: clood build clood  # to just build normally"))
+	fmt.Println()
+
+	// Easter egg within easter egg
+	fmt.Println(tui.MutedStyle.Render("  \"The recursive path is the only path.\" - Ancient Wojack Proverb"))
 	fmt.Println()
 }
 

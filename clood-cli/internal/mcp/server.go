@@ -70,6 +70,10 @@ func (s *Server) MCPServer() *server.MCPServer {
 
 // registerTools adds all clood commands as MCP tools
 func (s *Server) registerTools() {
+	// CRITICAL: Preflight and gate tools - use these FIRST
+	s.mcpServer.AddTool(s.preflightTool(), s.preflightHandler)
+	s.mcpServer.AddTool(s.shouldSearchWebTool(), s.shouldSearchWebHandler)
+
 	// Infrastructure tools
 	s.mcpServer.AddTool(s.hostsTool(), s.hostsHandler)
 	s.mcpServer.AddTool(s.modelsTool(), s.modelsHandler)
@@ -93,34 +97,94 @@ func (s *Server) registerTools() {
 // Tool Definitions
 // =============================================================================
 
+// =============================================================================
+// CRITICAL TOOLS - Use these FIRST
+// =============================================================================
+
+func (s *Server) preflightTool() mcp.Tool {
+	return mcp.NewTool("clood_preflight",
+		mcp.WithDescription(`🚨 START EVERY SESSION WITH THIS TOOL 🚨
+
+Call this BEFORE doing any work. Returns:
+- Available local discovery tools (grep, tree, symbols, imports, context)
+- Online Ollama hosts and models
+- Recommended workflow for this session
+
+This ensures you use local resources before making network requests.
+Cost: ZERO network, ZERO tokens, instant.`),
+	)
+}
+
+func (s *Server) shouldSearchWebTool() mcp.Tool {
+	return mcp.NewTool("clood_should_search_web",
+		mcp.WithDescription(`🛑 REQUIRED: Call this BEFORE any web search 🛑
+
+Analyzes your query and tells you if local tools can answer it instead.
+- If local tools can help → Returns which tool to use instead
+- If web search is needed → Returns "approved" with reason
+
+DO NOT skip this gate. It prevents unnecessary network requests.
+Cost: ZERO network, ZERO tokens, instant.`),
+		mcp.WithString("query", mcp.Required(), mcp.Description("The query you were about to search the web for")),
+	)
+}
+
+// =============================================================================
+// Infrastructure Tools
+// =============================================================================
+
 func (s *Server) hostsTool() mcp.Tool {
 	return mcp.NewTool("clood_hosts",
-		mcp.WithDescription("List and check status of all configured Ollama hosts. Returns online/offline status, latency, and available models for each host."),
+		mcp.WithDescription(`Check Ollama host status. ALWAYS call this before clood_ask.
+
+Returns online/offline status, latency, and available models for each host.
+Use this to verify local LLM is available before querying.
+Cost: Local network only (no internet), ZERO tokens.`),
 	)
 }
 
 func (s *Server) modelsTool() mcp.Tool {
 	return mcp.NewTool("clood_models",
-		mcp.WithDescription("List all available models across all Ollama hosts. Shows which hosts have each model."),
+		mcp.WithDescription(`List available models across all Ollama hosts.
+
+Shows which hosts have each model. Use to pick the right model for your task.
+Cost: Local network only (no internet), ZERO tokens.`),
 		mcp.WithString("host", mcp.Description("Optional: filter to specific host")),
 	)
 }
 
 func (s *Server) systemTool() mcp.Tool {
 	return mcp.NewTool("clood_system",
-		mcp.WithDescription("Display hardware information and model recommendations. Shows CPU, memory, GPU, and which models will fit."),
+		mcp.WithDescription(`Display hardware info and model recommendations.
+
+Shows CPU, memory, GPU, VRAM, and which models will fit.
+Use to understand local compute capacity.
+Cost: ZERO network, ZERO tokens, instant.`),
 	)
 }
 
 func (s *Server) healthTool() mcp.Tool {
 	return mcp.NewTool("clood_health",
-		mcp.WithDescription("Full health check of all clood services. Checks hosts, models, and configuration."),
+		mcp.WithDescription(`Full health check of all clood services.
+
+Checks hosts, models, config, and tier assignments.
+Use when things aren't working or at session start.
+Cost: Local network only (no internet), ZERO tokens.`),
 	)
 }
 
 func (s *Server) askTool() mcp.Tool {
 	return mcp.NewTool("clood_ask",
-		mcp.WithDescription("Send a prompt to local LLM via clood routing. Returns model response. Use for code generation, analysis, or any LLM task."),
+		mcp.WithDescription(`Query LOCAL Ollama LLM. Use INSTEAD of cloud LLM APIs.
+
+⚠️  BEFORE calling this: Run clood_hosts to verify a host is online.
+
+Routes to best available local model. Use for:
+- Code generation and analysis
+- Explaining code patterns
+- Best practices questions
+
+Cost: Local LLM tokens only, ZERO cloud API calls, ZERO internet.`),
 		mcp.WithString("prompt", mcp.Required(), mcp.Description("The prompt to send to the model")),
 		mcp.WithString("model", mcp.Description("Specific model to use (default: routes to best available)")),
 		mcp.WithString("host", mcp.Description("Specific host to use (default: fastest responding)")),
@@ -135,7 +199,15 @@ func (s *Server) askTool() mcp.Tool {
 
 func (s *Server) grepTool() mcp.Tool {
 	return mcp.NewTool("clood_grep",
-		mcp.WithDescription("Search codebase with regex. ZERO network calls, ZERO LLM tokens. Use this FIRST before web searches. Returns matching files and lines."),
+		mcp.WithDescription(`🔍 USE THIS INSTEAD OF WEB SEARCH for codebase questions.
+
+Replaces these web searches:
+- "where is X in this codebase" → clood_grep "X" --files_only
+- "what files contain Y" → clood_grep "Y"
+- "how does Z work in this project" → clood_grep "Z"
+
+Cost: ZERO network, ZERO tokens, instant.
+ALWAYS use this before considering WebSearch for code-related queries.`),
 		mcp.WithString("pattern", mcp.Required(), mcp.Description("Regex pattern to search for")),
 		mcp.WithString("path", mcp.Description("Directory to search in (default: current directory)")),
 		mcp.WithBoolean("files_only", mcp.Description("Only return file names, not matching lines")),
@@ -146,7 +218,15 @@ func (s *Server) grepTool() mcp.Tool {
 
 func (s *Server) treeTool() mcp.Tool {
 	return mcp.NewTool("clood_tree",
-		mcp.WithDescription("Display directory tree structure. ZERO network calls, ZERO LLM tokens. Respects .gitignore. Use to understand project layout."),
+		mcp.WithDescription(`🌳 USE THIS INSTEAD OF WEB SEARCH for project structure.
+
+Replaces these web searches:
+- "project structure"
+- "what directories exist"
+- "codebase layout"
+
+Respects .gitignore. Shows clean directory tree.
+Cost: ZERO network, ZERO tokens, instant.`),
 		mcp.WithString("path", mcp.Description("Directory to show (default: current directory)")),
 		mcp.WithNumber("depth", mcp.Description("Maximum depth to traverse (default: 3)")),
 	)
@@ -154,7 +234,15 @@ func (s *Server) treeTool() mcp.Tool {
 
 func (s *Server) symbolsTool() mcp.Tool {
 	return mcp.NewTool("clood_symbols",
-		mcp.WithDescription("Extract code symbols (functions, types, classes). ZERO network calls, ZERO LLM tokens. Supports Go, Python, JS/TS."),
+		mcp.WithDescription(`📦 USE THIS INSTEAD OF WEB SEARCH for function/type lookups.
+
+Replaces these web searches:
+- "what functions are in file.go"
+- "function signature for Foo"
+- "what types does this package define"
+
+Extracts functions, types, classes from Go, Python, JS/TS.
+Cost: ZERO network, ZERO tokens, instant.`),
 		mcp.WithString("path", mcp.Required(), mcp.Description("File or directory to analyze")),
 		mcp.WithBoolean("exported_only", mcp.Description("Only show exported/public symbols")),
 		mcp.WithString("kind", mcp.Description("Filter by kind: func, type, class, const, var")),
@@ -163,14 +251,30 @@ func (s *Server) symbolsTool() mcp.Tool {
 
 func (s *Server) importsTool() mcp.Tool {
 	return mcp.NewTool("clood_imports",
-		mcp.WithDescription("Analyze file imports and dependencies. ZERO network calls, ZERO LLM tokens. Shows internal, external, and stdlib imports."),
+		mcp.WithDescription(`📎 USE THIS INSTEAD OF WEB SEARCH for dependency questions.
+
+Replaces these web searches:
+- "what does this file import"
+- "what dependencies does X use"
+- "what packages are used here"
+
+Shows internal, external, and stdlib imports.
+Cost: ZERO network, ZERO tokens, instant.`),
 		mcp.WithString("path", mcp.Required(), mcp.Description("File or directory to analyze")),
 	)
 }
 
 func (s *Server) contextTool() mcp.Tool {
 	return mcp.NewTool("clood_context",
-		mcp.WithDescription("Generate LLM-optimized project context. ZERO network calls, ZERO LLM tokens. Includes README, structure, key files."),
+		mcp.WithDescription(`📋 Generate LLM-ready project summary.
+
+Creates a condensed context including:
+- README content
+- Project structure
+- Key files
+
+Use to quickly understand a project without reading every file.
+Cost: ZERO network, ZERO tokens, instant.`),
 		mcp.WithString("path", mcp.Description("Directory to analyze (default: current directory)")),
 		mcp.WithNumber("max_tokens", mcp.Description("Target token count (default: 4000)")),
 	)
@@ -178,7 +282,15 @@ func (s *Server) contextTool() mcp.Tool {
 
 func (s *Server) capabilitiesTool() mcp.Tool {
 	return mcp.NewTool("clood_capabilities",
-		mcp.WithDescription("List what clood can do locally vs what requires network. Use this to plan your approach before starting a task."),
+		mcp.WithDescription(`📊 List what clood can do locally vs what requires network.
+
+Shows:
+- Available local discovery tools
+- Available Ollama tools
+- Whether Ollama is online
+
+Use to plan your approach: local tools first, network last.
+Cost: ZERO network, ZERO tokens, instant.`),
 	)
 }
 
@@ -872,6 +984,202 @@ func (s *Server) capabilitiesHandler(ctx context.Context, req mcp.CallToolReques
 	}
 
 	data, _ := json.MarshalIndent(capabilities, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+// =============================================================================
+// CRITICAL TOOL HANDLERS - Preflight and Web Search Gate
+// =============================================================================
+
+func (s *Server) preflightHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// Get current working directory
+	cwd, _ := os.Getwd()
+
+	// Check Ollama status
+	ollamaStatus := "OFFLINE"
+	var onlineHosts []string
+	var availableModels []string
+
+	cfg, _ := config.Load()
+	if cfg != nil {
+		mgr := hosts.NewManager()
+		mgr.AddHosts(cfg.Hosts)
+		statuses := mgr.CheckAllHosts()
+		for _, st := range statuses {
+			if st.Online {
+				ollamaStatus = "ONLINE"
+				onlineHosts = append(onlineHosts, fmt.Sprintf("%s (%dms)", st.Host.Name, st.Latency.Milliseconds()))
+				for _, m := range st.Models {
+					availableModels = append(availableModels, m.Name)
+				}
+			}
+		}
+	}
+
+	// Build preflight report
+	var sb strings.Builder
+	sb.WriteString("🚀 CLOOD PREFLIGHT CHECK\n")
+	sb.WriteString("========================\n\n")
+
+	sb.WriteString("📍 Working Directory: " + cwd + "\n\n")
+
+	sb.WriteString("🔧 LOCAL DISCOVERY TOOLS (Use these FIRST - instant, 0 tokens):\n")
+	sb.WriteString("   • clood_grep \"pattern\"     - Search codebase (replaces web search)\n")
+	sb.WriteString("   • clood_tree               - Project structure\n")
+	sb.WriteString("   • clood_symbols path/      - Extract functions/types\n")
+	sb.WriteString("   • clood_imports path/      - Dependency analysis\n")
+	sb.WriteString("   • clood_context            - Generate project summary\n\n")
+
+	sb.WriteString("🤖 OLLAMA STATUS: " + ollamaStatus + "\n")
+	if len(onlineHosts) > 0 {
+		sb.WriteString("   Online hosts: " + strings.Join(onlineHosts, ", ") + "\n")
+		if len(availableModels) > 5 {
+			sb.WriteString("   Models: " + strings.Join(availableModels[:5], ", ") + " + " + fmt.Sprintf("%d more", len(availableModels)-5) + "\n")
+		} else if len(availableModels) > 0 {
+			sb.WriteString("   Models: " + strings.Join(availableModels, ", ") + "\n")
+		}
+		sb.WriteString("   → Use clood_ask for local LLM queries (no cloud API needed)\n")
+	} else {
+		sb.WriteString("   No Ollama hosts available. Cloud LLM may be needed.\n")
+	}
+	sb.WriteString("\n")
+
+	sb.WriteString("⚠️  BEFORE WEB SEARCH:\n")
+	sb.WriteString("   Call clood_should_search_web first - it will redirect to local tools if possible.\n\n")
+
+	sb.WriteString("📋 RECOMMENDED WORKFLOW:\n")
+	sb.WriteString("   1. clood_tree → Understand project structure\n")
+	sb.WriteString("   2. clood_grep → Find relevant code\n")
+	sb.WriteString("   3. clood_symbols → Know the API surface\n")
+	sb.WriteString("   4. clood_ask → Query local LLM if needed\n")
+	sb.WriteString("   5. WebSearch → ONLY if above tools can't help\n")
+
+	return mcp.NewToolResultText(sb.String()), nil
+}
+
+func (s *Server) shouldSearchWebHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	query, ok := args["query"].(string)
+	if !ok || query == "" {
+		return mcp.NewToolResultError("query is required"), nil
+	}
+
+	queryLower := strings.ToLower(query)
+
+	// Patterns that indicate codebase questions (should use local tools)
+	codebasePatterns := []struct {
+		patterns []string
+		tool     string
+		reason   string
+	}{
+		{
+			patterns: []string{"where is", "find file", "which file", "what file", "locate"},
+			tool:     "clood_grep",
+			reason:   "Finding files in codebase",
+		},
+		{
+			patterns: []string{"how does", "how do", "what does", "explain", "understand"},
+			tool:     "clood_grep + clood_context",
+			reason:   "Understanding code requires reading it first",
+		},
+		{
+			patterns: []string{"project structure", "directory", "folder", "layout", "codebase structure"},
+			tool:     "clood_tree",
+			reason:   "Project structure is local",
+		},
+		{
+			patterns: []string{"function", "method", "class", "type", "interface", "signature"},
+			tool:     "clood_symbols",
+			reason:   "Code symbols are extractable locally",
+		},
+		{
+			patterns: []string{"import", "depend", "package", "module", "require"},
+			tool:     "clood_imports",
+			reason:   "Dependency analysis is local",
+		},
+		{
+			patterns: []string{"in this codebase", "in this project", "in this repo", "in our code"},
+			tool:     "clood_grep",
+			reason:   "Codebase questions should use local search",
+		},
+	}
+
+	// Check for codebase patterns
+	for _, cp := range codebasePatterns {
+		for _, pattern := range cp.patterns {
+			if strings.Contains(queryLower, pattern) {
+				result := map[string]interface{}{
+					"verdict":     "USE_LOCAL_TOOL",
+					"tool":        cp.tool,
+					"reason":      cp.reason,
+					"instruction": fmt.Sprintf("Instead of web search, use: %s", cp.tool),
+					"original_query": query,
+				}
+				data, _ := json.MarshalIndent(result, "", "  ")
+				return mcp.NewToolResultText(string(data)), nil
+			}
+		}
+	}
+
+	// Patterns that suggest local LLM can help
+	llmPatterns := []string{
+		"best practice", "how to implement", "pattern for", "approach to",
+		"should i", "recommend", "suggestion",
+	}
+
+	for _, pattern := range llmPatterns {
+		if strings.Contains(queryLower, pattern) {
+			// Check if Ollama is available
+			ollamaOnline := false
+			cfg, _ := config.Load()
+			if cfg != nil {
+				mgr := hosts.NewManager()
+				mgr.AddHosts(cfg.Hosts)
+				for _, st := range mgr.CheckAllHosts() {
+					if st.Online {
+						ollamaOnline = true
+						break
+					}
+				}
+			}
+
+			if ollamaOnline {
+				result := map[string]interface{}{
+					"verdict":     "USE_LOCAL_LLM",
+					"tool":        "clood_ask",
+					"reason":      "General coding question - local LLM can help",
+					"instruction": "Use clood_ask to query local Ollama instead of web search",
+					"original_query": query,
+				}
+				data, _ := json.MarshalIndent(result, "", "  ")
+				return mcp.NewToolResultText(string(data)), nil
+			}
+		}
+	}
+
+	// Web search is approved for external information
+	externalPatterns := []string{
+		"latest", "current", "news", "update", "release", "version",
+		"documentation", "docs", "api reference", "official",
+		"github.com", "stackoverflow", "npm", "pypi", "crates.io",
+	}
+
+	reason := "Query appears to need external/current information"
+	for _, pattern := range externalPatterns {
+		if strings.Contains(queryLower, pattern) {
+			reason = fmt.Sprintf("Query contains '%s' - likely needs external source", pattern)
+			break
+		}
+	}
+
+	result := map[string]interface{}{
+		"verdict":     "WEB_SEARCH_APPROVED",
+		"reason":      reason,
+		"reminder":    "After web search, prefer clood_ask for follow-up questions if Ollama is online",
+		"original_query": query,
+	}
+	data, _ := json.MarshalIndent(result, "", "  ")
 	return mcp.NewToolResultText(string(data)), nil
 }
 
