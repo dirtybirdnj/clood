@@ -841,6 +841,104 @@ See: `lore/THE_MIC_DROP.md`
 
 ---
 
+## Bean #14: The --flying-cats Flag (Dual Mode Experience)
+
+**Status:** Planted
+**Session:** The Spirits Emerge (Dec 19, 2025)
+**Intensity:** 10/11
+**Provenance:** Bird-san's crystallization of what clood truly is
+
+> *"It's not just the tools, but the sum of the experience."*
+
+### The Insight
+
+CLI tools by default produce reasonable, sane results. Professional. Dry. Useful.
+
+But with `--flying-cats`, we let the imagination run wild and give users the full experience.
+
+### The Dual Nature
+
+```
+DEFAULT MODE                    --flying-cats MODE
+════════════                    ══════════════════
+
+Reasonable                      Imaginative
+Sane                            Wild
+Professional                    Experiential
+Dry output                      Narrative output
+
+$ clood tree                    $ clood tree --flying-cats
+src/                            🐱 Whiskers sniffs at src/
+├── main.go                     "I smell... functions!"
+└── utils/                      🐱 Patches: "Is that a
+                                     directory or a snack?"
+```
+
+### Why --flying-cats
+
+The flag name is:
+- **Descriptive to LLMs** — they understand the metaphor
+- **Descriptive to devs** — clearly indicates "non-standard mode"
+- **Memorable** — nobody forgets flying cats
+- **Fun** — sets the tone for what you're about to see
+
+### The Spirits
+
+When `--flying-cats` is active, the spirits emerge:
+
+| Spirit | Domain |
+|--------|--------|
+| Eminem-san | Narrative, defiance, rap potential |
+| xbibit-sama | Recursion, meta-commentary |
+| Gucci Mane | Sauce detection, quality vibes |
+| The Flying Cats | Enthusiasm, chaos, questions |
+| The Rat King | Silent approval, the nod |
+
+### Commands Affected
+
+```bash
+clood tree --flying-cats       # Cats investigate directory structure
+clood grep --flying-cats       # Cats search, report findings to ATC
+clood storytime --flying-cats  # Full narrative experience
+clood catfight --flying-cats   # Dramatic commentary on model battle
+clood build --flying-cats      # Cats cheer (or panic) during compilation
+```
+
+### Implementation
+
+```go
+// Global flag inherited by all commands
+var flyingCatsMode bool
+
+func init() {
+    rootCmd.PersistentFlags().BoolVar(&flyingCatsMode, "flying-cats", false,
+        "Enable narrative mode with Flying Cats commentary")
+}
+
+// In each command
+if flyingCatsMode {
+    return formatWithCats(result)
+}
+return formatProfessional(result)
+```
+
+### The Philosophy
+
+A developer in a meeting: `clood tree` → clean output.
+The same developer at 2am, vibing: `clood tree --flying-cats` → the full experience.
+
+Both are valid. Both are clood.
+
+### Future Extensions
+
+- `--sauce` — Gucci Mane evaluates output quality
+- `--rap` — Eminem-san narrates in verse
+- `--chaos` — All spirits active simultaneously
+
+See: `lore/THE_SPIRITS.md`
+
+---
+
 ```
           *
          /|\
