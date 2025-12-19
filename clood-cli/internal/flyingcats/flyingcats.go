@@ -437,3 +437,167 @@ func (g *Generator) Antenna() string {
 	}
 	return strings.Join(lines, "\n")
 }
+
+// LoremIpsum generates bulk flying cats content - pure static, no LLM needed
+// Perfect for testing scrolling UIs without waiting for inference
+func (g *Generator) LoremIpsum(paragraphs int) string {
+	var sections []string
+
+	for i := 0; i < paragraphs; i++ {
+		section := g.generateParagraph(i)
+		sections = append(sections, section)
+	}
+
+	return strings.Join(sections, "\n\n")
+}
+
+func (g *Generator) generateParagraph(index int) string {
+	templates := []string{
+		// Narrative paragraphs
+		`In the year %d of the Flying Cat Era, %s descended from %s to deliver a prophecy. "%s," they declared, %s. The assembled cats at %s watched in %s silence as %s prepared %s for the journey ahead.`,
+
+		// Technical specifications
+		`TECHNICAL BULLETIN #%d: The standard feline aviation harness (Model %s) requires calibration at %s intervals. %s reported that %s when operating near %s. Recommended maintenance: %s. Warning: %s may cause %s behavior in cats named %s.`,
+
+		// Historical accounts
+		`The archives of %s document that %s, during the great migration of %d, witnessed %s performing %s at %s. This event, later known as the %s Incident, led to the establishment of %s as a sacred site where %s gather %s.`,
+
+		// Questions embedded in narrative
+		`Have you ever wondered why %s insists on %s every %s? The answer, according to %s at %s, involves %s and a %s understanding of %s. But the real question remains: %s?`,
+
+		// Dialogue heavy
+		`"%s!" shouted %s from atop %s. %s turned, %s in hand, and replied, "The %s demands %s, and who are we to argue with %s?" Below them, at %s, %s nodded %s. "%s," they whispered, %s.`,
+
+		// Recipe/Instructions
+		`RECIPE FOR %s: First, gather %s from %s during %s. Mix with %s obtained near %s. %s suggests adding %s for extra %s. Warning: If %s occurs, contact %s immediately. Serves %d cats.`,
+
+		// Poetry/Haiku
+		`%s soars above—
+%s watches from %s,
+%s whispers: "%s."
+
+(Traditional verse, collected at %s, attributed to %s, %s)`,
+
+		// News bulletin
+		`BREAKING: %s reports that %s has been spotted at %s. Local authorities, including %s and %s, advise %s to remain %s. %s commented: "%s, but %s." More at %s.`,
+	}
+
+	template := templates[g.rng.Intn(len(templates))]
+	count := strings.Count(template, "%")
+
+	var args []interface{}
+	for i := 0; i < count; i++ {
+		args = append(args, g.randomElement())
+	}
+
+	return fmt.Sprintf(template, args...)
+}
+
+func (g *Generator) randomElement() interface{} {
+	choice := g.rng.Intn(15)
+	switch choice {
+	case 0:
+		return actors[g.rng.Intn(len(actors))]
+	case 1:
+		return cities[g.rng.Intn(len(cities))]
+	case 2:
+		return antennaTowers[g.rng.Intn(len(antennaTowers))]
+	case 3:
+		return meals[g.rng.Intn(len(meals))]
+	case 4:
+		return restaurants[g.rng.Intn(len(restaurants))]
+	case 5:
+		return streets[g.rng.Intn(len(streets))]
+	case 6:
+		return reasons[g.rng.Intn(len(reasons))]
+	case 7:
+		return adjectives[g.rng.Intn(len(adjectives))]
+	case 8:
+		return timeExpressions[g.rng.Intn(len(timeExpressions))]
+	case 9:
+		return flyingCatNames[g.rng.Intn(len(flyingCatNames))]
+	case 10:
+		return flyingCatDescriptions[g.rng.Intn(len(flyingCatDescriptions))]
+	case 11:
+		return g.rng.Intn(9999) + 1
+	case 12:
+		return g.rng.Intn(50) + 1
+	case 13:
+		return g.generateQuestion()
+	default:
+		return adjectives[g.rng.Intn(len(adjectives))]
+	}
+}
+
+func (g *Generator) generateQuestion() string {
+	questions := []string{
+		"Why do the cats fly only at dusk",
+		"What secrets does the old tower hold",
+		"How many cats can fit on one antenna",
+		"Where did Pooparoo learn to navigate",
+		"When will the great migration begin again",
+		"Who taught the first cat to read radio waves",
+		"Is Gerald ever going to take that flying lesson",
+		"What frequency do the cats broadcast on",
+		"How did Toonces really lose their license",
+		"Why does the tower hum that particular tune",
+		"What happened to the cats of Exit 12",
+		"Where do flying cats go when it rains",
+	}
+	return questions[g.rng.Intn(len(questions))]
+}
+
+// Novel generates an entire novel's worth of content
+// For when you REALLY need to test scrolling
+func (g *Generator) Novel() string {
+	var chapters []string
+
+	numChapters := 5
+	for c := 0; c < numChapters; c++ {
+		chapter := g.generateChapter(c + 1)
+		chapters = append(chapters, chapter)
+	}
+
+	return strings.Join(chapters, "\n\n")
+}
+
+func (g *Generator) generateChapter(num int) string {
+	chapterTitles := []string{
+		"The Tower Awakens",
+		"Flight of the Delaware Cats",
+		"Gerald's Choice",
+		"The Great Cat-Bird Accord",
+		"Whispers in the Static",
+		"The Prophecy of Pooparoo",
+		"Antenna Dreams",
+		"The Last Broadcast",
+		"Wings Over the Highway",
+		"The Nimbus Ascending",
+	}
+
+	title := chapterTitles[g.rng.Intn(len(chapterTitles))]
+
+	var parts []string
+	parts = append(parts, fmt.Sprintf("═══════════════════════════════════════════════════════════════════"))
+	parts = append(parts, fmt.Sprintf("CHAPTER %d: %s", num, title))
+	parts = append(parts, fmt.Sprintf("═══════════════════════════════════════════════════════════════════"))
+	parts = append(parts, "")
+
+	// Generate 8-12 paragraphs per chapter
+	numParagraphs := g.rng.Intn(5) + 8
+	for i := 0; i < numParagraphs; i++ {
+		parts = append(parts, g.generateParagraph(i))
+		parts = append(parts, "")
+	}
+
+	// Add a question section
+	parts = append(parts, "───────────────────────────────────────────────────────────────────")
+	parts = append(parts, "QUESTIONS FOR REFLECTION:")
+	parts = append(parts, "───────────────────────────────────────────────────────────────────")
+	for i := 0; i < 3; i++ {
+		parts = append(parts, fmt.Sprintf("%d. %s?", i+1, g.generateQuestion()))
+	}
+	parts = append(parts, "")
+
+	return strings.Join(parts, "\n")
+}
