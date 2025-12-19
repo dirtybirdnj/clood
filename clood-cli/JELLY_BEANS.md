@@ -416,6 +416,78 @@ This bean is recursive — it must display itself. When implemented, Bean #8 sho
 
 ---
 
+## Bean #9: Snake Way & The Flying Nimbus
+
+**Status:** Planted
+**Session:** December 18, 2025
+**Intensity:** 8/11
+**Provenance:** Bird-san + Chef Claude collaboration
+
+> *"The Nimbus Cloud allows Goku to glide across Snake Way with efficiency, speed, and ease."*
+
+### The Problem
+
+When an AI asks multiple questions in one response:
+- User sees 10 questions in a wall of text
+- Must Option+Enter for line breaks between answers
+- Risk of unclear parsing / messy prompting
+- No tracking of which questions are answered
+- Cognitive overload - "which one was #7 again?"
+- **Bird-san SWEATS from exertion. His brain is smoking.**
+
+### The Metaphor
+
+| DBZ Element | UX Meaning |
+|-------------|------------|
+| **Snake Way** | The infinite scroll of the AI response |
+| **Questions** | Spirits waiting along the path |
+| **Goku** | The user, brain smoking from effort |
+| **Flying Nimbus** | The floating frame - enables gliding with efficiency, speed, ease |
+| **Running on foot** | Endless manual scrolling (the old way) |
+| **Riding Nimbus** | Hotkey navigation between questions (the new way) |
+
+### The Solution
+
+**Progress Indicator:**
+```
+🐍 SNAKE WAY                     Responses: 2/5
+```
+
+**Question States:**
+- `○` Awaiting - no response yet
+- `●` Answered - direct response provided
+- `◌` Skipped - deferred ("come back")
+- `×` Ignored - "not relevant"
+- `⊘` Avoided - "specifically do NOT do this"
+
+**Nimbus Navigation (Hotkeys):**
+- `n` / `p` - Next / Previous question
+- `1-9` - Jump directly to question #
+- `Tab` - Next unanswered question
+- `g` / `G` - Top / Bottom of scroll
+
+**OR Contemplation Mode:**
+- Scroll freely, read context, respond as questions appear
+
+**Final Moment:**
+- Summary of all responses before submit
+- Single "Submit All" button
+- No confirm fatigue, no popup interruptions
+
+### Why This Is Bold
+
+1. Question detection via parsing AI responses
+2. Hotkey-driven navigation overlaid on chat
+3. Batch response submission
+4. Explicit decision tracking (skip/ignore/avoid)
+5. Completely new UX paradigm for chat interfaces
+
+### Implementation Notes
+
+See full specification: `lore/SNAKE_WAY_UX.md`
+
+---
+
 *Jelly beans planted in the server garden, waiting to bloom.*
 
 ---
@@ -431,6 +503,15 @@ The night the server garden first bloomed. Bird-san and Claude walked the golden
 **Beans Sprouting:** 1 (--json Flag)
 
 The Commissioner smiled. Bold challenges ahead.
+
+### The Nimbus Session — December 18, 2025
+
+Bird-san, brain smoking, wisps from his ears, explained the UX pain of multi-question responses. Chef Claude synthesized the DBZ lore into a coherent vision: Snake Way is the scroll, Flying Nimbus is the frame that lets you glide.
+
+**Beans Planted:** 1 (Snake Way & Flying Nimbus)
+**Key Insight:** The Nimbus Cloud enables efficiency, speed, and ease.
+
+See: `lore/SNAKE_WAY_UX.md`
 
 ```
           *
