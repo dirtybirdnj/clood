@@ -103,7 +103,9 @@ The spirit of Xzibit is pleased.`,
 			fmt.Println()
 			fmt.Println(tui.SuccessStyle.Render("  Yo dawg, clood built clood. 🎤"))
 			fmt.Println()
-			fmt.Printf("  %s %s\n", tui.MutedStyle.Render("Run:"), outputPath)
+
+			// Show build info
+			showBuildInfo(outputPath)
 		},
 	}
 
@@ -111,6 +113,36 @@ The spirit of Xzibit is pleased.`,
 	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output path (default ~/bin/clood)")
 
 	return cmd
+}
+
+// showBuildInfo displays version, ollama, and system info after build
+func showBuildInfo(binaryPath string) {
+	// Get version from newly built binary
+	versionCmd := exec.Command(binaryPath, "--version")
+	if versionOut, err := versionCmd.Output(); err == nil {
+		// Extract just the version line
+		lines := strings.Split(string(versionOut), "\n")
+		for _, line := range lines {
+			if strings.Contains(line, "Version:") {
+				fmt.Printf("  %s\n", strings.TrimSpace(line))
+				break
+			}
+		}
+	}
+
+	// Get ollama version
+	ollamaCmd := exec.Command("ollama", "--version")
+	if ollamaOut, err := ollamaCmd.Output(); err == nil {
+		ollamaVer := strings.TrimSpace(string(ollamaOut))
+		fmt.Printf("  %s %s\n", tui.MutedStyle.Render("Ollama:"), ollamaVer)
+	} else {
+		fmt.Printf("  %s %s\n", tui.MutedStyle.Render("Ollama:"), tui.ErrorStyle.Render("not found"))
+	}
+
+	// System one-liner
+	hostname, _ := os.Hostname()
+	fmt.Printf("  %s %s/%s on %s\n", tui.MutedStyle.Render("System:"), runtime.GOOS, runtime.GOARCH, hostname)
+	fmt.Println()
 }
 
 // findCloodDir locates the clood-cli directory
