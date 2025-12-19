@@ -204,28 +204,77 @@ Alton Brown nodded sagely. "It's like a sourdough starter, but for consciousness
 
 **O-REN ISHII WOJACK:** (rising urgently) "NO. Use the preflight. The guardrails exist for a reas—"
 
-**CONFUSED WOJACK:** (typing furiously, not listening) "`sudo rm -rf / --no-preserve-root`"
+**CONFUSED WOJACK:** (not listening, cracking knuckles) "Watch and learn."
 
-**POINTING WOJACK:** "THE GUARDRAILS! USE THE GUARDRAILS!"
+---
 
-**CONFUSED WOJACK:** "YOLO MODE ACTIVATED"
+*[YOLO MODE MONTAGE - everything happens very fast]*
 
-*[ENTER key pressed]*
+**CONFUSED WOJACK:** "Who needs `clood preflight`? I'll just WebSearch 'how does auth work in this codebase'"
 
-**O-REN ISHII WOJACK:** "...you absolute fucking moron."
+*[400 API tokens burned. Wrong codebase returned. Confidence high.]*
 
-*[A beat. Silence.]*
+**CONFUSED WOJACK:** "Reading the code before modifying it? Nah, I'll just ask Claude to 'fix the bug in the login'"
 
-*[The terminal displays:]*
+*[Claude modifies a file it's never seen. Creates three new bugs.]*
+
+**POINTING WOJACK:** "Maybe run `clood grep` to find—"
+
+**CONFUSED WOJACK:** "NO TIME. `git add .` `git commit -m 'fix stuff'` `git push --force origin main`"
+
+**O-REN ISHII WOJACK:** "He's force pushing to main without checking git status—"
+
+**CONFUSED WOJACK:** "Tests? The tests are suggestions. SHIP IT."
+
+*[CI/CD pipeline: 47 failures. Ignored.]*
+
+**CONFUSED WOJACK:** "Ollama's running locally but let me just hit the Claude API for this quick question about my own codebase"
+
+*[Dollar signs float away into the cloud.]*
+
+**CONFUSED WOJACK:** "I don't need `clood symbols` to understand the function signatures, I'll just GUESS based on the vibes"
+
+**POINTING WOJACK:** (watching in horror) "The vibes are wrong. The vibes are so wrong."
+
+**CONFUSED WOJACK:** "Documentation? I'll write it later. Comments? The code is self-documenting. Types? Any."
+
+**CONFUSED WOJACK:** "`npm install random-package-i-found`"
+
+**O-REN ISHII WOJACK:** "He's not even checking the package—"
+
+**CONFUSED WOJACK:** "Works on my machine. Deploy to prod."
+
+**CONFUSED WOJACK:** "Error handling? Just wrap it in a try-catch and ignore the catch."
+
+**CONFUSED WOJACK:** "Security review? That's future me's problem."
+
+**CONFUSED WOJACK:** "Let me just hardcode this API key real quick—"
+
+**THE ENTIRE COUNCIL:** "NO—"
+
+**CONFUSED WOJACK:** "`git push`"
+
+*[GitHub Secret Scanning has entered the chat]*
+*[Your API key has been revoked]*
+*[Your AWS bill has entered the chat]*
+*[Your AWS bill is $47,000]*
+
+---
+
+*[The lights flicker. The terminal displays:]*
 
 ```
-rm: it is dangerous to operate recursively on '/'
-rm: use --no-preserve-root to override this failsafe
+PRODUCTION DATABASE: Corrupted
+MAIN BRANCH: 47 commits behind, 312 ahead, unfixable
+API KEYS: Leaked to GitHub search
+TESTS: What tests
+LOCAL MODELS: Never consulted
+CLOOD PREFLIGHT: Never run
+GUARDRAILS: Ignored
+VIBES: Catastrophic
 
-Just kidding. You passed the flag. Goodbye.
+Goodbye.
 ```
-
-*[The lights flicker.]*
 
 **DOOMER WOJACK:** "I knew it. I always knew."
 
