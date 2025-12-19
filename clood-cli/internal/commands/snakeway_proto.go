@@ -246,6 +246,11 @@ func (m snakewayModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "backspace":
 			if len(m.inputBuffer) > 0 {
 				m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
+				// Update viewport to show inline typing
+				if !m.promptMode {
+					m.viewport.SetContent(m.renderContent())
+					m.viewport.GotoBottom()
+				}
 			}
 
 		case "ctrl+f", "pgdown":
@@ -291,8 +296,17 @@ func (m snakewayModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// If it's a printable character, add to input buffer
 			if len(key) == 1 && key[0] >= 32 && key[0] <= 126 {
 				m.inputBuffer += key
+				// Update viewport to show inline typing
+				if !m.promptMode {
+					m.viewport.SetContent(m.renderContent())
+					m.viewport.GotoBottom()
+				}
 			} else if key == "space" {
 				m.inputBuffer += " "
+				if !m.promptMode {
+					m.viewport.SetContent(m.renderContent())
+					m.viewport.GotoBottom()
+				}
 			}
 		}
 
@@ -462,16 +476,27 @@ func (m snakewayModel) renderContent() string {
 		leftPad = strings.Repeat(" ", (m.width-contentWidth)/2)
 	}
 
+	// Build content with inline input if user is typing
+	displayContent := m.content
+	if m.inputBuffer != "" && !m.streaming && !m.promptMode {
+		// Add user's typing inline at the bottom
+		displayContent += "\n═══════════════════════════════════════════════════════════════════\n"
+		displayContent += "YOU ARE TYPING...\n"
+		displayContent += "═══════════════════════════════════════════════════════════════════\n\n"
+		displayContent += m.inputBuffer + "█\n"
+	}
+
 	// First, wrap the raw content to our content width
 	// Split by existing newlines, wrap each paragraph
-	paragraphs := strings.Split(m.content, "\n")
+	paragraphs := strings.Split(displayContent, "\n")
 	var wrappedLines []string
 	for _, para := range paragraphs {
 		// Don't wrap formatting lines
 		if strings.HasPrefix(para, "═══") || strings.HasPrefix(para, "───") ||
 			strings.HasPrefix(para, "TURN") || strings.HasPrefix(para, "STREAMING") ||
 			strings.HasPrefix(para, "FLYING") || strings.HasPrefix(para, "ADDITIONAL") ||
-			strings.HasPrefix(para, "END OF") || para == "" {
+			strings.HasPrefix(para, "END OF") || strings.HasPrefix(para, "YOU ARE") ||
+			strings.HasPrefix(para, "USER") || strings.HasPrefix(para, "ASSISTANT") || para == "" {
 			wrappedLines = append(wrappedLines, para)
 		} else {
 			// Wrap this paragraph
