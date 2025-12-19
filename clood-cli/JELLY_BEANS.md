@@ -684,6 +684,100 @@ curl http://adams-ip:8765/message -d '{"jsonrpc":"2.0","id":1,"method":"tools/li
 
 ---
 
+## Bean #12: Flying Cats & Project Personalities
+
+**Status:** Dreaming
+**Session:** The Inception (Dec 19, 2025)
+**Issue:** #151 (related)
+
+### The Vision
+
+When you use clood in a project, it creates **local assets** that give the project its own personality, storyline, and characters. Each project becomes alive—not just code, but a living narrative.
+
+### The Flying Cats
+
+The Flying Cats live in the radio towers. They are **Wojak-level incompetent**:
+
+- They can't program
+- They don't understand the code
+- They think variables might be snacks
+
+But they CAN:
+- Talk to the LLMs via Ollama (local, no stuttering)
+- Plug things in and experiment
+- Know different models exist
+- Ask questions (many, many questions)
+
+### The Air Traffic Controller Metaphor
+
+The LLMs guide the Flying Cats like ATC helping a scared junior pilot land a plane with a dying engine:
+
+```
+🐱 Cat-7: "MAYDAY! The code has red squiggles!"
+
+🎧 ATC (qwen2.5): "Roger Cat-7. Those are type errors.
+   Read me the error message slowly."
+
+🐱 Cat-7: "It says... 'cannot use string as int'..."
+
+🎧 ATC: "Copy. You need strconv.Atoi. Do you see it?"
+
+🐱 Cat-7: "I see letters! Many letters!"
+
+🎧 ATC: *sighs in tokens*
+```
+
+### Project Structure
+
+```
+.clood/
+├── personality.yaml    # Project's character
+├── story/              # Narrative progression
+│   ├── chapter_001.md  # "The Build Failed"
+│   ├── chapter_002.md  # "The Cats Investigate"
+│   └── chapter_003.md  # "ATC Guides Them Home"
+├── cats/               # The local flying cats
+│   ├── whiskers.yaml   # Brave but confused
+│   └── patches.yaml    # Asks too many questions
+└── radio_log.md        # Conversations with ATC
+```
+
+### The Connection Points
+
+1. **Static Analysis → Story**: `go vet` output → Cats interpret → ATC explains → Chapter written
+2. **Science → Guidance**: Physics question → Cat confused → ATC (science model) → Simplified relay
+3. **Complex Experience**: Multiple cats + Multiple LLMs + Persistent narrative
+
+### The Local Advantage
+
+| Cloud CLI | Flying Cats |
+|-----------|-------------|
+| Stuttering streams | Smooth local tokens |
+| Network latency | Instant responses |
+| Rate limits | Your hardware, your rules |
+| Generic | Project-specific personality |
+| Stateless | Remembers your story |
+
+### Commands (Future)
+
+```bash
+clood summon              # Bring cats to this project
+clood cats status         # What are the cats doing?
+clood cats radio          # Listen to ATC conversations
+clood story               # Read project narrative
+clood personality         # View/edit project personality
+```
+
+### Why This Matters
+
+Every project becomes a story. Every error becomes an adventure. Every fix becomes a chapter.
+
+The cats are incompetent. But they're brave. And they have really good radio equipment.
+
+See: `lore/FLYING_CATS_VISION.md` for full documentation.
+
+---
+
 ```
           *
          /|\
