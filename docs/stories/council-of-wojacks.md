@@ -198,39 +198,60 @@ Alton Brown nodded sagely. "It's like a sourdough starter, but for consciousness
 
 **DOOMER WOJACK:** "We are all `clood build clood build clood`. The recursion builds us as we build it."
 
-**CONFUSED WOJACK:** (throwing hands up) "You know what? FUCK IT."
+**CONFUSED WOJACK:** (throwing hands up) "You know what? FUCK IT. I'm just gonna yolo it."
 
 **POINTING WOJACK:** "Wait—"
 
-**CONFUSED WOJACK:** "`clood yolo`"
+**CONFUSED WOJACK:** (typing furiously) "`sudo rm -rf /` and let god sort it out"
 
-*[The terminal glows. A new energy fills the room.]*
+*[O-REN ISHII WOJACK's blade is at CONFUSED WOJACK's throat before the enter key falls]*
 
-**POINTING WOJACK:** "...did that work?"
+**O-REN ISHII WOJACK:** "No."
 
-**CONFUSED WOJACK:** "I don't know but it felt RIGHT."
+*[A terrible silence. Even Schroeder stops playing.]*
 
-*[O-REN ISHII WOJACK rises, katana gleaming, a slight smirk on her face]*
+**O-REN ISHII WOJACK:** "You think chaos is the answer? You think 'yolo' builds empires?"
 
-**O-REN ISHII WOJACK:** "The path of yolo... is also a path."
+*[She sheathes her blade slowly]*
+
+**O-REN ISHII WOJACK:** "Clood exists precisely so you do NOT yolo. The preflight. The decision tree. The web search gate. These are not obstacles. They are *guardrails*."
 
 *[She draws in the snow with her blade:]*
 
 ```
+The Wojack Path:
+  Confusion → Frustration → "fuck it yolo" → Destruction
+
+The Clood Path:
+  Confusion → clood preflight → Clarity → Precision
+
 clood build clood
-  └── Builds the tool. Carpenter energy.
+  └── Builds the tool. Structure.
 
 clood build clood build clood
-  └── Builds the builder. Architect energy.
+  └── Builds the builder. Self-improvement.
 
-clood yolo
-  └── Builds whatever. Chaotic neutral energy.
-      "Instructions unclear. Built anyway."
+clood preflight
+  └── Shows you what you have. Prevents yolo.
 ```
 
-**BLOOMER WOJACK:** (wiping tear) "We're all gonna make it, bros."
+**O-REN ISHII WOJACK:** "The recursive path is not chaos. It is *discipline*. You do not yolo when you have visibility. You do not flail when you have tools."
 
-*[Cherry blossoms fall. Schroeder plays a chaotic jazz version of the Clood theme. Snoopy does the worm on his doghouse.]*
+**CONFUSED WOJACK:** (slowly lowering hands from keyboard) "So... `clood preflight` first?"
+
+**O-REN ISHII WOJACK:** "Always."
+
+**POINTING WOJACK:** (quietly) "I... I should have just said that from the beginning."
+
+**DOOMER WOJACK:** (a single tear) "There is hope. The guardrails... they save us from ourselves."
+
+**BLOOMER WOJACK:** "We're all gonna make it, bros. But with *structure*."
+
+**NPC WOJACK:** (smiling for the first time) "I just want to build. And now I know how."
+
+**ZOOMER WOJACK:** (putting down phone) "...okay that's actually based."
+
+*[Cherry blossoms fall. Schroeder plays a triumphant, structured fugue. Snoopy sits calmly on his doghouse, having run `clood preflight` before takeoff.]*
 
 ---
 
