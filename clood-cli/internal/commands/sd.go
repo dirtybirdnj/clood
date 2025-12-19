@@ -430,6 +430,7 @@ func sdAnvilCmd() *cobra.Command {
 	var checkpoints string
 	var outputDir string
 	var openGallery bool
+	var jsonOutput bool
 
 	cmd := &cobra.Command{
 		Use:   "anvil [prompt]",
@@ -442,7 +443,8 @@ Outputs an HTML gallery comparing all results.
 Examples:
   clood sd anvil "a beach at sunset"
   clood sd anvil "portrait" --checkpoints "sdxl_base,dreamshaper"
-  clood sd anvil "test" --open`,
+  clood sd anvil "test" --open
+  clood sd anvil "test" --json             # Machine-readable output`,
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			promptText := strings.Join(args, " ")
@@ -451,7 +453,14 @@ Examples:
 
 			// Check connection
 			if err := client.Ping(); err != nil {
-				fmt.Printf("%s ComfyUI not reachable: %v\n", tui.ErrorStyle.Render("ERROR:"), err)
+				if jsonOutput {
+					json.NewEncoder(os.Stdout).Encode(map[string]interface{}{
+						"success": false,
+						"error":   err.Error(),
+					})
+				} else {
+					fmt.Printf("%s ComfyUI not reachable: %v\n", tui.ErrorStyle.Render("ERROR:"), err)
+				}
 				return
 			}
 
@@ -467,7 +476,14 @@ Examples:
 				var err error
 				ckptList, err = client.GetCheckpoints()
 				if err != nil || len(ckptList) == 0 {
-					fmt.Printf("%s No checkpoints available\n", tui.ErrorStyle.Render("ERROR:"))
+					if jsonOutput {
+						json.NewEncoder(os.Stdout).Encode(map[string]interface{}{
+							"success": false,
+							"error":   "no checkpoints available",
+						})
+					} else {
+						fmt.Printf("%s No checkpoints available\n", tui.ErrorStyle.Render("ERROR:"))
+					}
 					return
 				}
 				// Limit to first 4 for reasonable time
@@ -476,13 +492,15 @@ Examples:
 				}
 			}
 
-			fmt.Println(tui.RenderHeader("ANVIL - MODEL COMPARISON"))
-			fmt.Printf("%s %s\n", tui.MutedStyle.Render("Prompt:"), promptText)
-			fmt.Printf("%s %d models\n", tui.MutedStyle.Render("Testing:"), len(ckptList))
-			for _, ckpt := range ckptList {
-				fmt.Printf("  - %s\n", ckpt)
+			if !jsonOutput {
+				fmt.Println(tui.RenderHeader("ANVIL - MODEL COMPARISON"))
+				fmt.Printf("%s %s\n", tui.MutedStyle.Render("Prompt:"), promptText)
+				fmt.Printf("%s %d models\n", tui.MutedStyle.Render("Testing:"), len(ckptList))
+				for _, ckpt := range ckptList {
+					fmt.Printf("  - %s\n", ckpt)
+				}
+				fmt.Println()
 			}
-			fmt.Println()
 
 			// Set up output directory
 			if outputDir == "" {
@@ -514,9 +532,11 @@ Examples:
 			var results []sd.VariationResult
 
 			for i, ckpt := range ckptList {
-				fmt.Printf("%s [%d/%d] %s\n",
-					tui.AccentStyle.Render(">>>"),
-					i+1, len(ckptList), ckpt)
+				if !jsonOutput {
+					fmt.Printf("%s [%d/%d] %s\n",
+						tui.AccentStyle.Render(">>>"),
+						i+1, len(ckptList), ckpt)
+				}
 
 				cfg := sd.DefaultWorkflowConfig()
 				cfg.Prompt = prompt
@@ -546,13 +566,17 @@ Examples:
 				if err != nil {
 					vr.Success = false
 					vr.Error = err.Error()
-					fmt.Printf("    %s %v\n", tui.ErrorStyle.Render("FAILED:"), err)
+					if !jsonOutput {
+						fmt.Printf("    %s %v\n", tui.ErrorStyle.Render("FAILED:"), err)
+					}
 				} else {
 					vr.Success = true
 					if len(result.ImagePaths) > 0 {
 						vr.OutputPath = result.ImagePaths[0]
 					}
-					fmt.Printf("    %s %.1fs\n", tui.SuccessStyle.Render("DONE"), vr.GenerateTime.Seconds())
+					if !jsonOutput {
+						fmt.Printf("    %s %.1fs\n", tui.SuccessStyle.Render("DONE"), vr.GenerateTime.Seconds())
+					}
 				}
 
 				results = append(results, vr)
@@ -586,6 +610,36 @@ Examples:
 			mdPath := filepath.Join(outputDir, "report.md")
 			os.WriteFile(mdPath, []byte(sd.MarkdownReport(batchResult)), 0644)
 
+			if jsonOutput {
+				// Build JSON output
+				jsonResults := make([]map[string]interface{}, 0, len(results))
+				for _, r := range results {
+					jr := map[string]interface{}{
+						"checkpoint":    r.Variation.Checkpoint,
+						"success":       r.Success,
+						"duration_sec":  r.GenerateTime.Seconds(),
+					}
+					if r.Success {
+						jr["image"] = r.OutputPath
+					} else {
+						jr["error"] = r.Error
+					}
+					jsonResults = append(jsonResults, jr)
+				}
+
+				json.NewEncoder(os.Stdout).Encode(map[string]interface{}{
+					"success":       true,
+					"prompt":        promptText,
+					"checkpoints":   ckptList,
+					"results":       jsonResults,
+					"total_time":    batchResult.TotalTime.Seconds(),
+					"gallery":       htmlPath,
+					"report":        mdPath,
+					"output_dir":    outputDir,
+				})
+				return
+			}
+
 			fmt.Println()
 			fmt.Println(tui.RenderHeader("RESULTS"))
 			fmt.Printf("  %s %s\n", tui.MutedStyle.Render("Gallery:"), htmlPath)
@@ -602,6 +656,7 @@ Examples:
 	cmd.Flags().StringVar(&checkpoints, "checkpoints", "", "Comma-separated checkpoint list")
 	cmd.Flags().StringVarP(&outputDir, "output", "o", "", "Output directory")
 	cmd.Flags().BoolVar(&openGallery, "open", false, "Open gallery after generation")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 
 	return cmd
 }
