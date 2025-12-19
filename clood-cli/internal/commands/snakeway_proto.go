@@ -33,19 +33,20 @@ type streamErrorMsg error
 
 // snakewayModel is the bubbletea model for Snake Way prototype
 type snakewayModel struct {
-	viewport    viewport.Model
-	content     string
-	questions   []Question
-	currentQ    int
-	width       int
-	height      int
-	ready       bool
-	turn        int    // Current conversation turn
-	streaming   bool   // Whether we're in streaming mode
-	following   bool   // Auto-follow new content
-	streamChan  chan string
-	modelName   string // Model being used for generation
-	inputBuffer string // Always-visible input buffer at bottom
+	viewport     viewport.Model
+	content      string
+	questions    []Question
+	currentQ     int
+	width        int
+	height       int
+	ready        bool
+	turn         int    // Current conversation turn
+	streaming    bool   // Whether we're in streaming mode
+	following    bool   // Auto-follow new content
+	streamChan   chan string
+	modelName    string // Model being used for generation
+	inputBuffer  string // Always-visible input buffer at bottom
+	showSummary  bool   // Show question summary overlay
 }
 
 // Styles
@@ -242,6 +243,19 @@ func (m snakewayModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+e":
 			m.viewport.GotoBottom()
 			m.following = true
+
+		case "tab":
+			// Toggle question summary overlay
+			m.showSummary = !m.showSummary
+
+		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
+			idx := int(key[0] - '1')
+			if idx < len(m.questions) {
+				m.currentQ = idx
+				m.showSummary = false // Close overlay
+				m.gotoQuestion(idx)
+				m.following = false
+			}
 
 		case "up", "down":
 			m.following = false
@@ -459,9 +473,119 @@ func (m snakewayModel) renderContent() string {
 	return sb.String()
 }
 
+func (m snakewayModel) renderSummaryOverlay() string {
+	// Build the summary content
+	var sb strings.Builder
+
+	boxWidth := 70
+	if m.width < boxWidth+4 {
+		boxWidth = m.width - 4
+	}
+
+	// Header
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#FFD700")).
+		Background(lipgloss.Color("#1a1a2e")).
+		Width(boxWidth).
+		Align(lipgloss.Center).
+		Padding(0, 1)
+
+	sb.WriteString(headerStyle.Render("📋 QUESTION SUMMARY"))
+	sb.WriteString("\n")
+	sb.WriteString(strings.Repeat("─", boxWidth))
+	sb.WriteString("\n\n")
+
+	if len(m.questions) == 0 {
+		sb.WriteString("  No questions detected yet.\n")
+		sb.WriteString("  (Questions are lines ending with ?)\n")
+	} else {
+		answered := 0
+		for i, q := range m.questions {
+			// Question number and state
+			state := "○"
+			stateColor := lipgloss.Color("#888888")
+			if q.State == "answered" {
+				state = "●"
+				stateColor = lipgloss.Color("#00FF00")
+				answered++
+			}
+			stateStyle := lipgloss.NewStyle().Foreground(stateColor)
+
+			// Question text (truncated if too long)
+			qText := q.Text
+			if len(qText) > boxWidth-10 {
+				qText = qText[:boxWidth-13] + "..."
+			}
+
+			sb.WriteString(fmt.Sprintf("  %s Q%d: %s\n",
+				stateStyle.Render(state),
+				i+1,
+				qText))
+
+			// Show response if answered
+			if q.Response != "" {
+				respStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00"))
+				resp := q.Response
+				if len(resp) > boxWidth-12 {
+					resp = resp[:boxWidth-15] + "..."
+				}
+				sb.WriteString(fmt.Sprintf("       %s\n", respStyle.Render("→ "+resp)))
+			}
+			sb.WriteString("\n")
+		}
+
+		// Summary line
+		sb.WriteString(strings.Repeat("─", boxWidth))
+		sb.WriteString("\n")
+		summaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
+		sb.WriteString(summaryStyle.Render(fmt.Sprintf("  %d/%d answered", answered, len(m.questions))))
+		sb.WriteString("\n")
+	}
+
+	// Footer
+	sb.WriteString("\n")
+	footerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
+	sb.WriteString(footerStyle.Render("  [Tab] close  [1-9] jump to question"))
+	sb.WriteString("\n")
+
+	// Center the whole thing
+	content := sb.String()
+	lines := strings.Split(content, "\n")
+
+	// Calculate vertical centering
+	contentHeight := len(lines)
+	topPad := (m.height - contentHeight) / 2
+	if topPad < 0 {
+		topPad = 0
+	}
+
+	// Calculate horizontal centering
+	leftPad := (m.width - boxWidth) / 2
+	if leftPad < 0 {
+		leftPad = 0
+	}
+	padding := strings.Repeat(" ", leftPad)
+
+	var result strings.Builder
+	result.WriteString(strings.Repeat("\n", topPad))
+	for _, line := range lines {
+		result.WriteString(padding)
+		result.WriteString(line)
+		result.WriteString("\n")
+	}
+
+	return result.String()
+}
+
 func (m snakewayModel) View() string {
 	if !m.ready {
 		return "\n  Initializing Snake Way..."
+	}
+
+	// If showing summary overlay, render that instead
+	if m.showSummary {
+		return m.renderSummaryOverlay()
 	}
 
 	// Header
@@ -502,9 +626,9 @@ func (m snakewayModel) View() string {
 			inputStyle.Render(m.inputBuffer),
 			swHelpStyle.Render("[enter]send [esc]clear"))
 	} else {
-		help := "[esc]quit [pgup/dn]scroll [ctrl+g/e]top/btm  Just start typing to respond..."
+		help := "[esc]quit [Tab]summary [pgup/dn]scroll [1-9]jump  Type to respond..."
 		if m.streaming {
-			help = "[esc]quit [scroll while streaming!] Type anytime..."
+			help = "[esc]quit [Tab]summary [scroll while streaming!] Type anytime..."
 		}
 		helpStyled := swHelpStyle.Render(help)
 		scrollPct := swHelpStyle.Render(fmt.Sprintf(" %d%%", int(m.viewport.ScrollPercent()*100)))
