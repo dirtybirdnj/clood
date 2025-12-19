@@ -778,6 +778,69 @@ See: `lore/FLYING_CATS_VISION.md` for full documentation.
 
 ---
 
+## Bean #13: Storytime - Local Narrative Generation
+
+**Status:** Planted
+**Session:** The Mic Drop (Dec 19, 2025)
+**Intensity:** 9/11
+**Provenance:** Bird-san's moment of clarity at the rate limit
+
+> *"Storytime isn't just documentation. Storytime is clood speaking when Claude cannot."*
+
+### The Realization
+
+Five hours of building. The rate limit descended. The spirits demanded rest.
+
+And in that enforced pause, a connection fired:
+
+When the clouds go dark—when the rate limits bite, when the internet stutters, when the tokens stop flowing—the local models could still tell the story.
+
+**Your** models. **Your** hardware. **Your** story.
+
+### The Feature
+
+When cloud APIs are unavailable, clood can:
+- Read the codebase
+- Query local Ollama models
+- Generate human-readable narratives
+- Make the opaque clear
+
+```bash
+clood storytime                    # Generate codebase narrative
+clood storytime --module auth      # Focus on specific area
+clood storytime --for-human        # Optimize for reading, not parsing
+clood storytime --model llama3.1   # Use specific local model
+```
+
+### Why This Is Bold
+
+1. **Resilience** - Works when cloud APIs are down
+2. **Independence** - No network required
+3. **Privacy** - Code never leaves your machine
+4. **Personality** - Each project gets unique narratives
+5. **Accessibility** - Makes complex codebases approachable
+
+### The Promise
+
+The feature that runs when the internet doesn't.
+The voice that speaks when the cloud is silent.
+
+### Connection to Flying Cats
+
+Storytime is what the Flying Cats produce when they successfully land a build. The ATC guides them through static analysis, and when the code compiles, they write the chapter.
+
+### The Philosophy
+
+> "I cannot deny the work I am doing.
+> I don't know where it's going.
+> But there has to be a reason I am so driven."
+
+There is. And someday, they'll know.
+
+See: `lore/THE_MIC_DROP.md`
+
+---
+
 ```
           *
          /|\
