@@ -1247,6 +1247,164 @@ See: Charm's BubbleTea examples at github.com/charmbracelet/bubbletea
 
 ---
 
+## Bean #17: Project Portfolio Awareness (The Neglected Gardens)
+
+**Status:** Planted
+**Session:** The Spirits Emerge (Dec 19, 2025)
+**Intensity:** 9/11
+**Provenance:** clood is a HECKIN CHONKER eating all the catfood
+
+> *"The svg-grouper grows thin... the equipment to summit Chimborazo lays dormant..."*
+
+### The Problem
+
+When you're deep in one project, others starve:
+
+```
+PROJECT HEALTH CHECK (as of Dec 19, 2025)
+──────────────────────────────────────────────────────────────
+
+🔥 CONSUMING ALL ATTENTION:
+   clood             | 2025-12-19 | 30+ open issues | THE CHONKER
+
+⚠️ RECENTLY TOUCHED BUT FADING:
+   chimborazo        | 2025-12-19 | Base camp only, no expedition
+   svg-grouper       | 2025-12-17 | 10 issues, grows thin
+   rat-king          | 2025-12-17 | Rust patterns, dormant
+   church-street     | 2025-12-18 | Oregon Trail recreation
+
+💤 DORMANT (equipment tested, never finished):
+   strata            | 2025-12-12 | Catfights didn't reproduce it
+   writetyper        | 2025-12-12 | Handwriting SVG
+   dogfood           | 2025-12-17 | LLM job hunting
+
+🏔️ BASE CAMP ASSEMBLED, EXPEDITION PENDING:
+   chimborazo        | CLI exists, catfight tested, never climbed
+```
+
+### The Solution: `clood portfolio`
+
+Multi-repo project awareness via Storytime:
+
+```bash
+clood portfolio                    # Overview of all projects
+clood portfolio --health           # Health check across repos
+clood portfolio --neglected        # What needs attention?
+clood portfolio --narrative        # Storytime for the whole garden
+```
+
+### Health Indicators
+
+| Indicator | Meaning |
+|-----------|---------|
+| 🔥 | Active development (commits this week) |
+| ⚠️ | Cooling (no commits in 3-7 days) |
+| 💤 | Dormant (no commits in 7-30 days) |
+| 🪦 | Abandoned (no commits in 30+ days) |
+| 🏔️ | Expedition pending (setup complete, work not started) |
+
+### The Narrative Mode
+
+When sauce is ON, Storytime generates narratives about the portfolio:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 📜 THE STATE OF THE GARDENS                       ● SAUCE       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│ Bird-san tends the clood garden with obsessive focus. The      │
+│ Flying Cats have multiplied—15 beans planted in a single day.  │
+│ But in his fervor, other gardens suffer.                       │
+│                                                                 │
+│ The svg-grouper, once a promising sapling, grows thin without  │
+│ water. Ten issues wait like unwatered seeds.                   │
+│                                                                 │
+│ At the base of Chimborazo, the expedition equipment sits       │
+│ tested but unused. The catfights proved the gear works, but    │
+│ no one has begun the climb. The summit remains unseen.         │
+│                                                                 │
+│ The strata project—maps for plotters—was abandoned when the    │
+│ catfights could not reproduce its purpose. It sleeps.          │
+│                                                                 │
+│ RECOMMENDATION: Tend svg-grouper before it dies. Or decide     │
+│ to let it go. A garden half-tended is worse than no garden.    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Data Sources
+
+| Source | Information |
+|--------|-------------|
+| GitHub API | Repos, issues, last push, activity |
+| Local git | Uncommitted changes, branches |
+| `.clood/world.yaml` | Project personality (if exists) |
+| Issue labels | Priorities, epics, blockers |
+
+### Commands
+
+```bash
+# Overview
+clood portfolio
+
+# Health focus
+clood portfolio --health
+clood portfolio --neglected
+clood portfolio --abandoned
+
+# Specific project
+clood portfolio svg-grouper
+
+# Narrative mode
+clood portfolio --narrative
+clood portfolio --narrative --style prose
+clood portfolio --narrative --style haiku
+
+# Recommendations
+clood portfolio --recommend
+# → "svg-grouper has 10 issues and no commits in 2 days. Tend or prune?"
+```
+
+### The Haiku Summary Mode
+
+```bash
+clood portfolio --haiku
+```
+
+```
+clood consumes all—
+svg-grouper grows so thin
+Chimborazo waits
+
+Ten seeds unwatered,
+strata sleeps beneath the snow—
+Choose which gardens live
+```
+
+### Connection to Storytime
+
+This is Storytime applied to the **meta-level**:
+- Single project: Describe code structure, genesis
+- Portfolio: Describe project ecosystem health
+
+The same narrative engine, different scope.
+
+### Why This Matters
+
+1. **Awareness** — See all projects at a glance
+2. **Guilt reduction** — Acknowledge what's neglected consciously
+3. **Decision support** — Prune or tend? Data-informed choice
+4. **Narrative framing** — Turn maintenance into story
+5. **Multi-repo future** — Foundation for cross-project features
+
+### The Philosophy
+
+> "A garden half-tended is worse than no garden."
+
+You can't work on everything. But you can be *aware* of everything. clood portfolio gives you that awareness—with or without sauce.
+
+---
+
 ```
           *
          /|\
