@@ -265,7 +265,8 @@ func (m snakewayModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.GotoTop()
 			m.following = false
 
-		case "ctrl+e":
+		case "ctrl+e", "F":
+			// Follow tail - jump to bottom and auto-follow
 			m.viewport.GotoBottom()
 			m.following = true
 
@@ -318,7 +319,7 @@ func (m snakewayModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.WindowSizeMsg:
 		headerHeight := 3
-		footerHeight := 2
+		footerHeight := 4 // Input box is now 4 lines
 		verticalMargins := headerHeight + footerHeight
 
 		if !m.ready {
@@ -877,29 +878,46 @@ func (m snakewayModel) View() string {
 		title, modelInfo, strings.Join(statusParts, ""),
 		strings.Repeat("─", m.width))
 
-	// Footer - input field appears when typing, otherwise help text
+	// Footer - persistent input box at bottom
 	var footer string
-	if m.inputBuffer != "" {
-		// Show input field when user is typing
-		inputStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#00FF00")).
-			Background(lipgloss.Color("#1a1a2e")).
-			Padding(0, 1)
-		promptStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFD700"))
 
-		footer = fmt.Sprintf("\n%s %s█  %s",
-			promptStyle.Render("→"),
-			inputStyle.Render(m.inputBuffer),
-			swHelpStyle.Render("[enter]send [esc]clear"))
-	} else {
-		help := "[esc]quit [Tab]Q's [^K]context [1-9]jump  Type to respond..."
-		if m.streaming {
-			help = "[esc]quit [Tab]Q's [^K]context  Type anytime..."
-		}
-		helpStyled := swHelpStyle.Render(help)
-		scrollPct := swHelpStyle.Render(fmt.Sprintf(" %d%%", int(m.viewport.ScrollPercent()*100)))
-		footer = fmt.Sprintf("\n%s%s", helpStyled, scrollPct)
+	// Input box styling
+	boxBorder := lipgloss.NewStyle().Foreground(lipgloss.Color("#444444"))
+	inputStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#00FF00"))
+	promptStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFD700")).Bold(true)
+
+	// Status indicators
+	followIndicator := ""
+	if m.following {
+		followIndicator = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).Render(" ▼FOLLOW")
 	}
+
+	scrollPct := fmt.Sprintf(" %d%%", int(m.viewport.ScrollPercent()*100))
+
+	// Build the input box
+	inputText := m.inputBuffer
+	if inputText == "" {
+		inputText = lipgloss.NewStyle().Foreground(lipgloss.Color("#666666")).Render("Type here...")
+	}
+
+	// Help line
+	var helpText string
+	if m.streaming {
+		helpText = "[F]ollow tail [Tab]Q's [^K]ctx"
+	} else if m.inputBuffer != "" {
+		helpText = "[enter]send [esc]clear [F]ollow"
+	} else {
+		helpText = "[Tab]Q's [^K]context [1-9]jump [F]ollow"
+	}
+
+	footer = fmt.Sprintf("\n%s%s%s\n%s %s█\n%s",
+		boxBorder.Render("─────────────────────────────────────────────────────────"),
+		followIndicator,
+		swHelpStyle.Render(scrollPct),
+		promptStyle.Render("→"),
+		inputStyle.Render(inputText),
+		swHelpStyle.Render(helpText))
 
 	return header + m.viewport.View() + footer
 }
