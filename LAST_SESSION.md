@@ -146,9 +146,15 @@ If revisiting: check `AllowedMCP` config, file bug about SSE tool exposure.
 | File | Purpose |
 |------|---------|
 | `lore/SNAKE_WAY_UX.md` | Full UX spec |
-| `internal/commands/watch.go` | Pattern to steal |
-| `internal/commands/chat.go` | Saga management |
+| `docs/SNAKEWAY_SWOT.md` | Component analysis & layer cake architecture |
+| `internal/commands/watch.go` | Pattern to steal (80% of Snake Way) |
+| `internal/commands/chat.go` | Saga management (90% built) |
 | `internal/mcp/server.go` | MCP tools |
+| `chapters/ch006-the-nimbus-revelation.md` | Narrative chapter |
+
+## GITHUB ISSUES
+
+- **#135** - [EPIC] Snake Way: The Flying Nimbus Response Navigation System
 
 ---
 
@@ -165,12 +171,40 @@ If revisiting: check `AllowedMCP` config, file bug about SSE tool exposure.
 
 ---
 
+## SWOT FINDINGS (After Bird-san Left)
+
+**Catfight Results:**
+- qwen2.5-coder:3b successfully parses ALL questions from complex responses
+- Models can both GENERATE and PARSE questions
+
+**Component Status:**
+| Component | Status | Effort |
+|-----------|--------|--------|
+| Question Detection | NOT BUILT | Medium |
+| Viewport Navigation | 80% (watch.go) | Low |
+| Question State | NOT BUILT | Low |
+| Input Zones | NOT BUILT | **High** |
+| Saga Integration | 90% (chat.go) | Low |
+| Batch Submit | NOT BUILT | Medium |
+
+**Layer Cake Architecture:**
+```
+Tier 1 (Fast): qwen:3b     → Question detection, parsing
+Tier 2 (Code): qwen:7b/14b → Implementation based on answers
+Tier 3 (Think): deepseek-r1 → Complex reasoning, validation
+```
+
+**Priority Order:** Detection → Viewport → State → Input → Saga → Submit
+
+---
+
 ## WISDOM
 
 - Local models: 4% signal from catfight, good for consensus not implementation
 - De-icing pattern exists in `issue_catfight_processor.py`
 - `clood watch` already has viewport + sections + hotkeys
 - We control clood. We don't control crush. Build on what we own.
+- qwen2.5-coder:3b can handle both generation AND parsing (layer cake tier 1)
 
 ---
 
