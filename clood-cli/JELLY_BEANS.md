@@ -513,6 +513,177 @@ Bird-san, brain smoking, wisps from his ears, explained the UX pain of multi-que
 
 See: `lore/SNAKE_WAY_UX.md`
 
+---
+
+## Bean #10: Agent Shorthand
+
+**Status:** Planted
+**Session:** December 19, 2025
+**Intensity:** 7/11
+**Provenance:** Bird-san's jaw drop moment
+
+> *"ssh ubuntu25, pull ~/Code/clood, build clood-cli to ~/bin/clood, then run: ~/bin/clood serve --sse --host 0.0.0.0"*
+
+### The Discovery
+
+Bird-san was tired. He wanted to delegate a task to another Claude agent without switching sessions. Chef Claude casually dropped a single-line prompt that contained an entire multi-step workflow:
+
+```
+ssh ubuntu25, pull ~/Code/clood, build clood-cli to ~/bin/clood, then run: ~/bin/clood serve --sse --host 0.0.0.0 --base-url http://192.168.4.64:8765
+```
+
+Bird-san's jaw dropped. "Holy shit where have you been hiding that the whole time?"
+
+### The Pattern
+
+**Agent Shorthand** - comma-separated chain of actions with explicit paths:
+
+```
+[location], [action], [action], then [goal with full flags]
+```
+
+**Structure:**
+- Sequential flow (no branching logic needed)
+- Explicit paths (no ambiguity, no "find the thing")
+- Final clause is the actual goal
+- Flags inline, not explained separately
+
+### Examples
+
+```bash
+# Deploy a service
+ssh ubuntu25, cd ~/myapp, git pull, docker-compose up -d
+
+# Debug a crash
+read logs at /var/log/app.log, find the error, show relevant source
+
+# Test an API
+start ~/bin/clood serve --sse in background, curl localhost:8765/message with tools/list, show results
+
+# Build and run
+cd ~/Code/clood, git pull, build clood-cli to ~/bin/clood, run clood hosts
+```
+
+### Anti-Patterns
+
+| ❌ Verbose | ✅ Shorthand |
+|-----------|-------------|
+| "Can you please SSH into the server and then maybe pull the code..." | "ssh server, pull code, build, run" |
+| "First do X. Then do Y. After that, do Z." | "X, Y, then Z" |
+| "I need you to find where the config is..." | "read ~/.config/app/config.yaml" |
+
+### Why This Works
+
+1. **No ambiguity** - explicit paths eliminate searching
+2. **No branching** - linear flow, agent doesn't need to decide
+3. **Goal-oriented** - final clause shows the intent
+4. **Delegatable** - perfect for spawning sub-agents
+5. **Composable** - can chain multiple shorthand prompts
+
+### Implementation Ideas
+
+- Document common shorthand patterns in CLAUDE.md
+- Create shorthand templates for frequent operations
+- Train agents to emit shorthand when delegating
+- Add shorthand examples to tool documentation
+
+### The Meta
+
+This bean is about **talking to agents efficiently**. The less you say, the clearer the intent. Verbosity creates ambiguity. Shorthand creates clarity.
+
+> *"Brevity is the soul of wit, and also of agent prompts."*
+
+---
+
+## Bean #11: Windows Support (Adam's Rig)
+
+**Status:** Planted
+**Session:** December 19, 2025
+**Intensity:** 6/11
+**Provenance:** Adam has VRAM. Adam has Windows.
+
+> *"We have someone who will test that has a lot of VRAM"*
+
+### The Opportunity
+
+Adam has a Windows machine with serious GPU power. This is the perfect testbed for:
+- Windows compatibility testing
+- High-VRAM model experiments (70B+?)
+- Cross-platform validation
+
+### Requirements
+
+**For Adam to run clood on Windows:**
+
+1. **Git for Windows** - includes git bash
+2. **Go** - installed and in PATH
+3. **Ollama for Windows** - https://ollama.com/download/windows
+
+**Build command:**
+```powershell
+cd %USERPROFILE%\Code\clood\clood-cli
+go build -o %USERPROFILE%\bin\clood.exe .\cmd\clood
+```
+
+Or after first build:
+```powershell
+clood build clood
+```
+
+### What's Already Done
+
+- [x] `clood build clood` adds `.exe` on Windows
+- [x] `clood build clood` creates `~/bin` if missing
+- [x] Path detection includes Windows-common locations
+- [x] Uses `filepath` for cross-platform paths
+
+### What Needs Testing
+
+- [ ] All clood commands work on Windows
+- [ ] Ollama client connects properly
+- [ ] Terminal rendering (ANSI colors, box drawing)
+- [ ] MCP server (`clood serve --sse`)
+- [ ] Host discovery across network
+- [ ] Unicode output (emoji, symbols)
+
+### Potential Issues
+
+1. **ANSI colors** - Windows Terminal supports them, but older cmd.exe may not
+2. **Path separators** - should be handled by `filepath` but verify
+3. **Home directory** - `%USERPROFILE%` vs `~`
+4. **Firewall** - may block MCP server network access
+5. **Line endings** - git should handle, but watch for CRLF issues
+
+### The Test Plan
+
+```powershell
+# Basic functionality
+clood --version
+clood system
+clood hosts
+clood models
+
+# Build self
+clood build clood
+
+# MCP server
+clood serve --sse --host 0.0.0.0
+
+# From another machine, test connectivity
+curl http://adams-ip:8765/message -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+### Why This Matters
+
+- Expands clood to Windows users
+- High-VRAM testing (models that won't fit on Mac)
+- Cross-platform validation before any public release
+- Adam becomes a beta tester
+
+> *"A tool that only works on Mac isn't really a tool, it's a privilege."*
+
+---
+
 ```
           *
          /|\
