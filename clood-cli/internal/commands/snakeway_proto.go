@@ -1,8 +1,12 @@
 package commands
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -65,6 +69,9 @@ var (
 )
 
 func SnakewayProtoCmd() *cobra.Command {
+	var live bool
+	var model string
+
 	cmd := &cobra.Command{
 		Use:   "snakeway-proto",
 		Short: "Snake Way prototype - viewport navigation test",
@@ -77,14 +84,23 @@ Tests:
 
 No input zones yet - just navigation.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			// Generate fake conversation with questions
-			content, questions := generateTestConversation()
+			var content string
+			var questions []Question
+
+			if live {
+				// Generate real content from ollama
+				fmt.Println(tui.MutedStyle.Render("Generating live content from ollama..."))
+				content, questions = generateLiveConversation(model)
+			} else {
+				// Use fake test content
+				content, questions = generateTestConversation()
+			}
 
 			m := snakewayModel{
 				content:   content,
 				questions: questions,
 				currentQ:  0,
-				turn:      3, // We have 3 turns of conversation
+				turn:      3,
 			}
 
 			p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
@@ -93,6 +109,9 @@ No input zones yet - just navigation.`,
 			}
 		},
 	}
+
+	cmd.Flags().BoolVar(&live, "live", false, "Generate live content from ollama")
+	cmd.Flags().StringVar(&model, "model", "qwen2.5-coder:3b", "Model to use for live generation")
 
 	return cmd
 }
@@ -408,4 +427,92 @@ func generateTestConversation() (string, []Question) {
 	sb.WriteString("───────────────────────────────────────────────────────────────────\n")
 
 	return sb.String(), questions
+}
+
+// generateLiveConversation calls ollama to generate real content
+func generateLiveConversation(model string) (string, []Question) {
+	var sb strings.Builder
+	var questions []Question
+	lineNum := 0
+
+	prompts := []struct {
+		role   string
+		prompt string
+	}{
+		{"User", "I want to build a CLI tool for managing local LLM infrastructure. Ask me 3-5 clarifying questions to understand my requirements better."},
+		{"User", "I'm thinking Go for the language, and I want it to work across macOS and Linux. Can you ask follow-up questions about the specific features?"},
+		{"User", "Tell me something completely random and unrelated, then ask 2 more technical questions about database choices."},
+	}
+
+	for i, p := range prompts {
+		// User turn
+		sb.WriteString("═══════════════════════════════════════════════════════════════════\n")
+		sb.WriteString(fmt.Sprintf("TURN %d - %s\n", i*2+1, p.role))
+		sb.WriteString("═══════════════════════════════════════════════════════════════════\n")
+		sb.WriteString("\n")
+		sb.WriteString(p.prompt + "\n")
+		sb.WriteString("\n")
+		lineNum += 6
+
+		// AI response
+		sb.WriteString("═══════════════════════════════════════════════════════════════════\n")
+		sb.WriteString(fmt.Sprintf("TURN %d - Assistant\n", i*2+2))
+		sb.WriteString("═══════════════════════════════════════════════════════════════════\n")
+		sb.WriteString("\n")
+		lineNum += 4
+
+		fmt.Printf("  Generating turn %d...\n", i+1)
+		response := callOllama(model, p.prompt)
+
+		// Parse response for questions and add to content
+		lines := strings.Split(response, "\n")
+		for _, line := range lines {
+			// Simple question detection: ends with ?
+			trimmed := strings.TrimSpace(line)
+			if strings.HasSuffix(trimmed, "?") && len(trimmed) > 10 {
+				questions = append(questions, Question{
+					Index: len(questions),
+					Text:  trimmed,
+					State: "awaiting",
+					Line:  lineNum,
+				})
+			}
+			sb.WriteString(line + "\n")
+			lineNum++
+		}
+		sb.WriteString("\n")
+		lineNum++
+	}
+
+	sb.WriteString("───────────────────────────────────────────────────────────────────\n")
+	sb.WriteString("END OF CONVERSATION\n")
+	sb.WriteString("───────────────────────────────────────────────────────────────────\n")
+
+	return sb.String(), questions
+}
+
+// callOllama makes a request to ollama API
+func callOllama(model, prompt string) string {
+	reqBody := map[string]interface{}{
+		"model":  model,
+		"prompt": prompt,
+		"stream": false,
+	}
+	jsonBody, _ := json.Marshal(reqBody)
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Post("http://localhost:11434/api/generate", "application/json", bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return fmt.Sprintf("Error calling ollama: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Response string `json:"response"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Sprintf("Error decoding response: %v", err)
+	}
+
+	return result.Response
 }
