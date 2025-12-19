@@ -80,6 +80,9 @@ func main() {
 	rootCmd.AddCommand(commands.BuildCmd())
 	rootCmd.AddCommand(commands.BcbcCmd())
 
+	// Image generation
+	rootCmd.AddCommand(commands.SDCmd())
+
 	// Prototypes
 	rootCmd.AddCommand(commands.SnakewayProtoCmd())
 
