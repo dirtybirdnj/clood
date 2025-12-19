@@ -246,11 +246,6 @@ func (m snakewayModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "backspace":
 			if len(m.inputBuffer) > 0 {
 				m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
-				// Update viewport to show inline typing
-				if !m.promptMode {
-					m.viewport.SetContent(m.renderContent())
-					m.viewport.GotoBottom()
-				}
 			}
 
 		case "ctrl+f", "pgdown":
@@ -281,12 +276,18 @@ func (m snakewayModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showSummary = false
 
 		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
-			idx := int(key[0] - '1')
-			if idx < len(m.questions) {
-				m.currentQ = idx
-				m.showSummary = false // Close overlay
-				m.gotoQuestion(idx)
-				m.following = false
+			// Only jump to questions if input is empty, otherwise type the number
+			if m.inputBuffer == "" && len(m.questions) > 0 {
+				idx := int(key[0] - '1')
+				if idx < len(m.questions) {
+					m.currentQ = idx
+					m.showSummary = false // Close overlay
+					m.gotoQuestion(idx)
+					m.following = false
+				}
+			} else {
+				// Add number to input buffer
+				m.inputBuffer += key
 			}
 
 		case "up", "down":
@@ -297,17 +298,8 @@ func (m snakewayModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// If it's a printable character, add to input buffer
 			if len(key) == 1 && key[0] >= 32 && key[0] <= 126 {
 				m.inputBuffer += key
-				// Update viewport to show inline typing
-				if !m.promptMode {
-					m.viewport.SetContent(m.renderContent())
-					m.viewport.GotoBottom()
-				}
 			} else if key == "space" {
 				m.inputBuffer += " "
-				if !m.promptMode {
-					m.viewport.SetContent(m.renderContent())
-					m.viewport.GotoBottom()
-				}
 			}
 		}
 
@@ -477,19 +469,9 @@ func (m snakewayModel) renderContent() string {
 		leftPad = strings.Repeat(" ", (m.width-contentWidth)/2)
 	}
 
-	// Build content with inline input if user is typing
-	displayContent := m.content
-	if m.inputBuffer != "" && !m.streaming && !m.promptMode {
-		// Add user's typing inline at the bottom
-		displayContent += "\n═══════════════════════════════════════════════════════════════════\n"
-		displayContent += "YOU ARE TYPING...\n"
-		displayContent += "═══════════════════════════════════════════════════════════════════\n\n"
-		displayContent += m.inputBuffer + "█\n"
-	}
-
 	// First, wrap the raw content to our content width
 	// Split by existing newlines, wrap each paragraph
-	paragraphs := strings.Split(displayContent, "\n")
+	paragraphs := strings.Split(m.content, "\n")
 	var wrappedLines []string
 	for _, para := range paragraphs {
 		// Don't wrap formatting lines
