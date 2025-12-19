@@ -184,6 +184,9 @@ Status: AIRWORTHY FOR SNAKE WAY OPERATIONS
 - Has family connections throughout the Eastern Seaboard
 - Noddingly approves of good patterns
 - Knows everybody
+- embodiment of dirtybirdnj/rat-king repo
+- loves patterns, wants to collect them
+- project is a high performance rust pattern gen for pen plotter art
 
 ---
 

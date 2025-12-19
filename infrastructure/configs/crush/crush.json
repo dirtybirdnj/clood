@@ -58,6 +58,14 @@
       "args": ["-y", "any-cli-mcp-server", "gh"],
       "timeout": 120,
       "disabled": false
+    },
+    "clood": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "any-cli-mcp-server", "clood"],
+      "timeout": 120,
+      "disabled": false,
+      "description": "Local LLM tools via clood - grep, tree, symbols, ask, inception"
     }
   }
 }

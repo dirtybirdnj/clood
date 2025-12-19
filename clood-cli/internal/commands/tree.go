@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,15 @@ import (
 	"github.com/dirtybirdnj/clood/internal/tui"
 	"github.com/spf13/cobra"
 )
+
+// TreeNode represents a file or directory in JSON output
+type TreeNode struct {
+	Name     string     `json:"name"`
+	Path     string     `json:"path"`
+	Type     string     `json:"type"` // "file" or "dir"
+	Size     int64      `json:"size,omitempty"`
+	Children []TreeNode `json:"children,omitempty"`
+}
 
 func TreeCmd() *cobra.Command {
 	var depth int
@@ -27,8 +37,14 @@ func TreeCmd() *cobra.Command {
 			}
 
 			if jsonOutput {
-				// TODO: JSON output
-				fmt.Println(`{"error": "JSON output not yet implemented"}`)
+				tree, err := buildTree(path, depth, showHidden, 0)
+				if err != nil {
+					errJSON, _ := json.Marshal(map[string]string{"error": err.Error()})
+					fmt.Println(string(errJSON))
+					return
+				}
+				output, _ := json.MarshalIndent(tree, "", "  ")
+				fmt.Println(string(output))
 				return
 			}
 
@@ -123,4 +139,62 @@ func formatSize(bytes int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+// buildTree constructs a TreeNode hierarchy for JSON output
+func buildTree(path string, maxDepth int, showHidden bool, currentDepth int) (*TreeNode, error) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return nil, err
+	}
+
+	node := &TreeNode{
+		Name: info.Name(),
+		Path: absPath,
+	}
+
+	if !info.IsDir() {
+		node.Type = "file"
+		node.Size = info.Size()
+		return node, nil
+	}
+
+	node.Type = "dir"
+
+	if maxDepth > 0 && currentDepth >= maxDepth {
+		return node, nil
+	}
+
+	entries, err := os.ReadDir(absPath)
+	if err != nil {
+		return node, nil // Return partial tree on read error
+	}
+
+	for _, entry := range entries {
+		name := entry.Name()
+
+		// Skip hidden unless requested
+		if !showHidden && strings.HasPrefix(name, ".") {
+			continue
+		}
+
+		// Skip common ignores
+		if name == "node_modules" || name == "vendor" || name == "__pycache__" || name == ".git" {
+			continue
+		}
+
+		childPath := filepath.Join(absPath, name)
+		child, err := buildTree(childPath, maxDepth, showHidden, currentDepth+1)
+		if err != nil {
+			continue // Skip entries that can't be read
+		}
+		node.Children = append(node.Children, *child)
+	}
+
+	return node, nil
 }

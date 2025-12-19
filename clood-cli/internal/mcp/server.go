@@ -16,8 +16,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dirtybirdnj/clood/internal/analyze"
 	"github.com/dirtybirdnj/clood/internal/config"
 	"github.com/dirtybirdnj/clood/internal/hosts"
+	"github.com/dirtybirdnj/clood/internal/inception"
 	"github.com/dirtybirdnj/clood/internal/sd"
 	"github.com/dirtybirdnj/clood/internal/system"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -89,9 +91,13 @@ func (s *Server) registerTools() {
 	s.mcpServer.AddTool(s.importsTool(), s.importsHandler)
 	s.mcpServer.AddTool(s.contextTool(), s.contextHandler)
 	s.mcpServer.AddTool(s.capabilitiesTool(), s.capabilitiesHandler)
+	s.mcpServer.AddTool(s.analyzeTool(), s.analyzeHandler)
 
 	// The main event: ask local models
 	s.mcpServer.AddTool(s.askTool(), s.askHandler)
+
+	// INCEPTION: LLM-to-LLM sub-queries
+	s.mcpServer.AddTool(s.inceptionTool(), s.inceptionHandler)
 
 	// Stable Diffusion / Image Generation tools
 	s.mcpServer.AddTool(s.sdStatusTool(), s.sdStatusHandler)
@@ -199,6 +205,28 @@ Cost: Local LLM tokens only, ZERO cloud API calls, ZERO internet.`),
 	)
 }
 
+func (s *Server) inceptionTool() mcp.Tool {
+	return mcp.NewTool("clood_inception",
+		mcp.WithDescription(`🌀 INCEPTION: Query an expert LLM model mid-stream.
+
+Use this when you need specialized knowledge from a different model:
+- science: Physics, chemistry, biology facts
+- math: Calculations, proofs, formulas
+- code: Code review, programming patterns
+- creative: Brainstorming, writing
+
+Example: You're writing simulation code and need orbital velocity.
+Call: clood_inception expert="science" query="What is ISS orbital velocity?"
+Response: "7.66 km/s at 408km altitude"
+Continue your work with the expert knowledge.
+
+This is ONE-LEVEL deep - the expert cannot call other experts.
+Cost: Local LLM tokens only, ZERO cloud API.`),
+		mcp.WithString("query", mcp.Required(), mcp.Description("The question for the expert model")),
+		mcp.WithString("expert", mcp.Required(), mcp.Description("Expert type: science, math, code, creative, or model name")),
+	)
+}
+
 // =============================================================================
 // LOCAL DISCOVERY TOOLS (0 network, 0 LLM tokens)
 // Use these BEFORE making any network requests or LLM calls
@@ -298,6 +326,24 @@ Shows:
 
 Use to plan your approach: local tools first, network last.
 Cost: ZERO network, ZERO tokens, instant.`),
+	)
+}
+
+func (s *Server) analyzeTool() mcp.Tool {
+	return mcp.NewTool("clood_analyze",
+		mcp.WithDescription(`🔬 Run static analysis on Go codebase (like "clood bcbc").
+
+Returns pre-computed analysis including:
+- Build status (pass/fail)
+- Go vet issues
+- TODO/FIXME items
+- Recent commits and hot files
+- Symbol counts (funcs, types, methods)
+
+Use this to quickly understand codebase health before making changes.
+Cost: ZERO network, ZERO tokens (runs go build/vet locally).`),
+		mcp.WithString("path", mcp.Description("Directory to analyze (default: current directory)")),
+		mcp.WithBoolean("run_tests", mcp.Description("Also run tests (slower)")),
 	)
 }
 
@@ -537,6 +583,51 @@ func (s *Server) askHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.
 	// Return with metadata
 	result := fmt.Sprintf("🐱 %s @ %s\n\n%s", targetModel, targetHost.Name, response)
 	return mcp.NewToolResultText(result), nil
+}
+
+func (s *Server) inceptionHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	query, ok := args["query"].(string)
+	if !ok || query == "" {
+		return mcp.NewToolResultError("query is required"), nil
+	}
+
+	expert, ok := args["expert"].(string)
+	if !ok || expert == "" {
+		return mcp.NewToolResultError("expert is required (science, math, code, creative, or model name)"), nil
+	}
+
+	// Create inception handler
+	handler := inception.NewHandler()
+
+	// Build sub-query
+	subQuery := inception.SubQuery{
+		Model: expert,
+		Query: query,
+	}
+
+	// Execute synchronously
+	result := handler.ExecuteSubQuery(ctx, subQuery)
+
+	if result.Error != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Inception failed: %v", result.Error)), nil
+	}
+
+	// Format response
+	response := fmt.Sprintf("🌀 INCEPTION RESPONSE [%s → %s]\n"+
+		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"+
+		"Query: %s\n"+
+		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"+
+		"%s\n"+
+		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"+
+		"Duration: %.2fs",
+		expert, handler.Registry[expert],
+		query,
+		result.Response,
+		result.Duration.Seconds())
+
+	return mcp.NewToolResultText(response), nil
 }
 
 // =============================================================================
@@ -979,6 +1070,7 @@ func (s *Server) capabilitiesHandler(ctx context.Context, req mcp.CallToolReques
 			"clood_imports - Dependency analysis (0 network, 0 tokens)",
 			"clood_context - Project summary (0 network, 0 tokens)",
 			"clood_system - Hardware detection (0 network, 0 tokens)",
+			"clood_analyze - Static analysis for Go projects (0 network, 0 tokens)",
 		},
 		"local_ollama_tools": []string{
 			"clood_ask - Query local LLM",
@@ -992,6 +1084,29 @@ func (s *Server) capabilitiesHandler(ctx context.Context, req mcp.CallToolReques
 
 	data, _ := json.MarshalIndent(capabilities, "", "  ")
 	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (s *Server) analyzeHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	path := "."
+	if p, ok := args["path"].(string); ok && p != "" {
+		path = p
+	}
+
+	runTests := false
+	if rt, ok := args["run_tests"].(bool); ok {
+		runTests = rt
+	}
+
+	// Run static analysis
+	analysis, err := analyze.RunAnalysis(path, runTests)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Analysis failed: %v", err)), nil
+	}
+
+	// Return formatted for Claude consumption
+	return mcp.NewToolResultText(analysis.FormatForClaude()), nil
 }
 
 // =============================================================================
