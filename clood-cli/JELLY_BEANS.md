@@ -1041,6 +1041,212 @@ See: `docs/STORYTIME_ARCHITECTURE.md`
 
 ---
 
+## Bean #16: TUI Kitchen Sink
+
+**Status:** Planted
+**Session:** The Spirits Emerge (Dec 19, 2025)
+**Intensity:** 7/11
+**Provenance:** Need to understand the full power of BubbleTea
+
+> *"Show me everything you can do."*
+
+### The Purpose
+
+A prototype command that demonstrates ALL TUI capabilities in one place:
+
+```bash
+clood tui-kitchen-sink
+clood tui-demo
+```
+
+### What It Should Include
+
+#### 1. BubbleTea Components
+
+| Component | Demo |
+|-----------|------|
+| **Viewport** | Scrollable content area |
+| **Text Input** | Single line, multi-line |
+| **List** | Selectable items with filtering |
+| **Table** | Rows, columns, selection |
+| **Spinner** | Loading states (dots, line, globe) |
+| **Progress** | Bar, percentage, custom |
+| **Paginator** | Dot, arabic, navigation |
+| **Stopwatch** | Timer display |
+| **Text Area** | Multi-line input |
+| **File Picker** | Directory navigation |
+| **Help** | Keybinding display |
+
+#### 2. Lipgloss Styling
+
+```go
+// Borders
+lipgloss.NormalBorder()
+lipgloss.RoundedBorder()
+lipgloss.ThickBorder()
+lipgloss.DoubleBorder()
+lipgloss.HiddenBorder()
+
+// Colors
+lipgloss.Color("205")      // ANSI
+lipgloss.Color("#FF5733")  // Hex
+lipgloss.AdaptiveColor{}   // Light/dark mode
+
+// Layout
+lipgloss.Place()           // Positioning
+lipgloss.JoinHorizontal()  // Side by side
+lipgloss.JoinVertical()    // Stacked
+```
+
+#### 3. ASCII Art Reference
+
+**Box Drawing Characters:**
+```
+┌─────┬─────┐    ╔═════╦═════╗    ┏━━━━━┳━━━━━┓
+│     │     │    ║     ║     ║    ┃     ┃     ┃
+├─────┼─────┤    ╠═════╬═════╣    ┣━━━━━╫━━━━━┫
+│     │     │    ║     ║     ║    ┃     ┃     ┃
+└─────┴─────┘    ╚═════╩═════╝    ┗━━━━━┻━━━━━┛
+
+Light   ─ │ ┌ ┐ └ ┘ ├ ┤ ┬ ┴ ┼
+Heavy   ━ ┃ ┏ ┓ ┗ ┛ ┣ ┫ ┳ ┻ ╋
+Double  ═ ║ ╔ ╗ ╚ ╝ ╠ ╣ ╦ ╩ ╬
+Rounded ─ │ ╭ ╮ ╰ ╯
+```
+
+**Shading & Fill:**
+```
+░░░░░  Light shade (25%)
+▒▒▒▒▒  Medium shade (50%)
+▓▓▓▓▓  Dark shade (75%)
+█████  Full block (100%)
+
+▀ Upper half    ▄ Lower half
+▌ Left half     ▐ Right half
+```
+
+**Progress & Status:**
+```
+Loading:  ⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏  (braille spinner)
+          ◐ ◓ ◑ ◒              (circle spinner)
+          ▖ ▘ ▝ ▗              (quadrant spinner)
+
+Progress: [████████░░░░░░░░] 50%
+          ▓▓▓▓▓▓▓▓░░░░░░░░ 50%
+          ●●●●●●●●○○○○○○○○ 50%
+
+Status:   ● Online    ○ Offline
+          ✓ Success   ✗ Failed
+          ⚠ Warning   ⓘ Info
+          ◉ Selected  ○ Unselected
+```
+
+**Arrows & Pointers:**
+```
+Arrows:   ← → ↑ ↓ ↔ ↕ ↖ ↗ ↘ ↙
+          ◀ ▶ ▲ ▼
+          ⟵ ⟶ ⟷
+          « »
+
+Pointers: ▸ ▹ ▾ ▿ ◂ ◃
+          ➤ ➜ ➔ ➙ ➛
+          ☛ ☞ ☜ ☚
+```
+
+**Decorative:**
+```
+Stars:    ★ ☆ ✦ ✧ ✩ ✪ ✫ ✬ ✭ ✮ ✯ ✰
+Flowers:  ✿ ❀ ❁ ❃ ❋
+Hearts:   ♥ ♡ ❤ ❥ ❣
+Music:    ♩ ♪ ♫ ♬ ♭ ♮ ♯
+Weather:  ☀ ☁ ☂ ☃ ❄ ☼ ⛅
+Misc:     ⚡ ☢ ☣ ⚠ ⚙ ⚛ ⚜ ☯ ✝ ☪ ☸
+```
+
+**Emoji (terminal support varies):**
+```
+Animals:  🐱 🐈 🦊 🐦 🐀 🐢
+Food:     🫘 🍕 🌶️
+Hands:    👁️ 👆 👇 👈 👉 🤌
+Objects:  🎤 💥 🗿 ⚡ 🔥 💎
+Faces:    😎 🤔 😢 🙂
+```
+
+**ASCII Art Techniques:**
+
+```
+GRADIENT (using shading):
+░░▒▒▓▓██████▓▓▒▒░░
+
+SHADOW (offset duplicate):
+╔═══════╗
+║ TITLE ║░
+╚═══════╝░
+ ░░░░░░░░░
+
+DEPTH (layered boxes):
+┌────────────────┐
+│ ┌────────────┐ │
+│ │ ┌────────┐ │ │
+│ │ │ DEEP   │ │ │
+│ │ └────────┘ │ │
+│ └────────────┘ │
+└────────────────┘
+
+BANNER:
+╭──────────────────────────────────╮
+│  ░█▀▀░█░░░█▀█░█▀█░█▀▄  ░░░░░░░  │
+│  ░█░░░█░░░█░█░█░█░█░█  ░░░░░░░  │
+│  ░▀▀▀░▀▀▀░▀▀▀░▀▀▀░▀▀░  ░░░░░░░  │
+╰──────────────────────────────────╯
+```
+
+### Interactive Demo
+
+```bash
+clood tui-kitchen-sink
+```
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 🍳 TUI KITCHEN SINK                              ● SAUCE        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│ SECTIONS:                                                       │
+│ [1] Viewports & Scrolling                                       │
+│ [2] Input Components                                            │
+│ [3] Lists & Tables                                              │
+│ [4] Progress & Status                                           │
+│ [5] Borders & Styling                                           │
+│ [6] ASCII Art Gallery                                           │
+│ [7] Color Palette                                               │
+│ [8] Layout Examples                                             │
+│                                                                 │
+│ Press number to explore, q to quit                              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Why This Matters
+
+1. **Learning** — Understand BubbleTea capabilities hands-on
+2. **Reference** — Quick lookup for symbols and techniques
+3. **Prototyping** — Copy-paste starting points for new features
+4. **Consistency** — Establish visual patterns for clood TUIs
+5. **Sauce Expression** — Know what's possible for narrative mode
+
+### Implementation
+
+```go
+// cmd: clood tui-kitchen-sink
+// Uses BubbleTea for navigation
+// Each section is its own model
+// ASCII reference stored as embedded strings
+```
+
+See: Charm's BubbleTea examples at github.com/charmbracelet/bubbletea
+
+---
+
 ```
           *
          /|\
