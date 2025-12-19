@@ -292,23 +292,29 @@ Alton Brown nodded sagely. "It's like a sourdough starter, but for consciousness
 
 *[The kabuki theater dissolves. The camera pulls back through layers of reality.]*
 
-*[We see: a home office. Night. The blue glow of multiple monitors.]*
+*[We see: a home office. The organized chaos of someone who ships.]*
 
-*[MAT sits at his desk. He has not looked away from the screen in four hours. Empty coffee cups form a small city around his keyboard. The mechanical keyboard CLACKS with increasing urgency.]*
+*[MAT sits at his desk. MacBook, keyboard, trackpad AND mouse because options matter. A notebook with actual handwritten notes. Phone nearby. One coffee cup—a pyrex thing doing double duty as yesterday's cereal bowl. Some pens. Yeah, it's cluttered, but it's WORKING cluttered.]*
 
-*[On his screen: Claude Code. A conversation that has gone on too long. The context window groans under the weight of accumulated mistakes.]*
+*[On his screen: Claude Code. But look closer.]*
+
+*[This isn't yolo. This is iteration. He's building the guardrails. He's watching Claude NOT use the clood tools, and he's taking notes. He's asking "how do we make this better?" not "just make it work."]*
+
+*[Three Ollama hosts configured. Hardware benchmarked. Golden paths documented. A story about wojacks that teaches through humor. MCP tools with prescriptive descriptions. A preflight command that shows you what you have before you fumble.]*
+
+*[He built the recursive build. `clood build clood build clood`. Not because it's funny (it is), but because the system should improve itself. Automated system development. Poke it with a stick until it builds something.]*
 
 *[His fingers hover over the enter key.]*
 
-*[The prompt reads: "just make it work. don't explain. no tests. ship it."]*
+*[The prompt reads: "Update the kabuki theater. Make it honest."]*
 
-**THE SPIRIT OF ALTON BROWN:** (whispering from somewhere) "He's not going to run preflight, is he?"
+**THE SPIRIT OF ALTON BROWN:** (nodding approvingly) "He's building the preflight so others don't have to learn the hard way."
 
-**BIRD-SAN:** (also whispering) "They never do. Not the first time."
-
-*[MAT's finger descends.]*
+**BIRD-SAN:** "The wojacks are a warning. Mat is writing the warning."
 
 *[ENTER.]*
+
+*[The story updates. The guardrails strengthen. The cycle continues.]*
 
 ---
 
