@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/dirtybirdnj/clood/internal/output"
 	"github.com/dirtybirdnj/clood/internal/system"
 	"github.com/dirtybirdnj/clood/internal/tui"
@@ -21,7 +20,8 @@ func SystemCmd() *cobra.Command {
   - CPU model and cores
   - Memory (RAM)
   - GPU type and VRAM
-  - Available disk space
+  - All disk storage with usage
+  - Ollama models directory location and headroom
   - Model recommendations based on hardware`,
 		Run: func(cmd *cobra.Command, args []string) {
 			hw, err := system.DetectHardware()
@@ -42,60 +42,46 @@ func SystemCmd() *cobra.Command {
 			fmt.Println()
 			fmt.Println(renderBox(hw.Summary()))
 
-			// Recommendations
-			models := hw.RecommendedModels()
-			if len(models) > 0 {
-				fmt.Println()
-				fmt.Println(tui.RenderHeader("Recommended Models"))
-				fmt.Println()
-				for i, model := range models {
-					if i == 0 {
-						fmt.Printf("  %s %s %s\n",
-							tui.SuccessStyle.Render("★"),
-							model,
-							tui.MutedStyle.Render("(optimal)"))
-					} else {
-						fmt.Printf("  %s %s\n",
-							tui.MutedStyle.Render("○"),
-							model)
-					}
-				}
+			// Disk storage
+			fmt.Println()
+			fmt.Println(tui.RenderHeader("Storage"))
+			fmt.Println()
+			fmt.Print(hw.DiskSummary())
+
+			// Recommendations by category
+			fmt.Println()
+			fmt.Println(tui.RenderHeader("Best Models For Your Hardware"))
+			fmt.Println()
+
+			recommendations := system.RecommendedByCategory(hw.OllamaVRAM)
+			categoryOrder := []system.ModelCategory{
+				system.CategoryCoding,
+				system.CategoryReasoning,
+				system.CategoryVision,
+				system.CategoryGeneral,
 			}
 
-			// VRAM analysis
+			for _, cat := range categoryOrder {
+				models, ok := recommendations[cat]
+				if !ok || len(models) == 0 {
+					continue
+				}
+				info := system.GetCategoryInfo(cat)
+				// Show first (best) model for each category
+				fmt.Printf("  %s %-10s %s\n",
+					info.Emoji,
+					tui.HeaderStyle.Render(info.Name+":"),
+					models[0])
+			}
+
 			fmt.Println()
-			fmt.Println(tui.RenderHeader("Capacity Analysis"))
-			fmt.Println()
-			printCapacity("qwen2.5-coder:1.5b", 1.5, hw.OllamaVRAM)
-			printCapacity("qwen2.5-coder:3b", 3, hw.OllamaVRAM)
-			printCapacity("qwen2.5-coder:7b", 7, hw.OllamaVRAM)
-			printCapacity("qwen2.5-coder:14b", 14, hw.OllamaVRAM)
-			printCapacity("qwen2.5-coder:32b", 32, hw.OllamaVRAM)
-			printCapacity("llama3.1:70b", 70, hw.OllamaVRAM)
+			fmt.Println(tui.MutedStyle.Render("  Run 'clood models' for detailed model info by category"))
 		},
 	}
 
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 
 	return cmd
-}
-
-func printCapacity(model string, sizeB float64, vram float64) {
-	// Estimate VRAM needed (0.6 GB per billion params for Q4)
-	needed := sizeB * 0.6
-
-	var status string
-	if vram >= needed*1.5 {
-		status = tui.SuccessStyle.Render("✓ comfortable")
-	} else if vram >= needed {
-		status = tui.SuccessStyle.Render("✓ fits")
-	} else if vram >= needed*0.8 {
-		status = lipgloss.NewStyle().Foreground(tui.ColorWarning).Render("⚠ tight")
-	} else {
-		status = tui.ErrorStyle.Render("✗ won't fit")
-	}
-
-	fmt.Printf("  %-22s %4.1fGB needed  %s\n", model, needed, status)
 }
 
 func renderBox(content string) string {

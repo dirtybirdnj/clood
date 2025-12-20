@@ -12,6 +12,7 @@ import (
 	"github.com/dirtybirdnj/clood/internal/config"
 	"github.com/dirtybirdnj/clood/internal/hosts"
 	"github.com/dirtybirdnj/clood/internal/ollama"
+	"github.com/dirtybirdnj/clood/internal/system"
 	"github.com/dirtybirdnj/clood/internal/tui"
 	"github.com/spf13/cobra"
 )
@@ -340,6 +341,15 @@ Examples:
 						}
 					}
 					results = append(results, result)
+				}
+			}
+
+			// Record benchmarks for successful runs
+			if benchStore, err := system.NewBenchmarkStore(); err == nil {
+				for _, r := range results {
+					if r.Error == nil && r.TokSec > 0 {
+						benchStore.Record(r.Cat.Model, r.Host, "catfight", r.TokSec)
+					}
 				}
 			}
 

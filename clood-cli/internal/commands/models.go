@@ -8,6 +8,7 @@ import (
 	"github.com/dirtybirdnj/clood/internal/config"
 	"github.com/dirtybirdnj/clood/internal/hosts"
 	"github.com/dirtybirdnj/clood/internal/output"
+	"github.com/dirtybirdnj/clood/internal/system"
 	"github.com/dirtybirdnj/clood/internal/tui"
 	"github.com/spf13/cobra"
 )
@@ -132,13 +133,60 @@ Shows which hosts have each model and model details.`,
 	return cmd
 }
 
+// ModelInfo holds enriched model information for display
+type ModelInfo struct {
+	Name              string   `json:"name"`
+	SizeGB            float64  `json:"size_gb"`
+	ParameterSize     string   `json:"parameter_size"`
+	QuantizationLevel string   `json:"quantization_level"`
+	Family            string   `json:"family"`
+	Category          string   `json:"category"`
+	BestFor           string   `json:"best_for,omitempty"`
+	Hosts             []string `json:"hosts,omitempty"`
+	TokPerSec         float64  `json:"tok_per_sec,omitempty"`  // From catfight benchmarks
+	BenchmarkSource   string   `json:"benchmark_source,omitempty"`
+}
+
 func printHostModels(status *hosts.HostStatus, jsonOutput bool) {
+	// Load benchmark store to enrich with performance data
+	benchStore, _ := system.NewBenchmarkStore()
+
+	// Calculate total library size
+	var totalBytes int64
+	for _, m := range status.Models {
+		totalBytes += m.Size
+	}
+	totalGB := float64(totalBytes) / (1024 * 1024 * 1024)
+
 	if jsonOutput {
-		var models []string
+		var models []ModelInfo
 		for _, m := range status.Models {
-			models = append(models, m.Name)
+			class := system.ClassifyModel(m.Name)
+			info := ModelInfo{
+				Name:              m.Name,
+				SizeGB:            float64(m.Size) / (1024 * 1024 * 1024),
+				ParameterSize:     m.Details.ParameterSize,
+				QuantizationLevel: m.Details.QuantizationLevel,
+				Family:            m.Details.Family,
+				Category:          string(class.Category),
+				BestFor:           class.BestFor,
+			}
+			// Add benchmark data if available
+			if benchStore != nil {
+				if bm := benchStore.GetBenchmarkForHost(m.Name, status.Host.Name); bm != nil {
+					info.TokPerSec = bm.TokPerSec
+					info.BenchmarkSource = bm.Source
+				}
+			}
+			models = append(models, info)
 		}
-		data, _ := json.MarshalIndent(models, "", "  ")
+		output := map[string]interface{}{
+			"host":          status.Host.Name,
+			"model_count":   len(models),
+			"total_size_gb": totalGB,
+			"models":        models,
+		}
+		data, _ := json.MarshalIndent(output, "", "  ")
 		fmt.Println(string(data))
 		return
 	}
@@ -151,13 +199,114 @@ func printHostModels(status *hosts.HostStatus, jsonOutput bool) {
 		return
 	}
 
+	// Show library summary
+	fmt.Printf("  %s %d models, %.1f GB total\n\n",
+		tui.AccentStyle.Render("Library:"),
+		len(status.Models),
+		totalGB)
+
+	// Group models by category
+	byCategory := make(map[system.ModelCategory][]struct {
+		model   interface{}
+		sizeGB  float64
+		params  string
+		quant   string
+		tokSec  string
+		bestFor string
+	})
+
+	// Check if we have any benchmarks
+	hasBenchmarks := false
+	if benchStore != nil {
+		for _, m := range status.Models {
+			if bm := benchStore.GetBenchmarkForHost(m.Name, status.Host.Name); bm != nil {
+				hasBenchmarks = true
+				break
+			}
+		}
+	}
+
+	// Categorize all models
 	for _, m := range status.Models {
+		class := system.ClassifyModel(m.Name)
 		sizeGB := float64(m.Size) / (1024 * 1024 * 1024)
-		fmt.Printf("  %s\n", m.Name)
-		fmt.Printf("    %s\n", tui.MutedStyle.Render(fmt.Sprintf("%.1f GB, %s, %s",
-			sizeGB,
-			m.Details.ParameterSize,
-			m.Details.QuantizationLevel)))
+		paramSize := m.Details.ParameterSize
+		if paramSize == "" {
+			paramSize = "-"
+		}
+		quantLevel := m.Details.QuantizationLevel
+		if quantLevel == "" {
+			quantLevel = "-"
+		}
+		tokSec := "-"
+		if benchStore != nil {
+			if bm := benchStore.GetBenchmarkForHost(m.Name, status.Host.Name); bm != nil {
+				tokSec = fmt.Sprintf("%.1f", bm.TokPerSec)
+			}
+		}
+
+		byCategory[class.Category] = append(byCategory[class.Category], struct {
+			model   interface{}
+			sizeGB  float64
+			params  string
+			quant   string
+			tokSec  string
+			bestFor string
+		}{
+			model:   m.Name,
+			sizeGB:  sizeGB,
+			params:  paramSize,
+			quant:   quantLevel,
+			tokSec:  tokSec,
+			bestFor: class.BestFor,
+		})
+	}
+
+	// Display order for categories
+	categoryOrder := []system.ModelCategory{
+		system.CategoryCoding,
+		system.CategoryReasoning,
+		system.CategoryVision,
+		system.CategoryGeneral,
+	}
+
+	for _, cat := range categoryOrder {
+		models, ok := byCategory[cat]
+		if !ok || len(models) == 0 {
+			continue
+		}
+
+		info := system.GetCategoryInfo(cat)
+		fmt.Printf("  %s %s %s\n", info.Emoji, tui.HeaderStyle.Render(info.Name), tui.MutedStyle.Render("- "+info.Description))
+
+		if hasBenchmarks {
+			fmt.Printf("    %-26s %6s %7s %5s %8s  %s\n",
+				"MODEL", "SIZE", "PARAMS", "QUANT", "TOK/S", "BEST FOR")
+			fmt.Printf("    %s\n", tui.MutedStyle.Render("─────────────────────────────────────────────────────────────────────────────"))
+		} else {
+			fmt.Printf("    %-26s %6s %7s %5s  %s\n",
+				"MODEL", "SIZE", "PARAMS", "QUANT", "BEST FOR")
+			fmt.Printf("    %s\n", tui.MutedStyle.Render("───────────────────────────────────────────────────────────────────"))
+		}
+
+		for _, m := range models {
+			bestFor := m.bestFor
+			if len(bestFor) > 25 {
+				bestFor = bestFor[:22] + "..."
+			}
+			if hasBenchmarks {
+				fmt.Printf("    %-26s %5.1fGB %7s %5s %8s  %s\n",
+					m.model, m.sizeGB, m.params, m.quant, m.tokSec, tui.MutedStyle.Render(bestFor))
+			} else {
+				fmt.Printf("    %-26s %5.1fGB %7s %5s  %s\n",
+					m.model, m.sizeGB, m.params, m.quant, tui.MutedStyle.Render(bestFor))
+			}
+		}
+		fmt.Println()
+	}
+
+	if !hasBenchmarks {
+		fmt.Println(tui.MutedStyle.Render("  Tip: Run 'clood catfight' to benchmark models and see tok/s"))
 	}
 }
 
