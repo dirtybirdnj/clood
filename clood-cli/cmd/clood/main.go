@@ -83,6 +83,7 @@ func main() {
 	// AI-powered commands
 	rootCmd.AddCommand(commands.CommitMsgCmd())
 	rootCmd.AddCommand(commands.ReviewPRCmd())
+	rootCmd.AddCommand(commands.GenerateTestsCmd())
 
 	// Meta commands
 	rootCmd.AddCommand(commands.BuildCmd())
