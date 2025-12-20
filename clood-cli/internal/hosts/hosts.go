@@ -164,6 +164,36 @@ func (m *Manager) CheckAllHosts() []*HostStatus {
 	return results
 }
 
+// HostCheckResult is sent over the channel as each host completes checking
+type HostCheckResult struct {
+	Index  int
+	Status *HostStatus
+}
+
+// CheckAllHostsStreaming checks all hosts concurrently and streams results
+// as each host completes. Caller should read from the returned channel
+// until it's closed. The total number of results will equal len(GetAllHosts()).
+func (m *Manager) CheckAllHostsStreaming() (<-chan HostCheckResult, int) {
+	hosts := m.GetAllHosts()
+	results := make(chan HostCheckResult, len(hosts))
+
+	go func() {
+		var wg sync.WaitGroup
+		for i, host := range hosts {
+			wg.Add(1)
+			go func(idx int, h *Host) {
+				defer wg.Done()
+				status := m.CheckHost(h)
+				results <- HostCheckResult{Index: idx, Status: status}
+			}(i, host)
+		}
+		wg.Wait()
+		close(results)
+	}()
+
+	return results, len(hosts)
+}
+
 // GetOnlineHosts returns only online hosts, sorted by priority then latency
 func (m *Manager) GetOnlineHosts() []*HostStatus {
 	statuses := m.CheckAllHosts()

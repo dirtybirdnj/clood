@@ -35,13 +35,15 @@ Use --garden for ASCII art visualization of the Server Garden topology.`,
 			mgr := hosts.NewManager()
 			mgr.AddHosts(cfg.Hosts)
 
-			// Only show progress message in human mode
-			if !jsonOutput && !output.IsJSON() {
-				fmt.Println(tui.MutedStyle.Render("Checking hosts..."))
-				fmt.Println()
-			}
+			var statuses []*hosts.HostStatus
 
-			statuses := mgr.CheckAllHosts()
+			// Check for JSON output mode - no animation needed
+			if jsonOutput || output.IsJSON() {
+				statuses = mgr.CheckAllHosts()
+			} else {
+				// Use streaming loader with animation
+				statuses = checkHostsWithAnimation(mgr)
+			}
 
 			// Detect if localhost is same as a named host
 			localAlias := detectLocalAlias(statuses)
@@ -418,4 +420,53 @@ func truncateGarden(s string, max int) string {
 		return s + strings.Repeat(" ", max-len(s))
 	}
 	return s[:max-1] + "…"
+}
+
+// checkHostsWithAnimation checks hosts with a streaming animated display
+func checkHostsWithAnimation(mgr *hosts.Manager) []*hosts.HostStatus {
+	allHosts := mgr.GetAllHosts()
+	if len(allHosts) == 0 {
+		return nil
+	}
+
+	// Create streaming loader
+	loader := tui.NewStreamingLoader("Scanning the Server Garden")
+
+	// Add all hosts as pending
+	for _, h := range allHosts {
+		loader.AddItem(h.Name)
+	}
+
+	// Print initial blank lines for the loader to overwrite
+	fmt.Println()
+	fmt.Println()
+	for range allHosts {
+		fmt.Println()
+	}
+
+	// Start the animated display
+	loader.Start()
+
+	// Start streaming check
+	resultChan, total := mgr.CheckAllHostsStreaming()
+	statuses := make([]*hosts.HostStatus, total)
+
+	// Collect results as they stream in
+	for result := range resultChan {
+		statuses[result.Index] = result.Status
+		status := result.Status
+
+		// Update the loader with this host's status
+		if status.Online {
+			details := fmt.Sprintf("(%dms, %d models)", status.Latency.Milliseconds(), len(status.Models))
+			loader.UpdateItem(status.Host.Name, "online", details)
+		} else {
+			loader.UpdateItem(status.Host.Name, "offline", "")
+		}
+	}
+
+	// Stop the loader
+	loader.Stop()
+
+	return statuses
 }

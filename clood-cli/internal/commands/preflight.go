@@ -38,11 +38,23 @@ This helps avoid unnecessary network requests by showing what can be done locall
 			var allModels []string
 			modelSeen := make(map[string]bool)
 
+			// Check for JSON output - no animation needed
+			isJSON := jsonOutput || output.IsJSON()
+
 			if cfg != nil {
 				mgr := hosts.NewManager()
 				mgr.AddHosts(cfg.Hosts)
 
-				statuses := mgr.CheckAllHosts()
+				var statuses []*hosts.HostStatus
+
+				if isJSON {
+					// Silent check for JSON mode
+					statuses = mgr.CheckAllHosts()
+				} else {
+					// Animated check for human mode
+					statuses = checkPreflightHostsWithAnimation(mgr)
+				}
+
 				for _, st := range statuses {
 					if st.Online {
 						hi := hostInfo{
@@ -64,7 +76,7 @@ This helps avoid unnecessary network requests by showing what can be done locall
 			ollamaOnline := len(onlineHosts) > 0
 
 			// Check for JSON output
-			if jsonOutput || output.IsJSON() {
+			if isJSON {
 				printPreflightJSON(cwd, onlineHosts, allModels, ollamaOnline)
 				return
 			}
@@ -121,6 +133,55 @@ func printPreflightJSON(cwd string, hosts []hostInfo, models []string, ollamaOnl
 
 	data, _ := json.MarshalIndent(result, "", "  ")
 	fmt.Println(string(data))
+}
+
+// checkPreflightHostsWithAnimation checks hosts with a simple spinner
+func checkPreflightHostsWithAnimation(mgr *hosts.Manager) []*hosts.HostStatus {
+	allHosts := mgr.GetAllHosts()
+	if len(allHosts) == 0 {
+		return nil
+	}
+
+	// Create streaming loader
+	loader := tui.NewStreamingLoader("Checking Ollama hosts")
+
+	// Add all hosts as pending
+	for _, h := range allHosts {
+		loader.AddItem(h.Name)
+	}
+
+	// Print initial blank lines for the loader to overwrite
+	fmt.Println()
+	fmt.Println()
+	for range allHosts {
+		fmt.Println()
+	}
+
+	// Start the animated display
+	loader.Start()
+
+	// Start streaming check
+	resultChan, total := mgr.CheckAllHostsStreaming()
+	statuses := make([]*hosts.HostStatus, total)
+
+	// Collect results as they stream in
+	for result := range resultChan {
+		statuses[result.Index] = result.Status
+		status := result.Status
+
+		// Update the loader with this host's status
+		if status.Online {
+			details := fmt.Sprintf("(%dms)", status.Latency.Milliseconds())
+			loader.UpdateItem(status.Host.Name, "online", details)
+		} else {
+			loader.UpdateItem(status.Host.Name, "offline", "")
+		}
+	}
+
+	// Stop the loader
+	loader.Stop()
+
+	return statuses
 }
 
 func printPreflightHuman(cwd string, hosts []hostInfo, models []string, ollamaOnline bool) {
