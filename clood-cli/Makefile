@@ -55,7 +55,16 @@ cross:
 	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BINARY_NAME)-darwin-amd64 ./cmd/clood
 	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BINARY_NAME)-linux-amd64 ./cmd/clood
 	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o $(BINARY_NAME)-linux-arm64 ./cmd/clood
-	@echo "Built binaries for darwin/linux on arm64/amd64"
+	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(BINARY_NAME)-windows-amd64.exe ./cmd/clood
+	GOOS=windows GOARCH=arm64 go build $(LDFLAGS) -o $(BINARY_NAME)-windows-arm64.exe ./cmd/clood
+	@echo "Built binaries for darwin/linux/windows on arm64/amd64"
+
+## windows: Build Windows binaries only
+windows:
+	@echo "Building for Windows..."
+	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(BINARY_NAME)-windows-amd64.exe ./cmd/clood
+	GOOS=windows GOARCH=arm64 go build $(LDFLAGS) -o $(BINARY_NAME)-windows-arm64.exe ./cmd/clood
+	@echo "Built: $(BINARY_NAME)-windows-amd64.exe, $(BINARY_NAME)-windows-arm64.exe"
 
 ## quick-test: Quick functionality test
 quick-test: build

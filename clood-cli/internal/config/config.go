@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/dirtybirdnj/clood/internal/hosts"
@@ -45,12 +46,11 @@ type DefaultsConfig struct {
 }
 
 // DefaultConfig returns the default configuration
+// NOTE: Only localhost is configured by default. Use 'clood discover' to find other hosts.
 func DefaultConfig() *Config {
 	return &Config{
 		Hosts: []*hosts.Host{
-			{Name: "ubuntu25", URL: "http://192.168.4.64:11434", Priority: 1, Enabled: true},
-			{Name: "mac-mini", URL: "http://192.168.4.41:11434", Priority: 2, Enabled: true},
-			{Name: "localhost", URL: "http://localhost:11434", Priority: 3, Enabled: true},
+			{Name: "localhost", URL: "http://localhost:11434", Priority: 1, Enabled: true},
 		},
 		Tiers: TierConfig{
 			Fast:     TierSettings{Model: "qwen2.5-coder:3b"},
@@ -69,8 +69,17 @@ func DefaultConfig() *Config {
 	}
 }
 
-// ConfigDir returns the config directory path
+// ConfigDir returns the config directory path (cross-platform)
 func ConfigDir() string {
+	// On Windows, use %APPDATA%\clood
+	if runtime.GOOS == "windows" {
+		appData := os.Getenv("APPDATA")
+		if appData != "" {
+			return filepath.Join(appData, "clood")
+		}
+	}
+
+	// On Unix (macOS, Linux), use ~/.config/clood
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ".clood"

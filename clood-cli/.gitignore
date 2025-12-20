@@ -1,1 +1,6 @@
 __pycache__/
+
+# Build artifacts
+clood
+clood-*
+*.exe

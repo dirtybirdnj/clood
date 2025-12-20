@@ -52,6 +52,8 @@ func DetectHardware() (*HardwareInfo, error) {
 		detectMacOS(info)
 	case "linux":
 		detectLinux(info)
+	case "windows":
+		detectWindows(info)
 	default:
 		// Basic fallback
 		info.CPUModel = runtime.GOARCH
@@ -182,6 +184,53 @@ func detectLinux(info *HardwareInfo) {
 
 	// Try to detect NVIDIA GPU
 	detectNvidiaGPU(info)
+}
+
+func detectWindows(info *HardwareInfo) {
+	// Get CPU model via wmic
+	if out, err := exec.Command("wmic", "cpu", "get", "name").Output(); err == nil {
+		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+		if len(lines) > 1 {
+			// Skip header line "Name"
+			info.CPUModel = strings.TrimSpace(lines[1])
+		}
+	}
+
+	// Fallback: try PowerShell if wmic fails
+	if info.CPUModel == "" {
+		if out, err := exec.Command("powershell", "-Command", "(Get-WmiObject Win32_Processor).Name").Output(); err == nil {
+			info.CPUModel = strings.TrimSpace(string(out))
+		}
+	}
+
+	// Get total memory via wmic (returns KB)
+	if out, err := exec.Command("wmic", "OS", "get", "TotalVisibleMemorySize").Output(); err == nil {
+		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+		if len(lines) > 1 {
+			if kb, err := strconv.ParseInt(strings.TrimSpace(lines[1]), 10, 64); err == nil {
+				info.MemoryGB = float64(kb) / (1024 * 1024)
+			}
+		}
+	}
+
+	// Get disk free space for C: drive
+	if out, err := exec.Command("wmic", "logicaldisk", "where", "DeviceID='C:'", "get", "FreeSpace").Output(); err == nil {
+		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+		if len(lines) > 1 {
+			if bytes, err := strconv.ParseInt(strings.TrimSpace(lines[1]), 10, 64); err == nil {
+				info.DiskFreeGB = float64(bytes) / (1024 * 1024 * 1024)
+			}
+		}
+	}
+
+	// Try to detect NVIDIA GPU (nvidia-smi works on Windows too)
+	detectNvidiaGPU(info)
+
+	// If no NVIDIA GPU, set OllamaVRAM based on system RAM for CPU inference
+	if info.GPU == nil && info.MemoryGB > 0 {
+		// For CPU-only inference, estimate ~50% of RAM can be used
+		info.OllamaVRAM = info.MemoryGB * 0.5
+	}
 }
 
 func detectNvidiaGPU(info *HardwareInfo) {
