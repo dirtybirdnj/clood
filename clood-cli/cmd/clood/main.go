@@ -92,6 +92,7 @@ func main() {
 	rootCmd.AddCommand(commands.SnakewayProtoCmd())
 	rootCmd.AddCommand(commands.InceptionCmd())
 	rootCmd.AddCommand(commands.CatfightLiveCmd())
+	rootCmd.AddCommand(commands.AgentCmd())
 
 	// Init command
 	rootCmd.AddCommand(initCmd())
