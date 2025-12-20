@@ -23,6 +23,8 @@ type Handoff struct {
 	GitRef       string    `json:"git_ref"`
 	Branch       string    `json:"branch"`
 	ProjectPath  string    `json:"project_path"`
+	FocusGoal    string    `json:"focus_goal,omitempty"`
+	FocusStatus  string    `json:"focus_status,omitempty"`
 }
 
 func HandoffCmd() *cobra.Command {
@@ -116,6 +118,12 @@ func runHandoffSave(summary string, noPush, jsonOutput bool) error {
 	// Get changed files
 	handoff.FilesChanged = getChangedFiles()
 
+	// Include focus state if set
+	if focusState := GetFocusState(); focusState != nil {
+		handoff.FocusGoal = focusState.Goal
+		handoff.FocusStatus = focusState.Status
+	}
+
 	// Parse next steps from summary (lines starting with "next:")
 	handoff.NextSteps = parseNextSteps(summary)
 
@@ -199,6 +207,13 @@ func runHandoffLoad(jsonOutput bool) error {
 		for _, step := range handoff.NextSteps {
 			fmt.Printf("    [ ] %s\n", step)
 		}
+		fmt.Println()
+	}
+
+	if handoff.FocusGoal != "" {
+		fmt.Println(tui.MutedStyle.Render("  Focus (Gamera-kun):"))
+		fmt.Printf("    Goal:   %s\n", handoff.FocusGoal)
+		fmt.Printf("    Status: %s\n", handoff.FocusStatus)
 		fmt.Println()
 	}
 
