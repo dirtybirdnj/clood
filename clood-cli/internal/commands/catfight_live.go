@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -52,21 +53,22 @@ type battleSummary struct {
 
 // liveArenaModel is the BubbleTea model for streaming catfight
 type liveArenaModel struct {
-	viewport     viewport.Model
-	cats         []StreamingCat
-	prompt       string
-	width        int
-	height       int
-	ready        bool
-	allDone      bool
+	viewport       viewport.Model
+	cats           []StreamingCat
+	prompt         string
+	width          int
+	height         int
+	ready          bool
+	allDone        bool
 	showingSummary bool
-	summary      *battleSummary
-	startTime    time.Time
-	ollamaURL    string
-	layout       string // "interleaved" or "split"
-	following    bool
-	streamChans  []chan string
-	mu           sync.Mutex
+	summary        *battleSummary
+	startTime      time.Time
+	ollamaURL      string
+	layout         string // "interleaved" or "split"
+	following      bool
+	streamChans    []chan string
+	logFile        *os.File // optional log file for output
+	mu             sync.Mutex
 }
 
 // Styles for live arena
@@ -86,6 +88,7 @@ func CatfightLiveCmd() *cobra.Command {
 	var models string
 	var ollamaURL string
 	var layout string
+	var logPath string
 
 	cmd := &cobra.Command{
 		Use:   "catfight-live [prompt]",
@@ -96,6 +99,9 @@ Unlike regular catfight which runs sequentially, this shows all cats
 generating in parallel with live streaming output. Battle ends with
 a winner announcement and auto-exits after 3 seconds.
 
+After the battle ends, a summary is printed to stdout so you can
+scroll up and copy the results.
+
 Interactive mode (default):
   clood catfight-live "Write a hello world in Go"
 
@@ -104,6 +110,12 @@ Interactive mode (default):
     f        Toggle auto-follow
     g/G      Go to top/bottom
     Any key  Exit after battle ends
+
+Logging output:
+  # Watch live AND save to file
+  clood catfight-live "your prompt" --log battle.md
+
+  # The file is written as the battle progresses
 
 Non-interactive / Piping:
   For scripts, logging, or if you don't want to watch the stream
@@ -121,7 +133,7 @@ Non-interactive / Piping:
 Examples:
   clood catfight-live "Write a hello world in Go"
   clood catfight-live --models "qwen2.5-coder:3b,llama3.1:8b" "Explain recursion"
-  clood catfight-live --layout split "Write a haiku about coding"`,
+  clood catfight-live --log battle.md "Write a haiku about coding"`,
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			prompt := strings.Join(args, " ")
@@ -145,20 +157,39 @@ Examples:
 				}
 			}
 
+			// Open log file if specified
+			var logFile *os.File
+			if logPath != "" {
+				var err error
+				logFile, err = os.Create(logPath)
+				if err != nil {
+					fmt.Println(tui.ErrorStyle.Render("Error creating log file: " + err.Error()))
+					return
+				}
+				defer logFile.Close()
+				// Write header
+				fmt.Fprintf(logFile, "# Catfight Live Battle\n\n")
+				fmt.Fprintf(logFile, "**Prompt:** %s\n\n", prompt)
+				fmt.Fprintf(logFile, "**Contestants:** %s\n\n", formatContestants(cats))
+				fmt.Fprintf(logFile, "---\n\n")
+			}
+
 			// Create channels for each cat
 			streamChans := make([]chan string, len(cats))
 			for i := range streamChans {
 				streamChans[i] = make(chan string, 100)
 			}
 
+			startTime := time.Now()
 			m := liveArenaModel{
 				cats:        cats,
 				prompt:      prompt,
 				ollamaURL:   ollamaURL,
 				layout:      layout,
 				following:   true,
-				startTime:   time.Now(),
+				startTime:   startTime,
 				streamChans: streamChans,
+				logFile:     logFile,
 			}
 
 			p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
@@ -168,8 +199,15 @@ Examples:
 				go streamCatFight(ollamaURL, cats[i].Model, prompt, i, p)
 			}
 
-			if _, err := p.Run(); err != nil {
+			finalModel, err := p.Run()
+			if err != nil {
 				fmt.Println(tui.ErrorStyle.Render("Error: " + err.Error()))
+				return
+			}
+
+			// After alt screen closes, print results to stdout for easy copying
+			if fm, ok := finalModel.(liveArenaModel); ok {
+				printBattleResults(fm, logFile)
 			}
 		},
 	}
@@ -177,8 +215,96 @@ Examples:
 	cmd.Flags().StringVarP(&models, "models", "m", "", "Comma-separated models (default: qwen2.5-coder:3b,llama3.1:8b)")
 	cmd.Flags().StringVar(&ollamaURL, "url", "http://localhost:11434", "Ollama URL")
 	cmd.Flags().StringVar(&layout, "layout", "interleaved", "Display layout: interleaved or split")
+	cmd.Flags().StringVarP(&logPath, "log", "l", "", "Write battle output to file (e.g., battle.md)")
 
 	return cmd
+}
+
+// formatContestants formats the cat list for logging
+func formatContestants(cats []StreamingCat) string {
+	names := make([]string, len(cats))
+	for i, cat := range cats {
+		names[i] = fmt.Sprintf("%s (%s)", cat.Name, cat.Model)
+	}
+	return strings.Join(names, " vs ")
+}
+
+// printBattleResults prints the final results to stdout after the TUI exits
+func printBattleResults(m liveArenaModel, logFile *os.File) {
+	fmt.Println()
+	fmt.Println(strings.Repeat("═", 60))
+	fmt.Println("🏟️  CATFIGHT LIVE - BATTLE RESULTS")
+	fmt.Println(strings.Repeat("═", 60))
+	fmt.Println()
+
+	// Summary
+	if m.summary != nil {
+		fmt.Printf("🏆 WINNER: %s (%s)\n", m.summary.winner, m.summary.winnerModel)
+		fmt.Printf("   Fastest time: %.1fs\n", m.summary.winnerTime)
+		fmt.Printf("   Total tokens: %d\n", m.summary.totalTokens)
+		fmt.Printf("   Battle duration: %.1fs\n", m.summary.totalTime)
+	} else {
+		fmt.Println("❌ No winner - battle incomplete")
+	}
+
+	fmt.Println()
+	fmt.Printf("📝 Prompt: %s\n", m.prompt)
+	fmt.Println()
+	fmt.Println(strings.Repeat("─", 60))
+
+	// Each cat's response
+	for i, cat := range m.cats {
+		fmt.Println()
+		fmt.Printf("🐱 %s [%s]\n", cat.Name, cat.Model)
+
+		if cat.Status == "done" {
+			duration := cat.EndTime.Sub(m.startTime).Seconds()
+			tokSec := float64(cat.Tokens) / duration
+			fmt.Printf("   Status: ✓ Done (%.1fs, %d tokens, %.0f t/s)\n", duration, cat.Tokens, tokSec)
+		} else if cat.Status == "error" {
+			fmt.Printf("   Status: ✗ Error\n")
+		} else {
+			fmt.Printf("   Status: ○ Incomplete\n")
+		}
+
+		fmt.Println(strings.Repeat("─", 40))
+		content := strings.TrimSpace(cat.Buffer.String())
+		if content != "" {
+			// Indent each line
+			for _, line := range strings.Split(content, "\n") {
+				fmt.Printf("   %s\n", line)
+			}
+		} else {
+			fmt.Println("   (no output)")
+		}
+		fmt.Println()
+
+		// Write to log file if present
+		if logFile != nil && i == 0 {
+			// Write header once
+			fmt.Fprintf(logFile, "## Results\n\n")
+			if m.summary != nil {
+				fmt.Fprintf(logFile, "**Winner:** %s (%s) in %.1fs\n\n", m.summary.winner, m.summary.winnerModel, m.summary.winnerTime)
+			}
+		}
+		if logFile != nil {
+			fmt.Fprintf(logFile, "### %s (%s)\n\n", cat.Name, cat.Model)
+			if cat.Status == "done" {
+				duration := cat.EndTime.Sub(m.startTime).Seconds()
+				fmt.Fprintf(logFile, "*%.1fs, %d tokens*\n\n", duration, cat.Tokens)
+			}
+			fmt.Fprintf(logFile, "```\n%s\n```\n\n", strings.TrimSpace(cat.Buffer.String()))
+		}
+	}
+
+	fmt.Println(strings.Repeat("═", 60))
+	fmt.Println("Scroll up to copy results ↑")
+	fmt.Println()
+
+	if logFile != nil {
+		fmt.Printf("📄 Results also saved to: %s\n", logFile.Name())
+		fmt.Println()
+	}
 }
 
 func (m liveArenaModel) Init() tea.Cmd {
