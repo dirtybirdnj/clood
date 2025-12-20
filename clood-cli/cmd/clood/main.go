@@ -97,6 +97,9 @@ func main() {
 	// Init command
 	rootCmd.AddCommand(initCmd())
 
+	// Shell completion
+	rootCmd.AddCommand(completionCmd())
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, tui.ErrorStyle.Render(err.Error()))
 		os.Exit(1)
@@ -157,6 +160,50 @@ Pooparoo watches.`,
 func isTerminal() bool {
 	fileInfo, _ := os.Stdout.Stat()
 	return (fileInfo.Mode() & os.ModeCharDevice) != 0
+}
+
+func completionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "completion [bash|zsh|fish|powershell]",
+		Short: "Generate shell completion scripts",
+		Long: `Generate shell completion scripts for clood.
+
+To load completions:
+
+Bash:
+  $ source <(clood completion bash)
+  # Or add to ~/.bashrc:
+  $ clood completion bash > /etc/bash_completion.d/clood
+
+Zsh:
+  $ source <(clood completion zsh)
+  # Or add to ~/.zshrc:
+  $ clood completion zsh > "${fpath[1]}/_clood"
+
+Fish:
+  $ clood completion fish | source
+  # Or persist:
+  $ clood completion fish > ~/.config/fish/completions/clood.fish
+
+PowerShell:
+  PS> clood completion powershell | Out-String | Invoke-Expression
+`,
+		DisableFlagsInUseLine: true,
+		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
+		Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+		Run: func(cmd *cobra.Command, args []string) {
+			switch args[0] {
+			case "bash":
+				cmd.Root().GenBashCompletion(os.Stdout)
+			case "zsh":
+				cmd.Root().GenZshCompletion(os.Stdout)
+			case "fish":
+				cmd.Root().GenFishCompletion(os.Stdout, true)
+			case "powershell":
+				cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
+			}
+		},
+	}
 }
 
 func showZenGreeting() {
