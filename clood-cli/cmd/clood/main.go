@@ -54,6 +54,7 @@ func main() {
 	rootCmd.AddCommand(commands.HealthCmd())
 	rootCmd.AddCommand(commands.PreflightCmd())
 	rootCmd.AddCommand(commands.DoctorCmd())
+	rootCmd.AddCommand(commands.VerifyCmd())
 	rootCmd.AddCommand(commands.TuneCmd())
 	rootCmd.AddCommand(commands.BonsaiCmd())
 	rootCmd.AddCommand(commands.WatchCmd())
