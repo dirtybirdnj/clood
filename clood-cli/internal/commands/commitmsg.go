@@ -172,6 +172,11 @@ Examples:
 
 			message := strings.TrimSpace(resp.Response)
 
+			// Add model attribution as Co-Authored-By
+			attribution := fmt.Sprintf("\n\nCo-Authored-By: %s (%s) <inference@%s>",
+				modelName, targetHost.Host.Name, strings.TrimPrefix(strings.TrimPrefix(targetHost.Host.URL, "http://"), "https://"))
+			message = message + attribution
+
 			// JSON output
 			if useJSON {
 				result := CommitMsgResult{
