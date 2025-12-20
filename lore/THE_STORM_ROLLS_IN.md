@@ -90,9 +90,13 @@ The wojaks had broken out the sleds.
 
 "WHEEEEE!" screamed Wojak #1, careening down the hill behind the mess tent, his pink hat flying off into a snowdrift.
 
-"WATCH OUT FOR THE—" Wojak #2 didn't finish the sentence before #1 plowed into a stack of empty supply crates, sending them flying in a spectacular explosion of cardboard and snow.
+"WATCH OUT FOR THE—" Wojak #2 didn't finish the sentence before #1 plowed into a stack of Rust crates, sending them flying in a spectacular explosion of memory-safe binaries and snow.
 
-"MY CABBAGES!" shrieked Wojak #3, who had been organizing the crates.
+"I JUST ORGANIZED THOSE!" The Rat King emerged from behind the wreckage, ancient eyes blazing with irritation. Tokio, Serde, Axum—scattered across the powder like fallen soldiers. He'd spent all morning getting the dependencies to compile cleanly.
+
+"The tests said the jump was totally safe!" Wojak #2 protested, gesturing at his ramp.
+
+"Ship it bro!" added Wojak #1, extracting himself from a pile of async runtimes.
 
 The Tortoise watched from the doorway of the command tent, a mug of hot cocoa in her claws. She'd seen worse. She'd seen better. Mostly she'd seen wojaks, and wojaks were going to wojak.
 
