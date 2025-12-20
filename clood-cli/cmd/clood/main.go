@@ -94,8 +94,9 @@ func main() {
 	rootCmd.AddCommand(commands.CatfightLiveCmd())
 	rootCmd.AddCommand(commands.AgentCmd())
 
-	// Init command
+	// Init and setup commands
 	rootCmd.AddCommand(initCmd())
+	rootCmd.AddCommand(commands.SetupCmd())
 
 	// Shell completion
 	rootCmd.AddCommand(completionCmd())
