@@ -84,6 +84,7 @@ func main() {
 	rootCmd.AddCommand(commands.CommitMsgCmd())
 	rootCmd.AddCommand(commands.ReviewPRCmd())
 	rootCmd.AddCommand(commands.GenerateTestsCmd())
+	rootCmd.AddCommand(commands.ExtractCmd())
 
 	// Meta commands
 	rootCmd.AddCommand(commands.BuildCmd())
