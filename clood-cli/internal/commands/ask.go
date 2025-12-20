@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/dirtybirdnj/clood/internal/config"
+	"github.com/dirtybirdnj/clood/internal/context"
 	"github.com/dirtybirdnj/clood/internal/ollama"
 	"github.com/dirtybirdnj/clood/internal/router"
 	"github.com/dirtybirdnj/clood/internal/tui"
@@ -19,6 +20,9 @@ func AskCmd() *cobra.Command {
 	var forceHost string
 	var noStream bool
 	var noContext bool
+	var withContext bool
+	var contextScope string
+	var maxTokens int
 	var showRoute bool
 	var verbose bool
 	var jsonOutput bool
@@ -84,10 +88,26 @@ Use --show-route to see routing decisions without executing.`,
 
 			// Build prompt with context (needed for both JSON and normal output)
 			prompt := question
-			if !noContext {
-				context := getProjectContext()
-				if context != "" {
-					prompt = fmt.Sprintf("Context:\n%s\n\nQuestion: %s", context, question)
+			if withContext {
+				// Smart context gathering
+				opts := context.DefaultOptions()
+				if maxTokens > 0 {
+					opts.MaxTokens = maxTokens
+				}
+				if contextScope != "" {
+					opts.Scope = contextScope
+				}
+				gathered := context.GatherContext(question, opts)
+				if gathered != "" {
+					prompt = fmt.Sprintf("Codebase Context:\n%s\n\nQuestion: %s", gathered, question)
+					if verbose {
+						fmt.Println(tui.MutedStyle.Render("Context gathered from codebase"))
+					}
+				}
+			} else if !noContext {
+				ctx := getProjectContext()
+				if ctx != "" {
+					prompt = fmt.Sprintf("Context:\n%s\n\nQuestion: %s", ctx, question)
 				}
 			}
 
@@ -128,6 +148,9 @@ Use --show-route to see routing decisions without executing.`,
 	cmd.Flags().StringVarP(&forceHost, "host", "H", "", "Force specific host")
 	cmd.Flags().BoolVar(&noStream, "no-stream", false, "Disable streaming output")
 	cmd.Flags().BoolVar(&noContext, "no-context", false, "Skip project context injection")
+	cmd.Flags().BoolVar(&withContext, "with-context", false, "Gather smart codebase context based on query")
+	cmd.Flags().StringVar(&contextScope, "scope", "", "Limit context gathering to specific directory")
+	cmd.Flags().IntVar(&maxTokens, "max-tokens", 4000, "Maximum tokens for context (with --with-context)")
 	cmd.Flags().BoolVar(&showRoute, "show-route", false, "Show routing decision without executing")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show routing decisions before executing")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output response as JSON")

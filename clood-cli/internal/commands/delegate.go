@@ -11,6 +11,7 @@ import (
 	"github.com/dirtybirdnj/clood/internal/agents"
 	"github.com/dirtybirdnj/clood/internal/config"
 	"github.com/dirtybirdnj/clood/internal/hosts"
+	"github.com/dirtybirdnj/clood/internal/output"
 	"github.com/dirtybirdnj/clood/internal/tui"
 	"github.com/spf13/cobra"
 )
@@ -35,6 +36,8 @@ func DelegateCmd() *cobra.Command {
 	var files []string
 	var outputJSON bool
 	var quiet bool
+	var formatOutput bool
+	var taskType string
 
 	cmd := &cobra.Command{
 		Use:   "delegate [task]",
@@ -167,7 +170,7 @@ Examples:
 			if err != nil {
 				result.Error = err.Error()
 				result.DurationMs = time.Since(start).Milliseconds()
-				outputDelegateResult(result, outputJSON, quiet)
+				outputDelegateResult(result, outputJSON, quiet, false, taskType)
 				return
 			}
 
@@ -175,7 +178,7 @@ Examples:
 			result.Tokens = resp.EvalCount
 			result.DurationMs = time.Since(start).Milliseconds()
 
-			outputDelegateResult(result, outputJSON, quiet)
+			outputDelegateResult(result, outputJSON, quiet, formatOutput, taskType)
 		},
 	}
 
@@ -185,6 +188,8 @@ Examples:
 	cmd.Flags().StringArrayVarP(&files, "file", "f", nil, "Include file(s) as context")
 	cmd.Flags().BoolVar(&outputJSON, "json", false, "Output result as JSON")
 	cmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "Quiet mode - only output response")
+	cmd.Flags().BoolVar(&formatOutput, "format", false, "Parse response into structured output with issues/actions")
+	cmd.Flags().StringVar(&taskType, "task-type", "review", "Task type for formatting: review, generate, document, analyze")
 
 	return cmd
 }
@@ -251,7 +256,36 @@ func outputDelegateError(outputJSON, quiet bool, msg string) {
 	}
 }
 
-func outputDelegateResult(result DelegateResult, outputJSON, quiet bool) {
+func outputDelegateResult(result DelegateResult, outputJSON, quiet, formatOutput bool, taskType string) {
+	// Handle structured output format
+	if formatOutput && result.Error == "" {
+		parsed := output.ParseAgentResponse(result.Response, taskType)
+		parsed.Agent = result.Agent
+		parsed.Model = result.Model
+		parsed.Host = result.Host
+		parsed.DurationMs = result.DurationMs
+		parsed.Tokens = result.Tokens
+		if len(result.Files) > 0 {
+			parsed.File = result.Files[0]
+			parsed.Files = result.Files
+		}
+
+		if outputJSON {
+			// Full structured JSON output (Strata-compatible)
+			data, _ := json.MarshalIndent(parsed, "", "  ")
+			fmt.Println(string(data))
+		} else if !quiet {
+			// Formatted terminal output
+			fmt.Println(output.FormatAgentResult(parsed))
+		} else {
+			// Quiet mode - just summary
+			if parsed.Summary != "" {
+				fmt.Println(parsed.Summary)
+			}
+		}
+		return
+	}
+
 	if outputJSON {
 		data, _ := json.MarshalIndent(result, "", "  ")
 		fmt.Println(string(data))

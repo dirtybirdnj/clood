@@ -75,6 +75,7 @@ func main() {
 	rootCmd.AddCommand(commands.SessionCmd())
 	rootCmd.AddCommand(commands.BeansCmd())
 	rootCmd.AddCommand(commands.FocusCmd())
+	rootCmd.AddCommand(commands.CheckpointCmd())
 
 	// MCP server commands
 	rootCmd.AddCommand(commands.McpCmd())   // Simple: just run "clood mcp"
@@ -85,6 +86,7 @@ func main() {
 	rootCmd.AddCommand(commands.ReviewPRCmd())
 	rootCmd.AddCommand(commands.GenerateTestsCmd())
 	rootCmd.AddCommand(commands.ExtractCmd())
+	rootCmd.AddCommand(commands.OutputMapCmd())
 
 	// Meta commands
 	rootCmd.AddCommand(commands.BuildCmd())
@@ -97,6 +99,7 @@ func main() {
 	rootCmd.AddCommand(commands.InceptionCmd())
 	rootCmd.AddCommand(commands.CatfightLiveCmd())
 	rootCmd.AddCommand(commands.AgentCmd())
+	rootCmd.AddCommand(commands.AgentPreflightCmd())
 
 	// Init and setup commands
 	rootCmd.AddCommand(initCmd())
