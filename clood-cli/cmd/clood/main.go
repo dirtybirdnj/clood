@@ -42,6 +42,7 @@ func main() {
 	rootCmd.AddCommand(commands.SystemCmd())
 	rootCmd.AddCommand(commands.HostsCmd())
 	rootCmd.AddCommand(commands.ModelsCmd())
+	rootCmd.AddCommand(commands.DiscoverCmd())
 	rootCmd.AddCommand(commands.PullCmd())
 	rootCmd.AddCommand(commands.BenchCmd())
 	rootCmd.AddCommand(commands.AskCmd())
