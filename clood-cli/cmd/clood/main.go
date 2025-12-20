@@ -100,6 +100,10 @@ func main() {
 	rootCmd.AddCommand(initCmd())
 	rootCmd.AddCommand(commands.SetupCmd())
 
+	// Self-update
+	commands.CurrentVersion = version
+	rootCmd.AddCommand(commands.UpdateCmd())
+
 	// Shell completion
 	rootCmd.AddCommand(completionCmd())
 
