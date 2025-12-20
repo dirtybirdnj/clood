@@ -1,3 +1,55 @@
+// Package router provides intelligent query classification and routing to appropriate
+// LLM models based on query complexity and task type.
+//
+// # Tier System
+//
+// The router uses a 4-tier classification system to match queries with appropriate models:
+//
+//   - Tier 1 (Fast): Simple queries, quick lookups, one-liners, format conversions
+//   - Tier 2 (Deep): Complex multi-step tasks, code generation, refactoring
+//   - Tier 3 (Analysis): Code review, reasoning, security analysis, trade-off evaluation
+//   - Tier 4 (Writing): Documentation, prose, tutorials, commit messages
+//
+// # Classification Algorithm
+//
+// Queries are classified by scanning for indicator phrases in each category.
+// Each matching phrase adds 1 point to that tier's score. Additional heuristics:
+//   - Queries > 200 chars get +1 to Deep tier
+//   - Multiple sentences (>2 periods or >1 newline) get +1 to Deep tier
+//
+// The tier with the highest score wins. In case of ties, priority order is:
+// Analysis > Writing > Deep > Fast (specialized tiers preferred).
+//
+// # Routing Flow
+//
+//  1. Query arrives
+//  2. ClassifyQuery() determines tier (or use forceTier to override)
+//  3. Config lookup: tier -> model (e.g., Tier 1 -> qwen2.5-coder:3b)
+//  4. Host selection: find online host with that model
+//  5. Fallback chain if model not found:
+//     a. Try tier's fallback model
+//     b. Try any online host with fallback model
+//     c. Try best available host with fallback model
+//
+// # Configuration
+//
+// Model-to-tier mappings are configured in ~/.clood/config.yaml:
+//
+//	routing:
+//	  tier1_model: qwen2.5-coder:3b
+//	  tier2_model: qwen2.5-coder:7b
+//	  tier3_model: llama3.1:8b
+//	  tier4_model: qwen2.5-coder:7b
+//	  fallback: true
+//
+// # Usage
+//
+//	r := router.NewRouter(cfg)
+//	result, err := r.Route("analyze this code for bugs", 0, "")
+//	// result.Tier = TierAnalysis
+//	// result.Model = "llama3.1:8b"
+//	// result.Host = best available host
+//	// result.Client = ready-to-use ollama.Client
 package router
 
 import (
