@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache-dependency-path: clood-cli/go.sum
+
+      - name: Build
+        working-directory: clood-cli
+        run: make build
+
+      - name: Test
+        working-directory: clood-cli
+        run: go test -v ./...
+
+      - name: Verify binary runs
+        working-directory: clood-cli
+        run: |
+          ./clood --version
+          ./clood --help
+
+  cross-compile:
+    name: Cross-Platform Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache-dependency-path: clood-cli/go.sum
+
+      - name: Build all platforms
+        working-directory: clood-cli
+        run: make cross
+
+      - name: Verify Windows binary exists
+        working-directory: clood-cli
+        run: |
+          file clood-windows-amd64.exe
+          file clood-windows-arm64.exe
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: clood-binaries
+          path: |
+            clood-cli/clood-*
+          retention-days: 7

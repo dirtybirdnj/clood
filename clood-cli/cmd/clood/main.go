@@ -79,6 +79,9 @@ func main() {
 	rootCmd.AddCommand(commands.McpCmd())   // Simple: just run "clood mcp"
 	rootCmd.AddCommand(commands.ServeCmd()) // Advanced: more options
 
+	// AI-powered commands
+	rootCmd.AddCommand(commands.CommitMsgCmd())
+
 	// Meta commands
 	rootCmd.AddCommand(commands.BuildCmd())
 	rootCmd.AddCommand(commands.BcbcCmd())
