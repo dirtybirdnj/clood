@@ -17,9 +17,13 @@ import (
 	"time"
 
 	"github.com/dirtybirdnj/clood/internal/analyze"
+	"github.com/dirtybirdnj/clood/internal/clipboard"
 	"github.com/dirtybirdnj/clood/internal/config"
+	"github.com/dirtybirdnj/clood/internal/git"
 	"github.com/dirtybirdnj/clood/internal/hosts"
 	"github.com/dirtybirdnj/clood/internal/inception"
+	"github.com/dirtybirdnj/clood/internal/memory"
+	"github.com/dirtybirdnj/clood/internal/sqlite"
 	"github.com/dirtybirdnj/clood/internal/system"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -97,6 +101,28 @@ func (s *Server) registerTools() {
 
 	// INCEPTION: LLM-to-LLM sub-queries
 	s.mcpServer.AddTool(s.inceptionTool(), s.inceptionHandler)
+
+	// MEMORY: Persistent knowledge storage
+	s.mcpServer.AddTool(s.memoryStoreTool(), s.memoryStoreHandler)
+	s.mcpServer.AddTool(s.memoryRecallTool(), s.memoryRecallHandler)
+	s.mcpServer.AddTool(s.memoryListTool(), s.memoryListHandler)
+	s.mcpServer.AddTool(s.memoryForgetTool(), s.memoryForgetHandler)
+
+	// GIT: Enhanced git operations
+	s.mcpServer.AddTool(s.gitDiffTool(), s.gitDiffHandler)
+	s.mcpServer.AddTool(s.gitBlameTool(), s.gitBlameHandler)
+	s.mcpServer.AddTool(s.gitLogTool(), s.gitLogHandler)
+	s.mcpServer.AddTool(s.gitBranchesTool(), s.gitBranchesHandler)
+	s.mcpServer.AddTool(s.gitStashTool(), s.gitStashHandler)
+
+	// SQLITE: Database query tools
+	s.mcpServer.AddTool(s.sqliteQueryTool(), s.sqliteQueryHandler)
+	s.mcpServer.AddTool(s.sqliteSchemaTool(), s.sqliteSchemaHandler)
+	s.mcpServer.AddTool(s.sqliteTablesTool(), s.sqliteTablesHandler)
+
+	// CLIPBOARD: System clipboard access
+	s.mcpServer.AddTool(s.clipboardReadTool(), s.clipboardReadHandler)
+	s.mcpServer.AddTool(s.clipboardWriteTool(), s.clipboardWriteHandler)
 }
 
 // =============================================================================
@@ -1335,4 +1361,643 @@ func callOllama(baseURL, model, prompt string) (string, error) {
 	}
 
 	return result.Response, nil
+}
+
+// =============================================================================
+// MEMORY TOOLS - Persistent knowledge storage
+// =============================================================================
+
+func (s *Server) memoryStoreTool() mcp.Tool {
+	return mcp.NewTool("clood_memory_store",
+		mcp.WithDescription(`🧠 Store a fact or note in persistent memory.
+
+Memories survive across sessions. Use for:
+- Project decisions and context
+- User preferences
+- Architectural notes
+- Things to remember for later
+
+Cost: ZERO network, ZERO tokens (local JSON storage).`),
+		mcp.WithString("content", mcp.Required(), mcp.Description("The fact or note to remember")),
+		mcp.WithString("tags", mcp.Description("Comma-separated tags for organization (e.g., 'project,decision')")),
+		mcp.WithString("context", mcp.Description("Optional context (e.g., current project or file)")),
+	)
+}
+
+func (s *Server) memoryRecallTool() mcp.Tool {
+	return mcp.NewTool("clood_memory_recall",
+		mcp.WithDescription(`🔎 Search memories by keyword or tag.
+
+Find previously stored facts and notes.
+Returns matching memories sorted by most recent.
+
+Cost: ZERO network, ZERO tokens, instant.`),
+		mcp.WithString("query", mcp.Description("Keyword to search in content")),
+		mcp.WithString("tag", mcp.Description("Filter by specific tag")),
+		mcp.WithNumber("limit", mcp.Description("Max results to return (default: 10)")),
+	)
+}
+
+func (s *Server) memoryListTool() mcp.Tool {
+	return mcp.NewTool("clood_memory_list",
+		mcp.WithDescription(`📋 List recent memories or browse by tag.
+
+Shows what's been remembered. Use to:
+- Review stored knowledge
+- See all tags in use
+- Find specific memories to update or forget
+
+Cost: ZERO network, ZERO tokens, instant.`),
+		mcp.WithString("tag", mcp.Description("Filter by specific tag")),
+		mcp.WithNumber("limit", mcp.Description("Max results to return (default: 20)")),
+	)
+}
+
+func (s *Server) memoryForgetTool() mcp.Tool {
+	return mcp.NewTool("clood_memory_forget",
+		mcp.WithDescription(`🗑️ Remove a memory by ID.
+
+Permanently delete a stored memory.
+Use clood_memory_list to find memory IDs.
+
+Cost: ZERO network, ZERO tokens, instant.`),
+		mcp.WithString("id", mcp.Required(), mcp.Description("The memory ID to forget")),
+	)
+}
+
+// Memory handlers
+
+func (s *Server) memoryStoreHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	content, ok := args["content"].(string)
+	if !ok || content == "" {
+		return mcp.NewToolResultError("content is required"), nil
+	}
+
+	// Parse tags
+	var tags []string
+	if tagsStr, ok := args["tags"].(string); ok && tagsStr != "" {
+		for _, tag := range strings.Split(tagsStr, ",") {
+			tag = strings.TrimSpace(tag)
+			if tag != "" {
+				tags = append(tags, tag)
+			}
+		}
+	}
+
+	context, _ := args["context"].(string)
+
+	// Store the memory
+	store, err := memory.NewStore()
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to open memory store: %v", err)), nil
+	}
+
+	mem, err := store.Store(content, tags, context)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to store memory: %v", err)), nil
+	}
+
+	result := map[string]interface{}{
+		"status":  "stored",
+		"id":      mem.ID,
+		"content": mem.Content,
+		"tags":    mem.Tags,
+		"total":   store.Count(),
+	}
+
+	data, _ := json.MarshalIndent(result, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (s *Server) memoryRecallHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	query, _ := args["query"].(string)
+	tag, _ := args["tag"].(string)
+
+	limit := 10
+	if l, ok := args["limit"].(float64); ok {
+		limit = int(l)
+	}
+
+	store, err := memory.NewStore()
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to open memory store: %v", err)), nil
+	}
+
+	memories := store.Recall(query, tag, limit)
+
+	type memResult struct {
+		ID        string   `json:"id"`
+		Content   string   `json:"content"`
+		Tags      []string `json:"tags,omitempty"`
+		Context   string   `json:"context,omitempty"`
+		CreatedAt string   `json:"created_at"`
+	}
+
+	var results []memResult
+	for _, m := range memories {
+		results = append(results, memResult{
+			ID:        m.ID,
+			Content:   m.Content,
+			Tags:      m.Tags,
+			Context:   m.Context,
+			CreatedAt: m.CreatedAt.Format(time.RFC3339),
+		})
+	}
+
+	data, _ := json.MarshalIndent(results, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (s *Server) memoryListHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	tag, _ := args["tag"].(string)
+
+	limit := 20
+	if l, ok := args["limit"].(float64); ok {
+		limit = int(l)
+	}
+
+	store, err := memory.NewStore()
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to open memory store: %v", err)), nil
+	}
+
+	memories := store.List(tag, limit)
+	allTags := store.Tags()
+
+	type memResult struct {
+		ID        string   `json:"id"`
+		Content   string   `json:"content"`
+		Tags      []string `json:"tags,omitempty"`
+		Context   string   `json:"context,omitempty"`
+		CreatedAt string   `json:"created_at"`
+	}
+
+	var results []memResult
+	for _, m := range memories {
+		results = append(results, memResult{
+			ID:        m.ID,
+			Content:   m.Content,
+			Tags:      m.Tags,
+			Context:   m.Context,
+			CreatedAt: m.CreatedAt.Format(time.RFC3339),
+		})
+	}
+
+	response := map[string]interface{}{
+		"memories":   results,
+		"count":      len(results),
+		"total":      store.Count(),
+		"all_tags":   allTags,
+	}
+
+	data, _ := json.MarshalIndent(response, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (s *Server) memoryForgetHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	id, ok := args["id"].(string)
+	if !ok || id == "" {
+		return mcp.NewToolResultError("id is required"), nil
+	}
+
+	store, err := memory.NewStore()
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to open memory store: %v", err)), nil
+	}
+
+	if err := store.Forget(id); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to forget: %v", err)), nil
+	}
+
+	result := map[string]interface{}{
+		"status":    "forgotten",
+		"id":        id,
+		"remaining": store.Count(),
+	}
+
+	data, _ := json.MarshalIndent(result, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+// =============================================================================
+// GIT TOOLS - Enhanced git operations
+// =============================================================================
+
+func (s *Server) gitDiffTool() mcp.Tool {
+	return mcp.NewTool("clood_git_diff",
+		mcp.WithDescription(`📝 Show git diff for files, commits, or staged changes.
+
+View what has changed in the repository.
+Supports specific files, commits, staged vs unstaged.
+
+Cost: ZERO network, ZERO tokens, instant.`),
+		mcp.WithString("path", mcp.Description("Repository path (default: current directory)")),
+		mcp.WithString("file", mcp.Description("Specific file to diff")),
+		mcp.WithString("commit", mcp.Description("Compare against specific commit (e.g., HEAD~1)")),
+		mcp.WithBoolean("staged", mcp.Description("Show only staged changes")),
+		mcp.WithBoolean("stat", mcp.Description("Show summary stats instead of full diff")),
+	)
+}
+
+func (s *Server) gitBlameTool() mcp.Tool {
+	return mcp.NewTool("clood_git_blame",
+		mcp.WithDescription(`🔍 Annotate file with commit info per line.
+
+Shows who last modified each line, when, and in which commit.
+Useful for understanding code history and ownership.
+
+Cost: ZERO network, ZERO tokens, instant.`),
+		mcp.WithString("file", mcp.Required(), mcp.Description("File to blame")),
+		mcp.WithString("path", mcp.Description("Repository path (default: current directory)")),
+		mcp.WithNumber("start_line", mcp.Description("Start line number")),
+		mcp.WithNumber("end_line", mcp.Description("End line number")),
+	)
+}
+
+func (s *Server) gitLogTool() mcp.Tool {
+	return mcp.NewTool("clood_git_log",
+		mcp.WithDescription(`📜 Show commit history with filtering.
+
+View recent commits with author, date, message.
+Filter by author, date range, or search in messages.
+
+Cost: ZERO network, ZERO tokens, instant.`),
+		mcp.WithString("path", mcp.Description("Repository path (default: current directory)")),
+		mcp.WithNumber("count", mcp.Description("Number of commits to show (default: 20)")),
+		mcp.WithString("author", mcp.Description("Filter by author name/email")),
+		mcp.WithString("since", mcp.Description("Show commits since date (e.g., '2024-01-01')")),
+		mcp.WithString("grep", mcp.Description("Search in commit messages")),
+		mcp.WithString("file", mcp.Description("Show only commits affecting this file")),
+	)
+}
+
+func (s *Server) gitBranchesTool() mcp.Tool {
+	return mcp.NewTool("clood_git_branches",
+		mcp.WithDescription(`🌿 List git branches.
+
+Shows local branches with current marker.
+Optionally includes remote branches.
+
+Cost: ZERO network, ZERO tokens, instant.`),
+		mcp.WithString("path", mcp.Description("Repository path (default: current directory)")),
+		mcp.WithBoolean("remote", mcp.Description("Include remote branches")),
+	)
+}
+
+func (s *Server) gitStashTool() mcp.Tool {
+	return mcp.NewTool("clood_git_stash",
+		mcp.WithDescription(`📦 List or show stash entries.
+
+View stashed changes without applying them.
+Use index to show specific stash content.
+
+Cost: ZERO network, ZERO tokens, instant.`),
+		mcp.WithString("path", mcp.Description("Repository path (default: current directory)")),
+		mcp.WithNumber("show", mcp.Description("Show diff for stash at this index")),
+	)
+}
+
+// Git handlers
+
+func (s *Server) gitDiffHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	path := "."
+	if p, ok := args["path"].(string); ok && p != "" {
+		path = p
+	}
+
+	opts := git.DiffOptions{
+		Path: path,
+	}
+
+	if file, ok := args["file"].(string); ok {
+		opts.File = file
+	}
+	if commit, ok := args["commit"].(string); ok {
+		opts.Commit = commit
+	}
+	if staged, ok := args["staged"].(bool); ok {
+		opts.Staged = staged
+	}
+	if stat, ok := args["stat"].(bool); ok {
+		opts.Stat = stat
+	}
+
+	diff, err := git.Diff(opts)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("git diff failed: %v", err)), nil
+	}
+
+	if diff == "" {
+		return mcp.NewToolResultText("No changes detected"), nil
+	}
+
+	return mcp.NewToolResultText(diff), nil
+}
+
+func (s *Server) gitBlameHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	file, ok := args["file"].(string)
+	if !ok || file == "" {
+		return mcp.NewToolResultError("file is required"), nil
+	}
+
+	path := "."
+	if p, ok := args["path"].(string); ok && p != "" {
+		path = p
+	}
+
+	opts := git.BlameOptions{
+		Path: path,
+		File: file,
+	}
+
+	if start, ok := args["start_line"].(float64); ok {
+		opts.StartLine = int(start)
+	}
+	if end, ok := args["end_line"].(float64); ok {
+		opts.EndLine = int(end)
+	}
+
+	lines, err := git.Blame(opts)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("git blame failed: %v", err)), nil
+	}
+
+	data, _ := json.MarshalIndent(lines, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (s *Server) gitLogHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	path := "."
+	if p, ok := args["path"].(string); ok && p != "" {
+		path = p
+	}
+
+	opts := git.LogOptions{
+		Path: path,
+	}
+
+	if count, ok := args["count"].(float64); ok {
+		opts.Count = int(count)
+	}
+	if author, ok := args["author"].(string); ok {
+		opts.Author = author
+	}
+	if since, ok := args["since"].(string); ok {
+		opts.Since = since
+	}
+	if grep, ok := args["grep"].(string); ok {
+		opts.Grep = grep
+	}
+	if file, ok := args["file"].(string); ok {
+		opts.File = file
+	}
+
+	entries, err := git.Log(opts)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("git log failed: %v", err)), nil
+	}
+
+	data, _ := json.MarshalIndent(entries, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (s *Server) gitBranchesHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	path := "."
+	if p, ok := args["path"].(string); ok && p != "" {
+		path = p
+	}
+
+	includeRemote := false
+	if remote, ok := args["remote"].(bool); ok {
+		includeRemote = remote
+	}
+
+	branches, err := git.Branches(path, includeRemote)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("git branches failed: %v", err)), nil
+	}
+
+	data, _ := json.MarshalIndent(branches, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (s *Server) gitStashHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	path := "."
+	if p, ok := args["path"].(string); ok && p != "" {
+		path = p
+	}
+
+	// If "show" is specified, show that stash entry's diff
+	if showIdx, ok := args["show"].(float64); ok {
+		diff, err := git.StashShow(path, int(showIdx))
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("git stash show failed: %v", err)), nil
+		}
+		return mcp.NewToolResultText(diff), nil
+	}
+
+	// Otherwise list all stashes
+	entries, err := git.Stash(path)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("git stash list failed: %v", err)), nil
+	}
+
+	if len(entries) == 0 {
+		return mcp.NewToolResultText("No stash entries"), nil
+	}
+
+	data, _ := json.MarshalIndent(entries, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+// =============================================================================
+// SQLITE TOOLS - Database query capabilities
+// =============================================================================
+
+func (s *Server) sqliteQueryTool() mcp.Tool {
+	return mcp.NewTool("clood_sqlite_query",
+		mcp.WithDescription(`🗄️ Execute a SELECT query on a SQLite database.
+
+Query local SQLite databases and get JSON results.
+Only SELECT, PRAGMA, and EXPLAIN queries are allowed (read-only).
+
+Cost: ZERO network, ZERO tokens, instant.`),
+		mcp.WithString("database", mcp.Required(), mcp.Description("Path to the SQLite database file")),
+		mcp.WithString("query", mcp.Required(), mcp.Description("SQL SELECT query to execute")),
+	)
+}
+
+func (s *Server) sqliteSchemaTool() mcp.Tool {
+	return mcp.NewTool("clood_sqlite_schema",
+		mcp.WithDescription(`📋 Show schema for a SQLite table.
+
+Returns column names, types, constraints for a specific table.
+Use clood_sqlite_tables first to list available tables.
+
+Cost: ZERO network, ZERO tokens, instant.`),
+		mcp.WithString("database", mcp.Required(), mcp.Description("Path to the SQLite database file")),
+		mcp.WithString("table", mcp.Description("Table name (omit to show all tables)")),
+	)
+}
+
+func (s *Server) sqliteTablesTool() mcp.Tool {
+	return mcp.NewTool("clood_sqlite_tables",
+		mcp.WithDescription(`📊 List all tables in a SQLite database.
+
+Shows table names in the database.
+Use before clood_sqlite_schema or clood_sqlite_query.
+
+Cost: ZERO network, ZERO tokens, instant.`),
+		mcp.WithString("database", mcp.Required(), mcp.Description("Path to the SQLite database file")),
+	)
+}
+
+// SQLite handlers
+
+func (s *Server) sqliteQueryHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	dbPath, ok := args["database"].(string)
+	if !ok || dbPath == "" {
+		return mcp.NewToolResultError("database path is required"), nil
+	}
+
+	query, ok := args["query"].(string)
+	if !ok || query == "" {
+		return mcp.NewToolResultError("query is required"), nil
+	}
+
+	result, err := sqlite.Query(dbPath, query)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("query failed: %v", err)), nil
+	}
+
+	data, _ := json.MarshalIndent(result, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (s *Server) sqliteSchemaHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	dbPath, ok := args["database"].(string)
+	if !ok || dbPath == "" {
+		return mcp.NewToolResultError("database path is required"), nil
+	}
+
+	tableName, _ := args["table"].(string)
+
+	if tableName != "" {
+		// Show schema for specific table
+		info, err := sqlite.Schema(dbPath, tableName)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("schema failed: %v", err)), nil
+		}
+		data, _ := json.MarshalIndent(info, "", "  ")
+		return mcp.NewToolResultText(string(data)), nil
+	}
+
+	// Show schema for all tables
+	infos, err := sqlite.DatabaseInfo(dbPath)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("database info failed: %v", err)), nil
+	}
+
+	data, _ := json.MarshalIndent(infos, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (s *Server) sqliteTablesHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	dbPath, ok := args["database"].(string)
+	if !ok || dbPath == "" {
+		return mcp.NewToolResultError("database path is required"), nil
+	}
+
+	tables, err := sqlite.Tables(dbPath)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("tables failed: %v", err)), nil
+	}
+
+	if len(tables) == 0 {
+		return mcp.NewToolResultText("No tables found"), nil
+	}
+
+	data, _ := json.MarshalIndent(tables, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+// =============================================================================
+// CLIPBOARD TOOLS - System clipboard access
+// =============================================================================
+
+func (s *Server) clipboardReadTool() mcp.Tool {
+	return mcp.NewTool("clood_clipboard_read",
+		mcp.WithDescription(`📋 Read current clipboard contents.
+
+Get text currently in the system clipboard.
+Useful for quickly grabbing copied code, URLs, or text.
+
+Cost: ZERO network, ZERO tokens, instant.`),
+	)
+}
+
+func (s *Server) clipboardWriteTool() mcp.Tool {
+	return mcp.NewTool("clood_clipboard_write",
+		mcp.WithDescription(`📝 Write text to the clipboard.
+
+Set the system clipboard contents.
+Useful for sharing code snippets, results, or prepared text.
+
+Cost: ZERO network, ZERO tokens, instant.`),
+		mcp.WithString("text", mcp.Required(), mcp.Description("Text to copy to clipboard")),
+	)
+}
+
+// Clipboard handlers
+
+func (s *Server) clipboardReadHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	text, err := clipboard.Read()
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("clipboard read failed: %v", err)), nil
+	}
+
+	if text == "" {
+		return mcp.NewToolResultText("Clipboard is empty"), nil
+	}
+
+	return mcp.NewToolResultText(text), nil
+}
+
+func (s *Server) clipboardWriteHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	text, ok := args["text"].(string)
+	if !ok || text == "" {
+		return mcp.NewToolResultError("text is required"), nil
+	}
+
+	if err := clipboard.Write(text); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("clipboard write failed: %v", err)), nil
+	}
+
+	return mcp.NewToolResultText(fmt.Sprintf("Copied %d characters to clipboard", len(text))), nil
 }
