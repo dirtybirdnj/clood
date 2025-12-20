@@ -16,6 +16,7 @@
 package inception
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -25,8 +26,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/dirtybirdnj/clood/internal/ollama"
 )
 
 // SubQueryPattern matches inception triggers in LLM output.
@@ -52,15 +51,25 @@ type SubQueryResult struct {
 type ModelRegistry map[string]string
 
 // DefaultRegistry provides common model aliases
+// These should map to models commonly available on local Ollama installs
 func DefaultRegistry() ModelRegistry {
 	return ModelRegistry{
-		"science":  "qwen2.5:7b",
-		"math":     "qwen2.5:7b",
-		"code":     "qwen2.5-coder:7b",
-		"coder":    "qwen2.5-coder:7b",
+		// Knowledge/reasoning experts
+		"science":  "llama3.1:8b",
+		"math":     "llama3.1:8b",
+		"reason":   "llama3.1:8b",
+		"expert":   "llama3.1:8b",
+		// Code specialists
+		"code":     "qwen2.5-coder:3b",
+		"coder":    "qwen2.5-coder:3b",
+		"debug":    "qwen2.5-coder:3b",
+		// Creative/language
+		"creative": "mistral:7b",
+		"writer":   "mistral:7b",
+		// Speed tier
 		"fast":     "qwen2.5-coder:3b",
-		"creative": "llama3.1:8b",
-		"default":  "qwen2.5-coder:3b",
+		"quick":    "tinyllama:latest",
+		"default":  "llama3.1:8b",
 	}
 }
 
@@ -75,6 +84,7 @@ type Handler struct {
 
 	// Callbacks for UI integration
 	OnSubQueryStart func(query SubQuery)
+	OnSubQueryChunk func(chunk string)      // Called for each streaming chunk
 	OnSubQueryEnd   func(result SubQueryResult)
 	OnDepthExceeded func(query SubQuery)
 }
@@ -109,6 +119,18 @@ func HasPartialSubQuery(buffer string) bool {
 	// Check for opening tag without closing tag
 	if strings.Contains(buffer, "<sub-query") && !strings.Contains(buffer, "</sub-query>") {
 		return true
+	}
+	// Check for partial opening tag at the end of buffer (last 15 chars)
+	// The tag might be split across chunks: "<sub-" then "query..."
+	suffix := buffer
+	if len(suffix) > 15 {
+		suffix = buffer[len(buffer)-15:]
+	}
+	partials := []string{"<s", "<su", "<sub", "<sub-", "<sub-q", "<sub-qu", "<sub-que", "<sub-quer", "<sub-query"}
+	for _, partial := range partials {
+		if strings.Contains(suffix, partial) && !strings.Contains(buffer, "</sub-query>") {
+			return true
+		}
 	}
 	return false
 }
@@ -155,7 +177,7 @@ IMPORTANT: Do NOT use <sub-query> tags in your response. Answer directly.`
 		"model":  modelName,
 		"system": systemPrompt,
 		"prompt": query.Query,
-		"stream": false, // Synchronous - we wait for full response
+		"stream": true, // Stream for visual feedback
 		"options": map[string]interface{}{
 			"num_predict": 500,         // Keep responses concise
 			"temperature": 0.3,         // More deterministic for factual queries
@@ -191,14 +213,30 @@ IMPORTANT: Do NOT use <sub-query> tags in your response. Answer directly.`
 	}
 	defer resp.Body.Close()
 
-	var ollamaResp ollama.GenerateResponse
-	if err := json.NewDecoder(resp.Body).Decode(&ollamaResp); err != nil {
-		result.Error = fmt.Errorf("decode response: %w", err)
-		result.Duration = time.Since(start)
-		return result
+	// Stream the response and accumulate
+	var responseBuilder strings.Builder
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		var chunk struct {
+			Response string `json:"response"`
+			Done     bool   `json:"done"`
+		}
+		if err := json.Unmarshal(scanner.Bytes(), &chunk); err != nil {
+			continue
+		}
+		if chunk.Response != "" {
+			responseBuilder.WriteString(chunk.Response)
+			// Notify UI of streaming chunk
+			if h.OnSubQueryChunk != nil {
+				h.OnSubQueryChunk(chunk.Response)
+			}
+		}
+		if chunk.Done {
+			break
+		}
 	}
 
-	result.Response = ollamaResp.Response
+	result.Response = responseBuilder.String()
 	result.Duration = time.Since(start)
 
 	// Notify end
@@ -226,17 +264,22 @@ func (h *Handler) ProcessBuffer(ctx context.Context, buffer string) (string, str
 		return buffer, "", false
 	}
 
-	// Execute the sub-query synchronously
+	// Execute the sub-query (streams via OnSubQueryChunk if set)
 	result := h.ExecuteSubQuery(ctx, *query)
 
 	// Remove the sub-query tag from buffer
 	cleanedBuffer := strings.Replace(buffer, query.RawMatch, "", 1)
 
-	// Format the injection
+	// Format the injection - if OnSubQueryChunk is set, we already streamed the content
+	// so just include the footer. Otherwise include full response.
 	var injection string
 	if result.Error != nil {
 		injection = fmt.Sprintf("\n[Sub-query failed: %v]\n", result.Error)
+	} else if h.OnSubQueryChunk != nil {
+		// Content was streamed, just add footer
+		injection = fmt.Sprintf("\n───── END EXPERT [%.1fs] ─────\n\n", result.Duration.Seconds())
 	} else {
+		// No streaming, include full response
 		injection = fmt.Sprintf("\n───── 🌀 SUB-QUERY RESPONSE [%s] ─────\n%s\n───── END SUB-QUERY [%.1fs] ─────\n\n",
 			query.Model, result.Response, result.Duration.Seconds())
 	}
@@ -286,7 +329,7 @@ func (p *StreamProcessor) Process() {
 			// Check for complete sub-query
 			if query := DetectSubQuery(bufferStr); query != nil {
 				// Found complete sub-query - process it
-				cleaned, injection, _ := p.Handler.ProcessBuffer(p.ctx, bufferStr)
+				_, injection, _ := p.Handler.ProcessBuffer(p.ctx, bufferStr)
 
 				// Output everything before the sub-query tag position
 				preQuery := strings.Split(bufferStr, "<sub-query")[0]
@@ -297,12 +340,12 @@ func (p *StreamProcessor) Process() {
 				// Output the injection (sub-query response)
 				p.OutputChan <- injection
 
-				// Reset buffer with cleaned content (after sub-query)
+				// Reset buffer and keep anything AFTER the closing tag
 				p.buffer.Reset()
-				// Keep anything after the sub-query in the buffer
-				afterQuery := strings.SplitN(cleaned, query.RawMatch, 2)
-				if len(afterQuery) > 1 {
-					p.buffer.WriteString(afterQuery[1])
+				// Find content after </sub-query> in the ORIGINAL buffer
+				afterParts := strings.SplitN(bufferStr, "</sub-query>", 2)
+				if len(afterParts) > 1 && afterParts[1] != "" {
+					p.buffer.WriteString(afterParts[1])
 				}
 
 			} else if HasPartialSubQuery(bufferStr) {
@@ -324,22 +367,30 @@ func (p *StreamProcessor) Start() <-chan string {
 }
 
 // InceptionSystemPrompt is added to the main LLM to teach it about sub-queries
-const InceptionSystemPrompt = `You have the ability to query expert AI models during your response.
+const InceptionSystemPrompt = `You are an AI with a special power: you can query expert AI models mid-response.
 
-To ask another AI for help, use this format:
-<sub-query model="MODEL_NAME">Your question here</sub-query>
+IMPORTANT: You SHOULD use sub-queries when the task involves:
+- Scientific facts, formulas, or calculations → ask "science" or "math"
+- Code review, debugging, or best practices → ask "code"
+- Creative ideas or writing assistance → ask "creative"
 
-Available models:
-- science: For scientific facts, physics, chemistry, biology
-- math: For calculations and mathematical proofs
-- code: For code review and programming help
-- creative: For creative writing and brainstorming
+FORMAT (you must use this exact XML format):
+<sub-query model="MODEL_NAME">Your specific question here</sub-query>
 
-Example usage:
-"I need to calculate the orbital velocity...
-<sub-query model="science">What is the orbital velocity formula and the velocity at 400km altitude?</sub-query>
-Using that information, the simulation should..."
+AVAILABLE EXPERTS:
+- science: Physics, chemistry, biology, scientific facts
+- math: Calculations, formulas, proofs
+- code: Programming, debugging, code review
+- creative: Writing, brainstorming, ideas
+- reason: Logic, analysis, problem decomposition
 
-The sub-query will be executed and the response injected into your context.
-Continue your response naturally after receiving the sub-query result.
-Only use ONE sub-query at a time. Wait for the response before asking another.`
+EXAMPLE - Here's exactly how to use it:
+"To calculate orbital velocity, I need the physics formula.
+<sub-query model="science">What is the formula for orbital velocity and what is the orbital velocity at 400km altitude above Earth?</sub-query>
+Now using that formula, here's the Python implementation..."
+
+RULES:
+1. Use sub-queries proactively - don't guess when you can ask an expert
+2. One sub-query at a time - wait for the response before continuing
+3. The response will appear inline - continue naturally after receiving it
+4. Be specific in your questions to get useful answers`

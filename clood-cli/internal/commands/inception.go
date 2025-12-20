@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -21,6 +22,7 @@ import (
 // Inception message types
 type inceptionChunkMsg string
 type inceptionInjectionMsg string
+type inceptionSubQueryChunkMsg string // Streaming chunk from expert model
 type inceptionSubQueryStartMsg struct{ query inception.SubQuery }
 type inceptionSubQueryEndMsg struct{ result inception.SubQueryResult }
 type inceptionDoneMsg struct{}
@@ -42,10 +44,15 @@ type inceptionModel struct {
 	promptMode bool
 
 	// Inception-specific
-	handler       *inception.Handler
-	subQueryActive bool
-	subQueryModel  string
-	subQueryCount  int
+	handler            *inception.Handler
+	subQueryActive     bool
+	subQueryModel      string
+	subQueryCount      int
+	subQueryResponses  []string // Track expert responses for continuation
+	needsContinuation  bool     // Flag to auto-continue after sub-queries
+
+	// Spinner for loading states
+	spinner spinner.Model
 
 	// Channels
 	inputChan  chan string
@@ -86,16 +93,20 @@ The main LLM can emit:
 The stream pauses, queries the expert model, injects the response,
 and the main LLM continues with the new knowledge.
 
-Available expert models:
-  science  - Scientific facts, physics, chemistry
-  math     - Calculations, proofs
-  code     - Code review, programming help
-  creative - Creative writing, brainstorming
+Available expert aliases (mapped to installed models):
+  science, math, reason  → llama3.1:8b (knowledge/reasoning)
+  code, coder, debug     → qwen2.5-coder:3b (programming)
+  creative, writer       → mistral:7b (language/creativity)
+  fast, quick            → tinyllama/qwen2.5-coder:3b (speed)
 
-Example:
-  clood inception --model qwen2.5-coder:7b --expert qwen2.5:7b
+Examples:
+  clood inception                                    # defaults
+  clood inception --model llama3.1:8b                # stronger main model
+  clood inception --model qwen2.5-coder:14b          # use your 14b model
 
-The main model will be prompted with instructions on how to use sub-queries.`,
+Pro tip: Ask something that REQUIRES expert knowledge, like:
+  "Write Python code to calculate the ISS orbital position"
+  "Explain quantum entanglement and write a simulation"`,
 		Run: func(cmd *cobra.Command, args []string) {
 			// Create inception handler
 			handler := inception.NewHandler()
@@ -107,12 +118,18 @@ The main model will be prompted with instructions on how to use sub-queries.`,
 				handler.Registry["default"] = expertModel
 			}
 
+			// Initialize spinner
+			s := spinner.New()
+			s.Spinner = spinner.Dot
+			s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF00FF"))
+
 			m := inceptionModel{
 				modelName:  model,
 				promptMode: true,
 				following:  true,
 				history:    []ChatMessage{},
 				handler:    handler,
+				spinner:    s,
 			}
 
 			// Set up handler callbacks
@@ -130,14 +147,15 @@ The main model will be prompted with instructions on how to use sub-queries.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&model, "model", "qwen2.5-coder:7b", "Main model for generation")
+	cmd.Flags().StringVar(&model, "model", "qwen2.5-coder:3b", "Main model for generation")
 	cmd.Flags().StringVar(&expertModel, "expert", "", "Expert model for sub-queries (defaults to model registry)")
+	cmd.Flags().Bool("demo", false, "Demo mode: inject a sub-query example to show the feature")
 
 	return cmd
 }
 
 func (m inceptionModel) Init() tea.Cmd {
-	return nil
+	return m.spinner.Tick
 }
 
 func (m inceptionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -163,6 +181,8 @@ func (m inceptionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		injection := string(msg)
 		m.content += injection
 		m.subQueryActive = false
+		m.needsContinuation = true // Mark that we need to continue after main stream
+		m.subQueryResponses = append(m.subQueryResponses, injection)
 		m.viewport.SetContent(m.renderContent())
 		if m.following {
 			m.viewport.GotoBottom()
@@ -172,16 +192,41 @@ func (m inceptionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, waitForInceptionOutput(m.outputChan))
 		}
 
+	case inceptionSubQueryChunkMsg:
+		// Streaming chunk from expert model - append to display
+		m.content += string(msg)
+		m.viewport.SetContent(m.renderContent())
+		if m.following {
+			m.viewport.GotoBottom()
+		}
+		// Keep listening for more chunks
+		if m.outputChan != nil {
+			cmds = append(cmds, waitForInceptionOutput(m.outputChan))
+		}
+
 	case inceptionSubQueryStartMsg:
 		m.subQueryActive = true
 		m.subQueryModel = msg.query.Model
 		m.subQueryCount++
-		// Add visual indicator
-		m.content += fmt.Sprintf("\n⏳ [INCEPTION: Querying %s...]\n", msg.query.Model)
+		// Add visual indicator - start of expert response section
+		m.content += fmt.Sprintf("\n───── ⚡ EXPERT [%s] ─────\n", msg.query.Model)
 		m.viewport.SetContent(m.renderContent())
+		if m.following {
+			m.viewport.GotoBottom()
+		}
+		// Keep listening for streaming chunks
+		if m.outputChan != nil {
+			cmds = append(cmds, waitForInceptionOutput(m.outputChan))
+		}
 
 	case inceptionSubQueryEndMsg:
 		m.subQueryActive = false
+
+	case spinner.TickMsg:
+		// Update spinner animation
+		var spinnerCmd tea.Cmd
+		m.spinner, spinnerCmd = m.spinner.Update(msg)
+		cmds = append(cmds, spinnerCmd)
 
 	case inceptionDoneMsg:
 		m.streaming = false
@@ -189,7 +234,50 @@ func (m inceptionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.history = append(m.history, ChatMessage{Role: "assistant", Content: m.currentAssistant})
 			m.currentAssistant = ""
 		}
-		m.content += "\n═══════════════════════════════════════════════════════════════════\n"
+
+		// Auto-continue if we had sub-queries - the main model needs to incorporate expert responses
+		if m.needsContinuation && len(m.subQueryResponses) > 0 {
+			m.needsContinuation = false
+			m.content += "\n───── 🔄 CONTINUING WITH EXPERT KNOWLEDGE ─────\n\n"
+			m.viewport.SetContent(m.renderContent())
+
+			// Build continuation prompt with expert responses
+			var expertContext strings.Builder
+			expertContext.WriteString("The expert models have provided the following information:\n\n")
+			for _, resp := range m.subQueryResponses {
+				expertContext.WriteString(resp)
+				expertContext.WriteString("\n")
+			}
+			expertContext.WriteString("\nPlease continue your response, incorporating this expert knowledge. Do not use any more sub-queries - provide the final answer directly.")
+
+			// Add to history and continue
+			m.history = append(m.history, ChatMessage{Role: "user", Content: expertContext.String()})
+			m.subQueryResponses = nil // Clear for next round
+
+			// Start new stream for continuation
+			m.streaming = true
+			m.following = true
+			rawChan := make(chan string, 100)
+			ctx := context.Background()
+			processor := inception.NewStreamProcessor(ctx, m.handler, rawChan)
+			m.outputChan = make(chan string, 100)
+
+			processedChan := processor.Start()
+			go func() {
+				for chunk := range processedChan {
+					m.outputChan <- chunk
+				}
+				close(m.outputChan)
+			}()
+
+			historyCopy := make([]ChatMessage, len(m.history))
+			copy(historyCopy, m.history)
+			go streamInceptionChat(m.modelName, historyCopy, rawChan)
+
+			cmds = append(cmds, waitForInceptionOutput(m.outputChan))
+		} else {
+			m.content += "\n═══════════════════════════════════════════════════════════════════\n"
+		}
 		m.viewport.SetContent(m.renderContent())
 
 	case inceptionErrorMsg:
@@ -198,6 +286,14 @@ func (m inceptionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		key := msg.String()
+
+		// Handle paste first (bracketed paste sends all chars in Runes with Paste=true)
+		if msg.Paste {
+			for _, r := range msg.Runes {
+				m.inputBuffer += string(r)
+			}
+			return m, nil
+		}
 
 		switch key {
 		case "ctrl+c":
@@ -246,7 +342,14 @@ func (m inceptionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.following = true
 
 		default:
-			if len(key) == 1 && key[0] >= 32 && key[0] <= 126 {
+			// Handle pasted text (msg.Runes contains all pasted characters)
+			if len(msg.Runes) > 0 {
+				for _, r := range msg.Runes {
+					if r >= 32 && r <= 126 {
+						m.inputBuffer += string(r)
+					}
+				}
+			} else if len(key) == 1 && key[0] >= 32 && key[0] <= 126 {
 				m.inputBuffer += key
 			} else if key == "space" {
 				m.inputBuffer += " "
@@ -282,9 +385,18 @@ func waitForInceptionOutput(ch chan string) tea.Cmd {
 		if !ok {
 			return inceptionDoneMsg{}
 		}
-		// Check if this is an injection (sub-query response)
-		if strings.HasPrefix(chunk, "\n───── 🌀") {
+		// Check if this is an injection (sub-query response footer)
+		if strings.HasPrefix(chunk, "\n───── END EXPERT") {
 			return inceptionInjectionMsg(chunk)
+		}
+		// Check if this is a sub-query start marker
+		if strings.HasPrefix(chunk, "⚡START⚡") {
+			model := strings.TrimPrefix(chunk, "⚡START⚡")
+			return inceptionSubQueryStartMsg{query: inception.SubQuery{Model: model}}
+		}
+		// Check if this is a streaming sub-query chunk
+		if strings.HasPrefix(chunk, "⚡") {
+			return inceptionSubQueryChunkMsg(strings.TrimPrefix(chunk, "⚡"))
 		}
 		return inceptionChunkMsg(chunk)
 	}
@@ -322,6 +434,16 @@ func (m *inceptionModel) startInception() {
 	ctx := context.Background()
 	processor := inception.NewStreamProcessor(ctx, m.handler, rawChan)
 	m.outputChan = make(chan string, 100)
+
+	// Set up callbacks for streaming sub-query
+	m.handler.OnSubQueryStart = func(q inception.SubQuery) {
+		// Send header with special prefix
+		m.outputChan <- fmt.Sprintf("⚡START⚡%s", q.Model)
+	}
+	m.handler.OnSubQueryChunk = func(chunk string) {
+		// Send chunk with prefix
+		m.outputChan <- "⚡" + chunk
+	}
 
 	// Start the processor
 	processedChan := processor.Start()
@@ -363,6 +485,14 @@ func (m *inceptionModel) submitFollowUp() {
 	ctx := context.Background()
 	processor := inception.NewStreamProcessor(ctx, m.handler, rawChan)
 	m.outputChan = make(chan string, 100)
+
+	// Set up callbacks for streaming sub-query
+	m.handler.OnSubQueryStart = func(q inception.SubQuery) {
+		m.outputChan <- fmt.Sprintf("⚡START⚡%s", q.Model)
+	}
+	m.handler.OnSubQueryChunk = func(chunk string) {
+		m.outputChan <- "⚡" + chunk
+	}
 
 	processedChan := processor.Start()
 	go func() {
@@ -431,12 +561,46 @@ func streamInceptionChat(model string, history []ChatMessage, ch chan string) {
 	}
 }
 
+// wrapText wraps a line to the specified width, preserving words
+func wrapText(text string, width int) []string {
+	if width <= 0 || len(text) <= width {
+		return []string{text}
+	}
+
+	var lines []string
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return []string{text}
+	}
+
+	var currentLine strings.Builder
+	for _, word := range words {
+		if currentLine.Len() == 0 {
+			currentLine.WriteString(word)
+		} else if currentLine.Len()+1+len(word) <= width {
+			currentLine.WriteString(" ")
+			currentLine.WriteString(word)
+		} else {
+			lines = append(lines, currentLine.String())
+			currentLine.Reset()
+			currentLine.WriteString(word)
+		}
+	}
+	if currentLine.Len() > 0 {
+		lines = append(lines, currentLine.String())
+	}
+	return lines
+}
+
 func (m inceptionModel) renderContent() string {
 	var sb strings.Builder
 
-	contentWidth := 70
-	if m.width > 20 && m.width < contentWidth+20 {
+	contentWidth := 80
+	if m.width > 20 {
 		contentWidth = m.width - 10
+	}
+	if contentWidth < 40 {
+		contentWidth = 40
 	}
 	leftPad := ""
 	if m.width > contentWidth+10 {
@@ -445,23 +609,31 @@ func (m inceptionModel) renderContent() string {
 
 	lines := strings.Split(m.content, "\n")
 	for _, line := range lines {
-		// Highlight inception markers
-		if strings.Contains(line, "🌀") || strings.Contains(line, "SUB-QUERY") {
-			sb.WriteString(leftPad)
-			sb.WriteString(subQueryStyle.Render(line))
-			sb.WriteString("\n")
-		} else if strings.Contains(line, "⏳") {
-			sb.WriteString(leftPad)
-			sb.WriteString(subQueryActiveStyle.Render(line))
-			sb.WriteString("\n")
-		} else if strings.HasPrefix(line, "═══") || strings.HasPrefix(line, "───") {
+		// Don't wrap separator lines or empty lines
+		if strings.HasPrefix(line, "═══") || strings.HasPrefix(line, "───") || line == "" {
 			sb.WriteString(leftPad)
 			sb.WriteString(swTurnStyle.Render(line))
 			sb.WriteString("\n")
-		} else {
-			sb.WriteString(leftPad)
-			sb.WriteString(line)
-			sb.WriteString("\n")
+			continue
+		}
+
+		// Wrap long lines
+		wrappedLines := wrapText(line, contentWidth)
+		for _, wrappedLine := range wrappedLines {
+			// Highlight inception markers
+			if strings.Contains(wrappedLine, "🌀") || strings.Contains(wrappedLine, "SUB-QUERY") {
+				sb.WriteString(leftPad)
+				sb.WriteString(subQueryStyle.Render(wrappedLine))
+				sb.WriteString("\n")
+			} else if strings.Contains(wrappedLine, "⏳") {
+				sb.WriteString(leftPad)
+				sb.WriteString(subQueryActiveStyle.Render(wrappedLine))
+				sb.WriteString("\n")
+			} else {
+				sb.WriteString(leftPad)
+				sb.WriteString(wrappedLine)
+				sb.WriteString("\n")
+			}
 		}
 	}
 
@@ -506,7 +678,7 @@ func (m inceptionModel) renderPromptMode() string {
 	sb.WriteString(infoStyle.Render(fmt.Sprintf("Main model: %s", m.modelName)))
 	sb.WriteString("\n")
 	sb.WriteString(padding)
-	sb.WriteString(infoStyle.Render("Expert models: science, math, code, creative"))
+	sb.WriteString(infoStyle.Render("Experts: science, math, code, creative, reason"))
 	sb.WriteString("\n\n")
 
 	// Instructions
@@ -517,14 +689,33 @@ func (m inceptionModel) renderPromptMode() string {
 	sb.WriteString(infoStyle.Render("Example: 'Write code to calculate ISS orbital position'"))
 	sb.WriteString("\n\n")
 
-	// Input
+	// Input (word wrap to box width)
 	inputStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#00FF00")).
 		Background(lipgloss.Color("#1a1a2e")).
 		Padding(0, 1)
 
+	maxInputLen := boxWidth - 4 // Leave room for padding and cursor
+	if maxInputLen < 20 {
+		maxInputLen = 20
+	}
+
+	// Wrap input for display
+	var inputLines []string
+	if m.inputBuffer == "" {
+		inputLines = []string{""}
+	} else {
+		inputLines = wrapText(m.inputBuffer, maxInputLen)
+	}
+
+	for _, line := range inputLines {
+		sb.WriteString(padding)
+		sb.WriteString(inputStyle.Render(line))
+		sb.WriteString("\n")
+	}
+	// Add cursor on last line
 	sb.WriteString(padding)
-	sb.WriteString(inputStyle.Render(m.inputBuffer + "█"))
+	sb.WriteString(inputStyle.Render("█"))
 	sb.WriteString("\n\n")
 
 	// Help
@@ -557,9 +748,11 @@ func (m inceptionModel) View() string {
 	statusParts := []string{}
 	if m.streaming {
 		if m.subQueryActive {
-			statusParts = append(statusParts, subQueryActiveStyle.Render(fmt.Sprintf(" ⏳ SUB-QUERY [%s]", m.subQueryModel)))
+			// Show spinner while waiting for sub-query
+			statusParts = append(statusParts, subQueryActiveStyle.Render(fmt.Sprintf(" %s SUB-QUERY [%s]", m.spinner.View(), m.subQueryModel)))
 		} else {
-			statusParts = append(statusParts, lipgloss.NewStyle().Foreground(lipgloss.Color("#FF6B6B")).Render(" ● STREAMING"))
+			// Show spinner while streaming
+			statusParts = append(statusParts, lipgloss.NewStyle().Foreground(lipgloss.Color("#FF6B6B")).Render(fmt.Sprintf(" %s STREAMING", m.spinner.View())))
 		}
 	}
 	if m.following {
@@ -577,9 +770,18 @@ func (m inceptionModel) View() string {
 	inputStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00"))
 	promptStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF00FF")).Bold(true)
 
-	inputText := m.inputBuffer
-	if inputText == "" {
-		inputText = lipgloss.NewStyle().Foreground(lipgloss.Color("#666666")).Render("Type here...")
+	// Calculate max input width (leave room for prompt emoji and cursor)
+	maxInputWidth := m.width - 6
+	if maxInputWidth < 20 {
+		maxInputWidth = 20
+	}
+
+	// Word wrap input for display
+	var inputLines []string
+	if m.inputBuffer == "" {
+		inputLines = []string{lipgloss.NewStyle().Foreground(lipgloss.Color("#666666")).Render("Type here...")}
+	} else {
+		inputLines = wrapText(m.inputBuffer, maxInputWidth)
 	}
 
 	var helpText string
@@ -595,10 +797,22 @@ func (m inceptionModel) View() string {
 		helpText = "Ask follow-up questions  [F]ollow [esc]quit"
 	}
 
-	footer := fmt.Sprintf("\n%s\n%s %s█\n%s",
+	// Build multi-line input display
+	var inputDisplay strings.Builder
+	for i, line := range inputLines {
+		if i == 0 {
+			inputDisplay.WriteString(promptStyle.Render("🌀 "))
+			inputDisplay.WriteString(inputStyle.Render(line))
+		} else {
+			inputDisplay.WriteString("\n   ") // Indent continuation lines
+			inputDisplay.WriteString(inputStyle.Render(line))
+		}
+	}
+	inputDisplay.WriteString("█") // Cursor at end
+
+	footer := fmt.Sprintf("\n%s\n%s\n%s",
 		strings.Repeat("─", m.width),
-		promptStyle.Render("🌀"),
-		inputStyle.Render(inputText),
+		inputDisplay.String(),
 		swHelpStyle.Render(helpText))
 
 	return header + m.viewport.View() + footer
