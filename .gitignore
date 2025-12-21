@@ -22,6 +22,7 @@ Thumbs.db
 /tmp/
 
 # Go binaries
+clood
 clood-cli/clood
 clood-cli/.clood/
 

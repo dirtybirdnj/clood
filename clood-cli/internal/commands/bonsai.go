@@ -54,20 +54,23 @@ Each tree is unique, grown from the seeds of your configuration.`,
 				cbArgs = append(cbArgs, "-m", message)
 			}
 
+			// Check if cbonsai is installed first
+			if _, lookErr := exec.LookPath("cbonsai"); lookErr != nil {
+				fmt.Println(tui.ErrorStyle.Render("cbonsai not found"))
+				fmt.Println(tui.MutedStyle.Render("Install with: brew install cbonsai"))
+				return nil
+			}
+
 			// Run cbonsai
 			cbCmd := exec.Command("cbonsai", cbArgs...)
 			output, err := cbCmd.CombinedOutput()
 			if err != nil {
-				// Check if cbonsai is installed
-				if _, lookErr := exec.LookPath("cbonsai"); lookErr != nil {
-					fmt.Println(tui.ErrorStyle.Render("cbonsai not found"))
-					fmt.Println(tui.MutedStyle.Render("Install with: brew install cbonsai"))
-					return nil
-				}
 				return fmt.Errorf("cbonsai error: %v\n%s", err, output)
 			}
 
 			fmt.Print(string(output))
+			// Reset terminal attributes after cbonsai (it may leave escape codes)
+			fmt.Print("\033[0m")
 			return nil
 		},
 	}

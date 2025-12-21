@@ -1,6 +1,6 @@
 __pycache__/
 
-# Build artifacts
-clood
-clood-*
+# Build artifacts (binaries in root only)
+/clood
+/clood-*
 *.exe

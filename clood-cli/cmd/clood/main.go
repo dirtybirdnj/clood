@@ -15,6 +15,21 @@ import (
 
 var version = "0.2.0"
 
+// Command group IDs
+const (
+	GroupStart       = "start"
+	GroupInfra       = "infra"
+	GroupQuery       = "query"
+	GroupCompare     = "compare"
+	GroupCodebase    = "codebase"
+	GroupAIPowered   = "ai"
+	GroupSession     = "session"
+	GroupAgents      = "agents"
+	GroupMCP         = "mcp"
+	GroupMeta        = "meta"
+	GroupExperimental = "experimental"
+)
+
 func main() {
 	rootCmd := &cobra.Command{
 		Use:   "clood",
@@ -38,84 +53,131 @@ func main() {
 	// Global --json flag for machine-readable output (MCP/agent friendly)
 	rootCmd.PersistentFlags().BoolVarP(&output.JSONMode, "json", "j", false, "Output in JSON format (for agents/MCP)")
 
-	// Add subcommands - infrastructure focused
-	rootCmd.AddCommand(commands.SystemCmd())
-	rootCmd.AddCommand(commands.HostsCmd())
-	rootCmd.AddCommand(commands.ModelsCmd())
-	rootCmd.AddCommand(commands.DiscoverCmd())
-	rootCmd.AddCommand(commands.PullCmd())
-	rootCmd.AddCommand(commands.BenchCmd())
-	rootCmd.AddCommand(commands.AskCmd())
-	rootCmd.AddCommand(commands.CatfightCmd())
-	rootCmd.AddCommand(commands.FlyingCatsCmd())
-	rootCmd.AddCommand(commands.RunCmd())
-	rootCmd.AddCommand(commands.DelegateCmd())
-	rootCmd.AddCommand(commands.AgentsCmd())
-	rootCmd.AddCommand(commands.HealthCmd())
-	rootCmd.AddCommand(commands.PreflightCmd())
-	rootCmd.AddCommand(commands.DoctorCmd())
-	rootCmd.AddCommand(commands.VerifyCmd())
-	rootCmd.AddCommand(commands.TuneCmd())
-	rootCmd.AddCommand(commands.BonsaiCmd())
-	rootCmd.AddCommand(commands.WatchCmd())
+	// Define command groups (order matters - this is display order)
+	rootCmd.AddGroup(
+		&cobra.Group{ID: GroupStart, Title: "🚀 Getting Started:"},
+		&cobra.Group{ID: GroupInfra, Title: "🔌 Infrastructure & Discovery:"},
+		&cobra.Group{ID: GroupQuery, Title: "💬 Querying LLMs:"},
+		&cobra.Group{ID: GroupCompare, Title: "⚔️  Model Comparison:"},
+		&cobra.Group{ID: GroupCodebase, Title: "🔍 Codebase Analysis (zero network):"},
+		&cobra.Group{ID: GroupAIPowered, Title: "🤖 AI-Powered Tools:"},
+		&cobra.Group{ID: GroupSession, Title: "📚 Session & Context:"},
+		&cobra.Group{ID: GroupAgents, Title: "🕵️  Agents & Delegation:"},
+		&cobra.Group{ID: GroupMCP, Title: "🔗 MCP Server:"},
+		&cobra.Group{ID: GroupMeta, Title: "🔧 Meta & Development:"},
+		&cobra.Group{ID: GroupExperimental, Title: "🧪 Experimental:"},
+	)
 
-	// Code analysis commands
-	rootCmd.AddCommand(commands.GrepCmd())
-	rootCmd.AddCommand(commands.ImportsCmd())
-	rootCmd.AddCommand(commands.AnalyzeCmd())
-	rootCmd.AddCommand(commands.TreeCmd())
-	rootCmd.AddCommand(commands.SummaryCmd())
-	rootCmd.AddCommand(commands.ContextCmd())
-	rootCmd.AddCommand(commands.SymbolsCmd())
+	// ═══════════════════════════════════════════════════════════════
+	// 🚀 GETTING STARTED
+	// ═══════════════════════════════════════════════════════════════
+	addWithGroup(rootCmd, initCmd(), GroupStart)
+	addWithGroup(rootCmd, commands.SetupCmd(), GroupStart)
+	addWithGroup(rootCmd, commands.VerifyCmd(), GroupStart)
+	addWithGroup(rootCmd, commands.DoctorCmd(), GroupStart)
+	addWithGroup(rootCmd, commands.UpdateCmd(), GroupStart)
+	addWithGroup(rootCmd, completionCmd(), GroupStart)
 
-	// Project management commands
-	rootCmd.AddCommand(commands.IssuesCmd())
-	rootCmd.AddCommand(commands.ChatCmd())
-	rootCmd.AddCommand(commands.HandoffCmd())
-	rootCmd.AddCommand(commands.SessionCmd())
-	rootCmd.AddCommand(commands.BeansCmd())
-	rootCmd.AddCommand(commands.FocusCmd())
-	rootCmd.AddCommand(commands.CheckpointCmd())
+	// ═══════════════════════════════════════════════════════════════
+	// 🔌 INFRASTRUCTURE & DISCOVERY
+	// ═══════════════════════════════════════════════════════════════
+	addWithGroup(rootCmd, commands.PreflightCmd(), GroupInfra)
+	addWithGroup(rootCmd, commands.SystemCmd(), GroupInfra)
+	addWithGroup(rootCmd, commands.HostsCmd(), GroupInfra)
+	addWithGroup(rootCmd, commands.ModelsCmd(), GroupInfra)
+	addWithGroup(rootCmd, commands.DiscoverCmd(), GroupInfra)
+	addWithGroup(rootCmd, commands.HealthCmd(), GroupInfra)
+	addWithGroup(rootCmd, commands.TuneCmd(), GroupInfra)
+	addWithGroup(rootCmd, commands.PullCmd(), GroupInfra)
 
-	// MCP server commands
-	rootCmd.AddCommand(commands.McpCmd())   // Simple: just run "clood mcp"
-	rootCmd.AddCommand(commands.ServeCmd()) // Advanced: more options
+	// ═══════════════════════════════════════════════════════════════
+	// 💬 QUERYING LLMs
+	// ═══════════════════════════════════════════════════════════════
+	addWithGroup(rootCmd, commands.AskCmd(), GroupQuery)
+	addWithGroup(rootCmd, commands.RunCmd(), GroupQuery)
+	addWithGroup(rootCmd, commands.ChatCmd(), GroupQuery)
 
-	// AI-powered commands
-	rootCmd.AddCommand(commands.CommitMsgCmd())
-	rootCmd.AddCommand(commands.ReviewPRCmd())
-	rootCmd.AddCommand(commands.GenerateTestsCmd())
-	rootCmd.AddCommand(commands.ExtractCmd())
-	rootCmd.AddCommand(commands.OutputMapCmd())
+	// ═══════════════════════════════════════════════════════════════
+	// ⚔️  MODEL COMPARISON
+	// ═══════════════════════════════════════════════════════════════
+	addWithGroup(rootCmd, commands.CatfightCmd(), GroupCompare)
+	addWithGroup(rootCmd, commands.CatfightLiveCmd(), GroupCompare)
+	addWithGroup(rootCmd, commands.WatchCmd(), GroupCompare)
+	addWithGroup(rootCmd, commands.BenchCmd(), GroupCompare)
 
-	// Meta commands
-	rootCmd.AddCommand(commands.BuildCmd())
-	rootCmd.AddCommand(commands.BcbcCmd())
-	rootCmd.AddCommand(commands.SettingsAuditCmd())
-	rootCmd.AddCommand(commands.BuildCheckCmd())
+	// ═══════════════════════════════════════════════════════════════
+	// 🔍 CODEBASE ANALYSIS (zero network)
+	// ═══════════════════════════════════════════════════════════════
+	addWithGroup(rootCmd, commands.GrepCmd(), GroupCodebase)
+	addWithGroup(rootCmd, commands.TreeCmd(), GroupCodebase)
+	addWithGroup(rootCmd, commands.SymbolsCmd(), GroupCodebase)
+	addWithGroup(rootCmd, commands.ImportsCmd(), GroupCodebase)
+	addWithGroup(rootCmd, commands.ContextCmd(), GroupCodebase)
+	addWithGroup(rootCmd, commands.SummaryCmd(), GroupCodebase)
 
-	// Prototypes
-	rootCmd.AddCommand(commands.SnakewayProtoCmd())
-	rootCmd.AddCommand(commands.InceptionCmd())
-	rootCmd.AddCommand(commands.CatfightLiveCmd())
-	rootCmd.AddCommand(commands.AgentCmd())
-	rootCmd.AddCommand(commands.AgentPreflightCmd())
+	// ═══════════════════════════════════════════════════════════════
+	// 🤖 AI-POWERED TOOLS
+	// ═══════════════════════════════════════════════════════════════
+	addWithGroup(rootCmd, commands.AnalyzeCmd(), GroupAIPowered)
+	addWithGroup(rootCmd, commands.CommitMsgCmd(), GroupAIPowered)
+	addWithGroup(rootCmd, commands.ReviewPRCmd(), GroupAIPowered)
+	addWithGroup(rootCmd, commands.GenerateTestsCmd(), GroupAIPowered)
+	addWithGroup(rootCmd, commands.ExtractCmd(), GroupAIPowered)
 
-	// Init and setup commands
-	rootCmd.AddCommand(initCmd())
-	rootCmd.AddCommand(commands.SetupCmd())
+	// ═══════════════════════════════════════════════════════════════
+	// 📚 SESSION & CONTEXT
+	// ═══════════════════════════════════════════════════════════════
+	addWithGroup(rootCmd, commands.SessionCmd(), GroupSession)
+	addWithGroup(rootCmd, commands.HandoffCmd(), GroupSession)
+	addWithGroup(rootCmd, commands.CheckpointCmd(), GroupSession)
+	addWithGroup(rootCmd, commands.FocusCmd(), GroupSession)
+	addWithGroup(rootCmd, commands.BeansCmd(), GroupSession)
 
-	// Self-update
+	// ═══════════════════════════════════════════════════════════════
+	// 🕵️  AGENTS & DELEGATION
+	// ═══════════════════════════════════════════════════════════════
+	addWithGroup(rootCmd, commands.AgentCmd(), GroupAgents)
+	addWithGroup(rootCmd, commands.AgentPreflightCmd(), GroupAgents)
+	addWithGroup(rootCmd, commands.AgentsCmd(), GroupAgents)
+	addWithGroup(rootCmd, commands.DelegateCmd(), GroupAgents)
+
+	// ═══════════════════════════════════════════════════════════════
+	// 🔗 MCP SERVER
+	// ═══════════════════════════════════════════════════════════════
+	addWithGroup(rootCmd, commands.McpCmd(), GroupMCP)
+	addWithGroup(rootCmd, commands.ServeCmd(), GroupMCP)
+
+	// ═══════════════════════════════════════════════════════════════
+	// 🔧 META & DEVELOPMENT
+	// ═══════════════════════════════════════════════════════════════
+	addWithGroup(rootCmd, commands.BuildCmd(), GroupMeta)
+	addWithGroup(rootCmd, commands.BcbcCmd(), GroupMeta)
+	addWithGroup(rootCmd, commands.BuildCheckCmd(), GroupMeta)
+	addWithGroup(rootCmd, commands.SettingsAuditCmd(), GroupMeta)
+	addWithGroup(rootCmd, commands.IssuesCmd(), GroupMeta)
+
+	// ═══════════════════════════════════════════════════════════════
+	// 🧪 EXPERIMENTAL
+	// ═══════════════════════════════════════════════════════════════
+	addWithGroup(rootCmd, commands.BonsaiCmd(), GroupExperimental)
+	addWithGroup(rootCmd, commands.FlyingCatsCmd(), GroupExperimental)
+	addWithGroup(rootCmd, commands.InceptionCmd(), GroupExperimental)
+	addWithGroup(rootCmd, commands.SnakewayProtoCmd(), GroupExperimental)
+	addWithGroup(rootCmd, commands.OutputMapCmd(), GroupExperimental)
+
+	// Set current version for update command
 	commands.CurrentVersion = version
-	rootCmd.AddCommand(commands.UpdateCmd())
-
-	// Shell completion
-	rootCmd.AddCommand(completionCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, tui.ErrorStyle.Render(err.Error()))
 		os.Exit(1)
 	}
+}
+
+// addWithGroup adds a command to the root with a group assignment
+func addWithGroup(root *cobra.Command, cmd *cobra.Command, groupID string) {
+	cmd.GroupID = groupID
+	root.AddCommand(cmd)
 }
 
 func initCmd() *cobra.Command {
@@ -226,11 +288,15 @@ func showZenGreeting() {
 	haiku := zenHaikus[rand.Intn(len(zenHaikus))]
 
 	// Show bonsai with message (tiny size for zen)
-	cbCmd := exec.Command("cbonsai", "-p", "-L", "12", "-M", "2")
-	bonsaiOutput, err := cbCmd.CombinedOutput()
-	if err == nil {
-		fmt.Println()
-		fmt.Print(string(bonsaiOutput))
+	if _, err := exec.LookPath("cbonsai"); err == nil {
+		cbCmd := exec.Command("cbonsai", "-p", "-L", "12", "-M", "2")
+		bonsaiOutput, err := cbCmd.CombinedOutput()
+		if err == nil {
+			fmt.Println()
+			fmt.Print(string(bonsaiOutput))
+			// Reset terminal attributes after cbonsai (it may leave escape codes)
+			fmt.Print("\033[0m")
+		}
 	}
 
 	// Show haiku
