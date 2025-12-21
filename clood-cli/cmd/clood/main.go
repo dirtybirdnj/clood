@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"os/exec"
 	"time"
 
 	"github.com/dirtybirdnj/clood/internal/commands"
@@ -287,17 +286,8 @@ func showZenGreeting() {
 	// Pick a random haiku
 	haiku := zenHaikus[rand.Intn(len(zenHaikus))]
 
-	// Show bonsai with message (tiny size for zen)
-	if _, err := exec.LookPath("cbonsai"); err == nil {
-		cbCmd := exec.Command("cbonsai", "-p", "-L", "12", "-M", "2")
-		bonsaiOutput, err := cbCmd.CombinedOutput()
-		if err == nil {
-			fmt.Println()
-			fmt.Print(string(bonsaiOutput))
-			// Reset terminal attributes after cbonsai (it may leave escape codes)
-			fmt.Print("\033[0m")
-		}
-	}
+	// NOTE: cbonsai disabled here - it uses ncurses which breaks terminal output
+	// when running in non-TTY or captured contexts. Use `clood bonsai` explicitly.
 
 	// Show haiku
 	fmt.Println()

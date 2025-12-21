@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 
 	"github.com/dirtybirdnj/clood/internal/tui"
@@ -61,16 +62,15 @@ Each tree is unique, grown from the seeds of your configuration.`,
 				return nil
 			}
 
-			// Run cbonsai
+			// Run cbonsai with direct terminal output
+			// cbonsai uses ncurses which outputs escape sequences that break
+			// when captured and replayed - must connect directly to terminal
 			cbCmd := exec.Command("cbonsai", cbArgs...)
-			output, err := cbCmd.CombinedOutput()
-			if err != nil {
-				return fmt.Errorf("cbonsai error: %v\n%s", err, output)
+			cbCmd.Stdout = os.Stdout
+			cbCmd.Stderr = os.Stderr
+			if err := cbCmd.Run(); err != nil {
+				return fmt.Errorf("cbonsai error: %v", err)
 			}
-
-			fmt.Print(string(output))
-			// Reset terminal attributes after cbonsai (it may leave escape codes)
-			fmt.Print("\033[0m")
 			return nil
 		},
 	}
