@@ -159,6 +159,7 @@ func main() {
 	// ═══════════════════════════════════════════════════════════════
 	// 🧪 EXPERIMENTAL
 	// ═══════════════════════════════════════════════════════════════
+	addWithGroup(rootCmd, commands.ATCCmd(), GroupExperimental)
 	addWithGroup(rootCmd, commands.BonsaiCmd(), GroupExperimental)
 	addWithGroup(rootCmd, commands.FlyingCatsCmd(), GroupExperimental)
 	addWithGroup(rootCmd, commands.InceptionCmd(), GroupExperimental)
