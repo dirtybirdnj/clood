@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dirtybirdnj/clood/internal/bonsai"
 	"github.com/dirtybirdnj/clood/internal/ollama"
 	"github.com/dirtybirdnj/clood/internal/output"
 	"github.com/dirtybirdnj/clood/internal/tui"
@@ -408,11 +409,14 @@ func drawBonsai(message string) string {
 	}
 
 	cmd := exec.Command("cbonsai", args...)
-	output, err := cmd.CombinedOutput()
+	rawOutput, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Sprintf("Error: cbonsai failed - %v", err)
 	}
-	return string(output)
+
+	// Parse the ncurses output to get clean ASCII
+	result := bonsai.ParseANSI(string(rawOutput))
+	return result
 }
 
 func readFileContents(path string) string {

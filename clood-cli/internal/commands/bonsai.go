@@ -5,11 +5,12 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/dirtybirdnj/clood/internal/bonsai"
 	"github.com/dirtybirdnj/clood/internal/tui"
 	"github.com/spf13/cobra"
 )
 
-// Size presets for cbonsai
+// Size presets for cbonsai: [life, multiplier]
 var sizePresets = map[string][2]int{
 	"tiny":    {10, 2},
 	"small":   {20, 3},
@@ -22,6 +23,10 @@ var sizePresets = map[string][2]int{
 func BonsaiCmd() *cobra.Command {
 	var size string
 	var message string
+	var outputFile string
+	var outputFormat string // "terminal", "ascii", "svg"
+	var fontName string
+	var seed int
 
 	cmd := &cobra.Command{
 		Use:   "bonsai",
@@ -29,7 +34,45 @@ func BonsaiCmd() *cobra.Command {
 		Long: `Generate beautiful ASCII bonsai trees for the Server Garden.
 
 The bonsai represents careful cultivation of local resources.
-Each tree is unique, grown from the seeds of your configuration.`,
+Each tree is unique, grown from the seeds of your configuration.
+
+DEFAULTS:
+  Format: terminal (colored output directly to terminal)
+  Size:   medium (life=32, multiplier=5)
+  Seed:   random (use --seed for reproducible trees)
+
+OUTPUT FORMATS:
+  terminal  Direct ncurses output with ANSI colors (default)
+  ascii     Clean ASCII text, no escape codes (good for logs, agents)
+  svg       SVG with single-line fonts for pen plotters
+
+SIZE PRESETS:
+  tiny      Compact tree (life=10)
+  small     Small tree (life=20)
+  medium    Standard tree (life=32) [default]
+  large     Large tree (life=60)
+  ancient   Massive tree (life=100)
+
+SVG FONTS (--font):
+  HersheySans1    Classic single-stroke sans-serif [default]
+  EMSDelight      Elegant cursive script
+  EMSCasualHand   Casual handwritten style
+
+EXAMPLES:
+  # Default: colored terminal output, medium size
+  clood bonsai
+
+  # Tiny tree with a message
+  clood bonsai --size tiny --message "Hello"
+
+  # Clean ASCII for piping or logging
+  clood bonsai --format ascii
+
+  # SVG for pen plotter with reproducible seed
+  clood bonsai --format svg --seed 42 -o tree.svg
+
+  # SVG with cursive font
+  clood bonsai -f svg --font EMSDelight -o fancy.svg`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Default to medium if no size specified
 			if size == "" {
@@ -55,6 +98,10 @@ Each tree is unique, grown from the seeds of your configuration.`,
 				cbArgs = append(cbArgs, "-m", message)
 			}
 
+			if seed > 0 {
+				cbArgs = append(cbArgs, fmt.Sprintf("-s%d", seed))
+			}
+
 			// Check if cbonsai is installed first
 			if _, lookErr := exec.LookPath("cbonsai"); lookErr != nil {
 				fmt.Println(tui.ErrorStyle.Render("cbonsai not found"))
@@ -62,21 +109,66 @@ Each tree is unique, grown from the seeds of your configuration.`,
 				return nil
 			}
 
-			// Run cbonsai with direct terminal output
-			// cbonsai uses ncurses which outputs escape sequences that break
-			// when captured and replayed - must connect directly to terminal
+			// For terminal output, use direct output to preserve ncurses behavior
+			if outputFormat == "" || outputFormat == "terminal" {
+				cbCmd := exec.Command("cbonsai", cbArgs...)
+				cbCmd.Stdout = os.Stdout
+				cbCmd.Stderr = os.Stderr
+				if err := cbCmd.Run(); err != nil {
+					return fmt.Errorf("cbonsai error: %v", err)
+				}
+				return nil
+			}
+
+			// For other formats, capture and process the output
 			cbCmd := exec.Command("cbonsai", cbArgs...)
-			cbCmd.Stdout = os.Stdout
-			cbCmd.Stderr = os.Stderr
-			if err := cbCmd.Run(); err != nil {
+			output, err := cbCmd.CombinedOutput()
+			if err != nil {
 				return fmt.Errorf("cbonsai error: %v", err)
 			}
+
+			// Parse the output with color extraction
+			result := bonsai.ParseANSIWithColors(string(output))
+
+			var finalOutput string
+			switch outputFormat {
+			case "ascii":
+				finalOutput = result.ASCII
+
+			case "svg":
+				if fontName == "" {
+					fontName = "HersheySans1"
+				}
+				gen, err := bonsai.NewSVGGenerator(fontName)
+				if err != nil {
+					return fmt.Errorf("failed to load font %s: %v", fontName, err)
+				}
+				finalOutput = gen.GenerateSVG(result)
+
+			default:
+				return fmt.Errorf("unknown format: %s (use terminal/ascii/svg)", outputFormat)
+			}
+
+			// Write output
+			if outputFile != "" && outputFile != "-" {
+				if err := os.WriteFile(outputFile, []byte(finalOutput), 0644); err != nil {
+					return fmt.Errorf("failed to write file: %v", err)
+				}
+				fmt.Printf("Wrote %s (%d bytes)\n", outputFile, len(finalOutput))
+			} else {
+				fmt.Print(finalOutput)
+			}
+
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVarP(&size, "size", "s", "", "Size preset (tiny/small/medium/large/ancient)")
-	cmd.Flags().StringVarP(&message, "message", "m", "", "Custom message to display")
+	cmd.Flags().StringVarP(&size, "size", "s", "", "Size preset: tiny/small/medium/large/ancient (default: medium)")
+	cmd.Flags().StringVarP(&message, "message", "m", "", "Message to display in the pot")
+	cmd.Flags().StringVarP(&outputFile, "output", "o", "", "Output file path (default: stdout)")
+	cmd.Flags().StringVarP(&outputFormat, "format", "f", "", "Output format: terminal/ascii/svg (default: terminal)")
+	cmd.Flags().StringVar(&fontName, "font", "", "SVG font: HersheySans1/EMSDelight/EMSCasualHand (default: HersheySans1)")
+	cmd.Flags().IntVar(&seed, "seed", 0, "Random seed for reproducible trees (default: random)")
 
 	return cmd
 }
