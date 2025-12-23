@@ -68,9 +68,21 @@ func ThunderdomeCmd() *cobra.Command {
 	var topN int
 
 	cmd := &cobra.Command{
-		Use:   "thunderdome [prompt]",
-		Short: "Orchestrate catfights across ALL hosts in parallel",
-		Long: `Two hosts enter, one model wins - THUNDERDOME!
+		Use:        "thunderdome [prompt]",
+		Short:      "Orchestrate catfights across ALL hosts in parallel",
+		Deprecated: "use 'catfight --all-hosts' instead",
+		Long: `DEPRECATED: Use 'catfight --all-hosts' instead.
+
+This command still works but will be removed in a future version.
+
+The catfight command now supports:
+  catfight --all-hosts "prompt"     # Same as thunderdome
+  catfight --hosts "a,b" "prompt"   # Specific hosts
+  catfight "prompt"                 # Localhost only (default)
+
+---
+
+Two hosts enter, one model wins - THUNDERDOME!
 
 Unlike catfight which runs sequentially, thunderdome:
 - Auto-discovers all online Ollama hosts
