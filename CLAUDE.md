@@ -236,6 +236,81 @@ When running benchmarks on new hardware:
 
 ---
 
+## The Conductor (Ubuntu25 Orchestrator)
+
+Ubuntu25 runs a lightweight **conductor agent** that can orchestrate coding tasks. Use it when you need to:
+- Generate code using the server garden's distributed compute
+- Write files to ubuntu25's workspace
+- Run git operations on ubuntu25
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  MAC LAPTOP (you are here)                                       │
+│  ┌─────────────┐         ┌──────────────────────────────────┐   │
+│  │   Claude    │ ──SSH──▶│  Ubuntu25: Conductor             │   │
+│  │   (Crush)   │         │  (llama3-groq-tool-use:8b)       │   │
+│  └─────────────┘         │  - Orchestrates tasks            │   │
+│                          │  - Writes files to /workspace    │   │
+│  ┌─────────────┐         │  - Git operations                │   │
+│  │  Ollama     │◀────────│                                  │   │
+│  │  32B models │ delegate│  Delegates heavy coding BACK     │   │
+│  │  (the beef) │─────────▶  to laptop's big GPU            │   │
+│  └─────────────┘         └──────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### How to Use the Conductor
+
+When the user asks you to create files on ubuntu25 or use the server garden:
+
+```bash
+# Simple task
+ssh ubuntu25 "cd /data/repos/workspace && python3 orchestrator.py 'Create a todo.html with add/remove functionality'"
+
+# Check what was created
+ssh ubuntu25 "ls -la /data/repos/workspace/"
+ssh ubuntu25 "cat /data/repos/workspace/todo.html"
+```
+
+### Conductor Capabilities
+
+The orchestrator on ubuntu25 has these tools:
+
+| Tool | Description |
+|------|-------------|
+| `delegate_coding(prompt, output_file)` | Generate code via mac-laptop's 32B model, auto-save to workspace |
+| `read_file(path)` | Read from workspace |
+| `write_file(path, content)` | Write to workspace |
+| `list_directory(path)` | List files |
+| `git_status()` | Check git state |
+| `git_commit(message)` | Stage and commit |
+| `git_push()` | Push to remote |
+| `task_complete(summary)` | Signal done |
+
+### When to Use the Conductor
+
+Use the conductor when:
+- User says "create on ubuntu25" or "save to the server"
+- User wants to use the server garden's distributed compute
+- Task involves writing files to `/data/repos/workspace/`
+- User explicitly asks to use the orchestrator
+
+Do NOT use the conductor for:
+- Local file operations on the laptop
+- Simple questions that don't need code generation
+- Tasks that should stay on the laptop
+
+### Workspace Location
+
+All files created by the conductor are saved to:
+```
+ubuntu25:/data/repos/workspace/
+```
+
+---
+
 ## Documentation Style
 
 - Keep documentation practical and copy-paste friendly

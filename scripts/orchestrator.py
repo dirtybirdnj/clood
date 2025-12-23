@@ -34,10 +34,13 @@ ORCHESTRATOR_MODEL = "llama3-groq-tool-use:8b"  # Best for agentic loops
 CODER_HOSTS = {
     "mac-mini": "http://192.168.4.41:11434",
     "mac-laptop": "http://192.168.4.47:11434",
-    "ubuntu25-fast": "http://localhost:8080",  # llama.cpp
+    "ubuntu25-fast": "http://localhost:8080",  # llama.cpp (OpenAI API)
+    "ubuntu25": "http://localhost:11434",      # Ollama on ubuntu25
 }
 
-CODER_MODEL = "qwen2.5-coder:7b"  # Default coding model
+# Default coder settings - can be overridden via CLI
+CODER_HOST = "mac-laptop"  # Use laptop's big GPU by default
+CODER_MODEL = "qwen2.5-coder:32b"  # Biggest coder model on laptop
 WORKSPACE = Path("/data/repos/workspace")  # Where code lives on ubuntu25
 
 # Tool definitions (OpenAI function calling format)
@@ -210,19 +213,17 @@ def execute_tool(name: str, args: dict) -> str:
         prompt = args["prompt"]
         output_file = args.get("output_file")
 
-        # Always use ubuntu25-fast (llama.cpp is 4x faster for 7B)
-        url = f"{CODER_HOSTS['ubuntu25-fast']}/v1/chat/completions"
+        # Call mac-laptop's big models for heavy coding
+        url = f"{CODER_HOSTS['mac-laptop']}/api/generate"
         payload = {
-            "messages": [
-                {"role": "system", "content": "You are an expert programmer. Output only clean, working code with no explanations."},
-                {"role": "user", "content": prompt}
-            ],
-            "max_tokens": 2000
+            "model": CODER_MODEL,  # qwen2.5-coder:32b
+            "prompt": f"You are an expert programmer. Output only clean, working code with no explanations.\n\n{prompt}",
+            "stream": False
         }
         try:
-            resp = requests.post(url, json=payload, timeout=120)
+            resp = requests.post(url, json=payload, timeout=300)  # Longer timeout for big models
             result = resp.json()
-            code = result["choices"][0]["message"]["content"]
+            code = result.get("response", "")
 
             # Strip markdown code fences if present
             if code.startswith("```"):
@@ -237,7 +238,7 @@ def execute_tool(name: str, args: dict) -> str:
 
             return code
         except Exception as e:
-            return f"Error calling llama.cpp: {e}"
+            return f"Error calling mac-laptop ({CODER_MODEL}): {e}"
 
     elif name == "task_complete":
         return f"TASK_COMPLETE: {args['summary']}"

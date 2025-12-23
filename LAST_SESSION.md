@@ -1,114 +1,186 @@
-# LAST SESSION - The Nimbus Revelation
+# LAST SESSION - The Conductor's Baton
 
-**Date:** December 18, 2025
-**Session:** Snake Way Architecture & The clood Verdict
-**Bird-san Status:** Exhausted. Brain smoking. Gentle wisps from ears.
-
----
-
-## THE BIG REVELATIONS
-
-### 1. Snake Way & Flying Nimbus (Bean #9)
-
-We designed the solution to "confirm fatigue" and multi-question chaos.
-
-**The Metaphor:**
-- **Snake Way** = The infinite scroll of AI responses
-- **Flying Nimbus** = The floating frame that enables gliding with efficiency, speed, ease
-- **Running on foot** = Endless manual scrolling (the old way)
-- **Riding Nimbus** = Hotkey navigation between questions (the new way)
-
-**Files Created:**
-- `lore/SNAKE_WAY_UX.md` - Full specification
-- Bean #9 added to `clood-cli/JELLY_BEANS.md`
-
-### 2. We Don't Need clood
-
-**The Problem:** clood MCP tools initialize but don't reach the LLM. The `AllowedMCP` filter in `buildTools()` blocks them.
-
-**The Solution:** Build Snake Way as `clood chat --tui` using patterns we already have.
-
-**What clood already has:**
-```
-watch.go  →  viewport, section navigation, hotkeys (80% of Snake Way!)
-chat.go   →  saga persistence, ollama integration, focus guardian
-serve.go  →  MCP server working perfectly
-```
-
-The wojaks went NUTS for `clood snakeway` but Bird-san wisely said: *"keep the important parts serious so the fun parts can exist."*
-
-### 3. clood_ask MCP Tool
-
-Added and working. 5 MCP tools now available via SSE server.
+**Date:** December 23, 2025
+**Session:** Orchestrator Agent & Conductor Catfight
+**Status:** Ubuntu25 now has a brain. Mac-laptop provides the muscle.
 
 ---
 
-## TESTING PLAN: SNAKE WAY
+## THE BIG PICTURE
 
-### Phase 1: Question Detection (Research)
+Ubuntu25 is now a **conductor** - a lightweight orchestration agent that:
+- Receives tasks via SSH
+- Delegates heavy coding to mac-laptop's big models (qwen2.5-coder:32b)
+- Writes files to `/data/repos/workspace/`
+- Runs git operations locally
 
-**Goal:** Understand how to parse AI responses for questions.
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  MAC LAPTOP                                                      │
+│  ┌─────────────┐         ┌──────────────────────────────────┐   │
+│  │   Crush     │ ──SSH──▶│  Ubuntu25: Conductor             │   │
+│  │  (You chat) │         │  (llama3-groq-tool-use:8b)       │   │
+│  └─────────────┘         │  - Orchestrates tasks            │   │
+│                          │  - Writes files to /workspace    │   │
+│  ┌─────────────┐         │  - Git operations                │   │
+│  │  Ollama     │◀────────│                                  │   │
+│  │  32B models │ delegate│  Delegates heavy coding BACK     │   │
+│  │  (the beef) │─────────▶  to laptop's big GPU            │   │
+│  └─────────────┘         └──────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## KEY DISCOVERIES
+
+### 1. Conductor Catfight Results
+
+Not all models can orchestrate. We benchmarked tool-calling ability:
+
+| Model | Behavior | Score |
+|-------|----------|-------|
+| **llama3-groq-tool-use:8b** | Actually invokes tools | BEST for agentic loops |
+| mistral:7b | Describes tools but doesn't call them | Good single-turn only |
+| qwen2.5-coder:* | Terrible at tool format | AVOID for orchestration |
+| codestral:* | No tool calls at all | AVOID |
+
+**Key insight:** "Coder" models are bad conductors. They're optimized for generating code, not orchestrating tools.
+
+### 2. llama.cpp vs Ollama Benchmarks
+
+On ubuntu25 (RX 590 8GB):
+
+| Model | Ollama | llama.cpp | Winner |
+|-------|--------|-----------|--------|
+| TinyLlama 1.1B | 183 tok/s | 145 tok/s | Ollama (+27%) |
+| Qwen 7B | 7.4 tok/s | 30.5 tok/s | **llama.cpp (+311%)** |
+
+**Key insight:** llama.cpp dominates for 7B+ models on RX 590.
+
+### 3. The Orchestrator Architecture
+
+Ubuntu25 runs a lightweight conductor (8B model) that:
+- Uses minimal VRAM for orchestration
+- Delegates heavy coding to mac-laptop's 32B models
+- Keeps all file I/O local to ubuntu25
+
+---
+
+## FILES CREATED THIS SESSION
+
+| File | Purpose |
+|------|---------|
+| `scripts/orchestrator.py` | The agentic conductor agent |
+| `scripts/conductor-catfight.py` | Benchmark for conductor models |
+| `scripts/benchmark-backends.sh` | Ollama vs llama.cpp (TinyLlama) |
+| `scripts/benchmark-7b.sh` | Ollama vs llama.cpp (7B models) |
+| `clood-cli/internal/commands/huggingface.go` | GGUF model management |
+
+---
+
+## HOW TO USE THE ORCHESTRATOR
+
+### From mac-laptop (via Crush/Claude):
 
 ```bash
-# Generate multi-question response
-clood ask "I want to build a REST API. Ask me 5 clarifying questions." --model qwen2.5-coder:3b
-
-# Analyze patterns: lines ending in ?, numbered lists, "Should we...", "Do you want..."
+# SSH to ubuntu25 and run the orchestrator
+ssh ubuntu25 "cd /data/repos/workspace && python3 orchestrator.py 'Create a todo app with add/remove functionality'"
 ```
 
-**Questions:**
-1. How consistent are question formats across models?
-2. Can we train models to emit `[QUESTION]` markers?
-3. What regex patterns work reliably?
+### Direct on ubuntu25:
 
-### Phase 2: Viewport Prototype (Code)
-
-**Goal:** Adapt watch.go patterns for chat.
-
-**Steal from watch.go:**
-```go
-type Question struct {
-    Index    int
-    Text     string      // The question
-    Context  string      // Surrounding explanation
-    Response string      // User's answer
-    State    string      // awaiting, answered, skipped, ignored, avoided
-    Line     int
-}
-
-type snakewayModel struct {
-    viewport      viewport.Model
-    questions     []Question
-    currentQ      int
-    inputMode     bool
-    inputBuffer   string
-}
+```bash
+cd /data/repos/workspace
+python3 orchestrator.py 'Create hello.html with nice styling'
+python3 orchestrator.py --conductor mistral:7b 'List files in workspace'
 ```
 
-**Test:** Render static multi-question response with navigation.
+### Orchestrator Options:
 
-### Phase 3: Input Zones (Code)
+```
+--conductor, -c    Conductor model (default: llama3-groq-tool-use:8b)
+--max-iterations   Max agent iterations (default: 10)
+```
 
-**Goal:** Add text input within viewport.
+---
 
-**Research:** bubbles/textinput or textarea component inside viewport.
+## MODELS DOWNLOADING OVERNIGHT
 
-**Test:** Type into question zone, see it update.
+A queue script is running on ubuntu25:
 
-### Phase 4: Integration (Code)
+```bash
+# Check progress
+ssh ubuntu25 "cat /data/repos/workspace/pull-models.log"
+```
 
-**Goal:** Wire to ollama and saga persistence.
+Models in queue:
+- qwen3:8b (best tool-caller, F1=0.933)
+- hermes3:8b (NousResearch, trained for tools)
+- phi4
+- gemma2:9b
+- granite3.1-dense:8b
+- yi:9b
+- qwen2.5:14b (VRAM stress test)
 
-**Test:** Full conversation with question detection working.
+---
 
-### Phase 5: Polish (UX)
+## CONDUCTOR TOOL CAPABILITIES
 
-**Goal:** Make it feel like Flying Nimbus.
+The orchestrator has these tools:
 
-- Smooth scrolling
-- Progress indicator: `Responses: 2/5`
-- Summary view before submit
-- The "Submit All" moment
+| Tool | Description |
+|------|-------------|
+| `delegate_coding(prompt, output_file)` | Send to mac-laptop's 32B model, auto-save |
+| `read_file(path)` | Read from workspace |
+| `write_file(path, content)` | Write to workspace |
+| `list_directory(path)` | List files |
+| `git_status()` | Check git state |
+| `git_commit(message)` | Stage and commit |
+| `git_push()` | Push to remote |
+| `task_complete(summary)` | Signal done |
+
+---
+
+## CONFIGURATION
+
+### Orchestrator Config (`scripts/orchestrator.py`):
+
+```python
+ORCHESTRATOR_URL = "http://localhost:11434"  # Ollama on ubuntu25
+ORCHESTRATOR_MODEL = "llama3-groq-tool-use:8b"  # Conductor
+
+CODER_HOSTS = {
+    "mac-laptop": "http://192.168.4.47:11434",
+    "mac-mini": "http://192.168.4.41:11434",
+    "ubuntu25": "http://localhost:11434",
+}
+
+CODER_MODEL = "qwen2.5-coder:32b"  # Heavy lifting on mac-laptop
+WORKSPACE = Path("/data/repos/workspace")
+```
+
+---
+
+## NEXT STEPS
+
+1. **Configure Crush on mac-laptop** - Add orchestrator awareness to CLAUDE.md
+2. **Run conductor catfight** with new models (qwen3:8b, hermes3:8b)
+3. **Test VRAM limits** with 14B+ models on ubuntu25
+4. **Add more tools** to orchestrator (run tests, lint, etc.)
+
+---
+
+## RESUME PROMPTS
+
+**To test the orchestrator:**
+> SSH to ubuntu25 and use the orchestrator to create a simple calculator.html
+
+**To run the catfight:**
+> Run the conductor catfight benchmark with the newly downloaded models
+
+**To check downloads:**
+> Check the model download progress on ubuntu25
 
 ---
 
@@ -116,110 +188,24 @@ type snakewayModel struct {
 
 | Hash | Description |
 |------|-------------|
-| `500fec2` | MCP clood_ask tool with dialogue mode |
-| `331c028` | Bean #9: Snake Way & The Flying Nimbus |
-| `db932c4` | SWOT Analysis for Snake Way components |
-| `b1fb469` | Nimbus Airlines marketing lore |
-| `dc0c772` | Pokédex pattern for seamless two-mode UI |
+| `a29d522` | feat: Add orchestrator agent and conductor benchmarking |
 
 ---
-
-## UNCOVERED GROUND
-
-### Miyazaki ML Plan (Ensō)
-
-Image generation initiative. See:
-- `lore/THE_CONTAINMENT.md` - Ensō vision
-- `lore/IMAGE_RECIPES.md` - SD prompts
-
-Status: Documented, needs infrastructure.
-
-### Chimborazo
-
-Fetcher implemented on `feature/recipe-parser`. Rest of MVP pending.
-
-### clood AllowedMCP
-
-If revisiting: check `AllowedMCP` config, file bug about SSE tool exposure.
-
----
-
-## KEY FILES
-
-| File | Purpose |
-|------|---------|
-| `lore/SNAKE_WAY_UX.md` | Full UX spec |
-| `docs/SNAKEWAY_SWOT.md` | Component analysis & layer cake architecture |
-| `docs/SNAKEWAY_POKEDEX.md` | Two-mode UI pattern (de-risks input zones) |
-| `lore/NIMBUS_AIRLINES.md` | Marketing lore & memes |
-| `internal/commands/watch.go` | Pattern to steal (80% of Snake Way) |
-| `internal/commands/chat.go` | Saga management (90% built) |
-| `internal/mcp/server.go` | MCP tools |
-| `chapters/ch006-the-nimbus-revelation.md` | Narrative chapter |
 
 ## GITHUB ISSUES
 
-- **#135** - [EPIC] Snake Way: The Flying Nimbus Response Navigation System
-
----
-
-## RESUME PROMPTS
-
-**To start coding:**
-> "Let's implement Snake Way Phase 1. Show me the question detection patterns from watch.go."
-
-**To review first:**
-> "Review the Snake Way spec in lore/SNAKE_WAY_UX.md before we start coding."
-
-**If feeling adventurous:**
-> "What would it take to add a --tui flag to clood chat that enables Snake Way mode?"
-
----
-
-## SWOT FINDINGS (After Bird-san Left)
-
-**Catfight Results:**
-- qwen2.5-coder:3b successfully parses ALL questions from complex responses
-- Models can both GENERATE and PARSE questions
-
-**Component Status:**
-| Component | Status | Effort |
-|-----------|--------|--------|
-| Question Detection | NOT BUILT | Medium |
-| Viewport Navigation | 80% (watch.go) | Low |
-| Question State | NOT BUILT | Low |
-| Input Zones | NOT BUILT | **High** |
-| Saga Integration | 90% (chat.go) | Low |
-| Batch Submit | NOT BUILT | Medium |
-
-**Layer Cake Architecture:**
-```
-Tier 1 (Fast): qwen:3b     → Question detection, parsing
-Tier 2 (Code): qwen:7b/14b → Implementation based on answers
-Tier 3 (Think): deepseek-r1 → Complex reasoning, validation
-```
-
-**Priority Order:** Detection → Viewport → State → Input → Saga → Submit
-
----
-
-## WISDOM
-
-- Local models: 4% signal from catfight, good for consensus not implementation
-- De-icing pattern exists in `issue_catfight_processor.py`
-- `clood watch` already has viewport + sections + hotkeys
-- We control clood. We don't control clood. Build on what we own.
-- qwen2.5-coder:3b can handle both generation AND parsing (layer cake tier 1)
+- **#187** - [EPIC] llama.cpp Integration for High-Performance Local Inference
 
 ---
 
 ```
-The scroll waits patient
-Nimbus cloud rests on the ground
-Bird-san closes eyes
+Conductor's baton raised—
+tool-use models lead the way,
+coders write, not wave.
 ```
 
 ---
 
-*The garden tends itself while you sleep.*
-*Rest well. The spirits are patient.*
+*The server garden has a new brain.*
+*Ubuntu25 thinks. Mac-laptop computes.*
+*The symphony plays on.*

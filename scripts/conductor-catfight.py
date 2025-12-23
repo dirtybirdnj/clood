@@ -25,15 +25,25 @@ OLLAMA_URLS = {
 }
 
 # Conductor candidates to test (model, host)
+# Based on Docker's tool-calling benchmark and Ollama tool support
 CONDUCTORS = [
-    ("llama3-groq-tool-use:8b", "ubuntu25"),
-    ("mistral:7b", "ubuntu25"),
-    ("qwen2.5-coder:7b", "ubuntu25"),
-    ("llama3.1:8b", "ubuntu25"),
-    # Bigger models on laptop
+    # Tier 1: Proven tool-calling performers
+    ("qwen3:8b", "ubuntu25"),           # F1=0.933 in Docker benchmark
+    ("hermes3:8b", "ubuntu25"),         # NousResearch, trained for tool-use
+    ("command-r:7b", "ubuntu25"),       # Cohere's agentic model
+    ("llama3-groq-tool-use:8b", "ubuntu25"),  # Current default
+
+    # Tier 2: General purpose with tool support
+    ("llama3.1:8b", "ubuntu25"),        # F1=0.835 in Docker benchmark
+    ("mistral:7b", "ubuntu25"),         # Good single-turn, bad multi-turn
+
+    # Tier 3: Coder models (expected to fail at orchestration)
+    ("qwen2.5-coder:7b", "ubuntu25"),   # For comparison - should be bad
+
+    # Bigger models on laptop (if available)
+    ("qwen3:14b", "mac-laptop"),        # F1=0.971 - near GPT-4!
     ("llama3-groq-tool-use:8b", "mac-laptop"),
-    ("qwen2.5-coder:14b", "mac-laptop"),
-    ("codestral:22b", "mac-laptop"),
+    ("qwen2.5-coder:32b", "mac-laptop"),
 ]
 
 # Simple tool definition for testing
