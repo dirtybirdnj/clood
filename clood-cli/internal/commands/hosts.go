@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/dirtybirdnj/clood/internal/config"
 	"github.com/dirtybirdnj/clood/internal/hosts"
@@ -17,6 +20,8 @@ func HostsCmd() *cobra.Command {
 	var jsonOutput bool
 	var gardenView bool
 	var verbose bool
+	var live bool
+	var interval int
 
 	cmd := &cobra.Command{
 		Use:   "hosts",
@@ -24,7 +29,8 @@ func HostsCmd() *cobra.Command {
 		Long: `Lists all configured Ollama hosts and checks their status.
 Shows which hosts are online, their latency, and available models.
 
-Use --garden for ASCII art visualization of the Server Garden topology.`,
+Use --garden for ASCII art visualization of the Server Garden topology.
+Use --live for continuous monitoring with auto-refresh.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			cfg, err := config.Load()
 			if err != nil {
@@ -34,6 +40,12 @@ Use --garden for ASCII art visualization of the Server Garden topology.`,
 
 			mgr := hosts.NewManager()
 			mgr.AddHosts(cfg.Hosts)
+
+			// Live monitoring mode
+			if live {
+				runLiveHostMonitor(mgr, gardenView, verbose, interval)
+				return
+			}
 
 			var statuses []*hosts.HostStatus
 
@@ -108,8 +120,80 @@ Use --garden for ASCII art visualization of the Server Garden topology.`,
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	cmd.Flags().BoolVar(&gardenView, "garden", false, "Show ASCII art garden visualization")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show all model details")
+	cmd.Flags().BoolVar(&live, "live", false, "Continuous monitoring with auto-refresh")
+	cmd.Flags().IntVar(&interval, "interval", 5, "Refresh interval in seconds (for --live)")
 
 	return cmd
+}
+
+// runLiveHostMonitor provides continuous host monitoring with auto-refresh
+func runLiveHostMonitor(mgr *hosts.Manager, gardenView bool, verbose bool, interval int) {
+	// Clear screen and hide cursor
+	fmt.Print("\033[2J\033[H\033[?25l")
+	defer fmt.Print("\033[?25h") // Show cursor on exit
+
+	// Handle Ctrl+C
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	ticker := time.NewTicker(time.Duration(interval) * time.Second)
+	defer ticker.Stop()
+
+	refresh := func() {
+		// Move cursor to top
+		fmt.Print("\033[H")
+
+		statuses := mgr.CheckAllHosts()
+		localAlias := detectLocalAlias(statuses)
+
+		if gardenView {
+			printGardenVisual(statuses, verbose)
+		} else {
+			fmt.Println(tui.RenderHeader("Ollama Hosts - LIVE"))
+			fmt.Println()
+
+			for _, status := range statuses {
+				printHostStatusWithAlias(status, localAlias)
+			}
+
+			// Summary
+			online := 0
+			totalModels := 0
+			for _, s := range statuses {
+				if s.Online {
+					if localAlias != "" && s.Host.Name == "localhost" {
+						continue
+					}
+					online++
+					totalModels += len(s.Models)
+				}
+			}
+			fmt.Println()
+			fmt.Printf("  %s %d/%d hosts online, %d models\n",
+				tui.MutedStyle.Render("Summary:"),
+				online, len(statuses), totalModels)
+		}
+
+		fmt.Println()
+		fmt.Printf("  %s Refreshing every %ds | Press Ctrl+C to exit\n",
+			tui.MutedStyle.Render(""),
+			interval)
+		fmt.Print("\033[J") // Clear to end of screen
+	}
+
+	// Initial refresh
+	refresh()
+
+	// Loop until interrupted
+	for {
+		select {
+		case <-ticker.C:
+			refresh()
+		case <-sigChan:
+			fmt.Println("\n  Stopped.")
+			return
+		}
+	}
 }
 
 // detectLocalAlias checks if localhost is the same Ollama instance as a named host
