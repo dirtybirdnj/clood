@@ -134,6 +134,9 @@ func (s *Server) registerTools() {
 
 	// WHOAMI: Garden identity
 	s.mcpServer.AddTool(s.whoamiTool(), s.whoamiHandler)
+
+	// DELEGATE: Task delegation to remote hosts
+	s.mcpServer.AddTool(s.delegateTool(), s.delegateHandler)
 }
 
 // =============================================================================
@@ -2327,4 +2330,146 @@ func (s *Server) whoamiHandler(ctx context.Context, req mcp.CallToolRequest) (*m
 	}
 
 	return mcp.NewToolResultText(whoamiSb.String()), nil
+}
+
+// =============================================================================
+// DELEGATE: Task delegation to remote hosts
+// =============================================================================
+
+func (s *Server) delegateTool() mcp.Tool {
+	return mcp.NewTool("clood_delegate",
+		mcp.WithDescription(`🤖 Delegate a task to a remote LLM agent in the server garden.
+
+Unlike clood_ask which runs a raw prompt, delegate is task-oriented:
+- Routes to specific hosts by name
+- Supports agent roles (reviewer, coder, analyst, documenter)
+- Returns structured results with metadata
+
+Use this to distribute work across the server garden during Chimborazo experiments.
+
+Examples:
+- "Review this code for bugs" → delegate to reviewer agent
+- "Generate unit tests" → delegate to coder agent on ubuntu25
+- "Summarize this function" → delegate to analyst on mac-mini`),
+		mcp.WithString("task", mcp.Required(), mcp.Description("The task to delegate")),
+		mcp.WithString("host", mcp.Description("Target host (e.g., 'ubuntu25', 'mac-mini'). If not specified, uses best available.")),
+		mcp.WithString("agent", mcp.Description("Agent role: reviewer, coder, analyst, documenter. Each has specialized system prompts.")),
+		mcp.WithString("model", mcp.Description("Model to use (e.g., 'qwen2.5-coder:7b'). If not specified, uses agent default or tier config.")),
+		mcp.WithString("context", mcp.Description("Additional context to include with the task (e.g., code snippet, file content)")),
+	)
+}
+
+func (s *Server) delegateHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+	task, _ := args["task"].(string)
+	hostName, _ := args["host"].(string)
+	agentName, _ := args["agent"].(string)
+	model, _ := args["model"].(string)
+	contextStr, _ := args["context"].(string)
+
+	if task == "" {
+		return mcp.NewToolResultError("task is required"), nil
+	}
+
+	// Load config
+	cfg, err := config.Load()
+	if err != nil {
+		return mcp.NewToolResultError("Error loading config: " + err.Error()), nil
+	}
+
+	// Setup host manager
+	mgr := hosts.NewManager()
+	mgr.AddHosts(cfg.Hosts)
+
+	// Find host
+	var targetHost *hosts.Host
+	if hostName != "" {
+		targetHost = mgr.GetHost(hostName)
+		if targetHost == nil {
+			return mcp.NewToolResultError("Host not found: " + hostName), nil
+		}
+	} else {
+		best := mgr.GetBestHost()
+		if best == nil {
+			return mcp.NewToolResultError("No hosts available"), nil
+		}
+		targetHost = best.Host
+		hostName = targetHost.Name
+	}
+
+	status := mgr.CheckHost(targetHost)
+	if !status.Online {
+		return mcp.NewToolResultError("Host is offline: " + hostName), nil
+	}
+
+	// Get client
+	client := mgr.GetClient(hostName)
+	if client == nil {
+		return mcp.NewToolResultError("Could not get client for host: " + hostName), nil
+	}
+
+	// Build system prompt based on agent
+	var systemPrompt string
+	switch agentName {
+	case "reviewer":
+		systemPrompt = "You are a code review specialist. Analyze code for bugs, security issues, and improvements. Be concise and actionable."
+	case "coder":
+		systemPrompt = "You are a code generation specialist. Write clean, efficient code. Include comments where helpful."
+	case "analyst":
+		systemPrompt = "You are a code analysis specialist. Explain code behavior, identify patterns, and provide insights."
+	case "documenter":
+		systemPrompt = "You are a documentation specialist. Write clear, helpful documentation for code and APIs."
+	default:
+		systemPrompt = "You are a helpful AI assistant."
+	}
+
+	// Select model
+	if model == "" {
+		model = cfg.Tiers.Fast.Model
+		// Verify model exists on host
+		hasModel := false
+		for _, m := range status.Models {
+			if m.Name == model {
+				hasModel = true
+				break
+			}
+		}
+		if !hasModel && len(status.Models) > 0 {
+			model = status.Models[0].Name
+		}
+	}
+
+	// Build prompt with context
+	var fullPrompt strings.Builder
+	if contextStr != "" {
+		fullPrompt.WriteString("Context:\n")
+		fullPrompt.WriteString(contextStr)
+		fullPrompt.WriteString("\n\n")
+	}
+	fullPrompt.WriteString("Task: ")
+	fullPrompt.WriteString(task)
+
+	// Execute
+	start := time.Now()
+	resp, err := client.GenerateWithSystem(model, systemPrompt, fullPrompt.String())
+	duration := time.Since(start)
+
+	if err != nil {
+		return mcp.NewToolResultError("Delegation failed: " + err.Error()), nil
+	}
+
+	// Build result
+	var result strings.Builder
+	result.WriteString("🤖 DELEGATION RESULT\n")
+	result.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+	result.WriteString(resp.Response)
+	result.WriteString("\n\n")
+	result.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	if agentName != "" {
+		result.WriteString(fmt.Sprintf("Agent: %s | ", agentName))
+	}
+	result.WriteString(fmt.Sprintf("Model: %s | Host: %s | Time: %.1fs | Tokens: %d\n",
+		model, hostName, duration.Seconds(), resp.EvalCount))
+
+	return mcp.NewToolResultText(result.String()), nil
 }
