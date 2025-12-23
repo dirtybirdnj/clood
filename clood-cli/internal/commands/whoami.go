@@ -19,6 +19,8 @@ type GardenIdentity struct {
 	Hostname     string        `json:"hostname"`
 	LoreName     string        `json:"lore_name"`
 	Role         string        `json:"role"`
+	Topology     string        `json:"topology"`      // "standalone" or "garden"
+	OnlineHosts  int           `json:"online_hosts"`  // Count of reachable hosts including self
 	IP           string        `json:"ip,omitempty"`
 	OllamaOnline bool          `json:"ollama_online"`
 	Models       []string      `json:"models"`
@@ -145,15 +147,31 @@ func getGardenIdentity(verbose bool) *GardenIdentity {
 	mgr.AddHosts(hosts.DefaultHosts())
 	statuses := mgr.CheckAllHosts()
 
+	onlineCount := 0
+	if identity.OllamaOnline {
+		onlineCount = 1 // Count self
+	}
+
 	for _, s := range statuses {
 		if s.Host.Name == "localhost" || strings.EqualFold(s.Host.Name, hostname) {
 			continue
+		}
+		if s.Online {
+			onlineCount++
 		}
 		identity.Siblings = append(identity.Siblings, SiblingInfo{
 			Name:   s.Host.Name,
 			Online: s.Online,
 			Models: len(s.Models),
 		})
+	}
+
+	// Determine topology
+	identity.OnlineHosts = onlineCount
+	if onlineCount <= 1 {
+		identity.Topology = "standalone"
+	} else {
+		identity.Topology = "garden"
 	}
 
 	return identity
@@ -174,6 +192,18 @@ func printIdentity(identity *GardenIdentity, verbose bool) {
 		emoji,
 		tui.AccentStyle.Render(identity.LoreName),
 		identity.Hostname)
+
+	// Topology indicator
+	if identity.Topology == "standalone" {
+		fmt.Printf("     %s %s\n",
+			tui.MutedStyle.Render("Mode:"),
+			"standalone")
+	} else {
+		fmt.Printf("     %s %s (%d hosts)\n",
+			tui.MutedStyle.Render("Mode:"),
+			tui.AccentStyle.Render("garden"),
+			identity.OnlineHosts)
+	}
 
 	fmt.Printf("     %s %s\n",
 		tui.MutedStyle.Render("Role:"),
