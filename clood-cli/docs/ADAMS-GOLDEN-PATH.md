@@ -1,183 +1,219 @@
 # Adam's Golden Path
 
-Windows setup guide for the Wojak power user. You have the hardware. You have the models. Now you need the ninjitsu.
-
-## Prerequisites
-
-- Windows 10/11
-- Ollama installed and running
-- Models already downloaded
-- Command line access (PowerShell or CMD)
-
-## Step 1: Install Go
-
-```powershell
-# Option A: winget (recommended)
-winget install GoLang.Go
-
-# Option B: Download from https://go.dev/dl/
-# Get the .msi installer, run it, accept defaults
-```
-
-After install, **restart your terminal** (important!), then verify:
-
-```powershell
-go version
-# Should show: go version go1.21.x windows/amd64
-```
-
-## Step 2: Clone and Build
-
-```powershell
-# Clone the repo
-git clone https://github.com/dirtybirdnj/clood.git
-cd clood/clood-cli
-
-# Build it
-go build -o clood.exe ./cmd/clood
-
-# Verify it works
-.\clood.exe --help
-```
-
-## Step 3: Configure Your Host
-
-Create config file at `%USERPROFILE%\.config\clood\config.yaml`:
-
-```yaml
-hosts:
-  - name: localhost
-    url: http://localhost:11434
-```
-
-Test it:
-
-```powershell
-.\clood.exe hosts
-# Should show localhost as online
-```
-
-## Step 4: First Catfight
-
-```powershell
-# List your models
-.\clood.exe models
-
-# Run a simple test
-.\clood.exe catfight -m "qwen2.5-coder:7b" -m "llama3.1:8b" "Write fizzbuzz in Python"
-```
-
-## Reporting Your Hardware
-
-**DO NOT commit hardware specs to the repo.**
-
-Instead, create a GitHub issue:
-
-1. Go to: https://github.com/dirtybirdnj/clood/issues/new
-2. Title: `Hardware Profile: [your-hostname]`
-3. Label: `hardware-profile`
-4. Include:
-   - GPU model and VRAM
-   - RAM
-   - CPU
-   - Which models you have downloaded
-
-This keeps your info in issues (searchable, commentable) not in the codebase.
-
-### Quick Hardware Check
-
-```powershell
-# GPU info
-nvidia-smi
-
-# Or for the lazy
-nvidia-smi --query-gpu=name,memory.total --format=csv
-```
-
-## Your Secret Weapon: VRAM
-
-With 32GB+ VRAM, you can run models others can't:
-
-| Model | VRAM Needed | Your Status |
-|-------|-------------|-------------|
-| qwen2.5-coder:7b | ~5GB | Easy |
-| llama3.1:8b | ~6GB | Easy |
-| qwen2.5-coder:14b | ~10GB | Easy |
-| deepseek-coder:33b | ~20GB | Possible |
-| llama3.1:70b-q4 | ~40GB | Maybe? |
-
-You're in "big model" territory. Test the limits.
-
-## Image Gen Workloads
-
-Your VRAM makes you ideal for Stable Diffusion workloads. Coming soon:
-
-- `clood sd` commands for image generation
-- Model output catalog: same prompt, different models, compare results
-- Batch processing for prompt variations
-
-For now, focus on getting clood working with Ollama. Image gen integration is a future jelly bean.
-
-## Model Output Catalog
-
-The vision: run the same prompt against multiple models, save all outputs, compare.
-
-```powershell
-# Future command (not implemented yet)
-clood catalog run "Explain recursion" --models qwen2.5-coder:7b,llama3.1:8b,deepseek-coder:6.7b
-
-# Saves to:
-# catalog/
-#   2025-12-18_explain-recursion/
-#     qwen2.5-coder-7b.md
-#     llama3.1-8b.md
-#     deepseek-coder-6.7b.md
-#     summary.md
-```
-
-For now, use catfight and manually save interesting outputs.
-
-## Quick Reference
-
-```powershell
-# Check what's running
-.\clood.exe health
-
-# See your models
-.\clood.exe models
-
-# System info
-.\clood.exe system
-
-# Run a catfight
-.\clood.exe catfight -m model1 -m model2 "your prompt"
-
-# Get JSON output (for scripting)
-.\clood.exe models --json
-```
-
-## Troubleshooting
-
-**"go: command not found"**
-- Restart your terminal after installing Go
-- Check PATH: `echo $env:PATH` should include Go
-
-**"connection refused"**
-- Is Ollama running? Check: `ollama list`
-- Firewall blocking localhost:11434?
-
-**Build errors**
-- Run `go mod tidy` in the clood-cli directory
-- Make sure you're in the right folder
-
-## Next Steps
-
-1. Get clood building and running
-2. Create your hardware profile issue
-3. Run some catfights
-4. Report back what works, what doesn't
-5. Prepare for image gen workloads
+Step-by-step guide to get clood running on your Windows workstation.
 
 ---
 
-*The garden grows. Your VRAM is the soil.*
+## What You Need First
+
+Before starting, make sure you have:
+
+1. **Ollama installed** - Download from [ollama.ai/download](https://ollama.ai/download)
+2. **NVIDIA drivers** - Your GPU should be working (you probably already have this)
+3. **At least one AI model** - We'll do this in Step 2
+
+---
+
+## Step 1: Get clood
+
+**Option A: Download Pre-built (Easier)**
+
+1. Go to: https://github.com/dirtybirdnj/clood/releases
+2. Download `clood-windows-amd64.exe`
+3. Rename it to `clood.exe`
+4. Put it somewhere you'll remember (like `C:\Tools\clood.exe`)
+
+**Option B: Build It Yourself**
+
+Open PowerShell and run these commands one at a time:
+
+```powershell
+# Install Go (the programming language clood is written in)
+winget install GoLang.Go
+```
+
+**IMPORTANT: Close PowerShell and open a new one after installing Go.**
+
+Then continue:
+
+```powershell
+# Download the clood source code
+git clone https://github.com/dirtybirdnj/clood.git
+
+# Go into the folder
+cd clood\clood-cli
+
+# Build it
+go build -o clood.exe .\cmd\clood
+
+# Check it worked
+.\clood.exe --version
+```
+
+---
+
+## Step 2: Pull Some AI Models
+
+Open a PowerShell window and run:
+
+```powershell
+# A small fast model (good for quick tests)
+ollama pull qwen2.5-coder:3b
+
+# A medium model (good balance)
+ollama pull qwen2.5-coder:7b
+
+# A larger model (slower but smarter)
+ollama pull llama3.1:8b
+```
+
+Wait for each one to download. They're big files, might take a few minutes each.
+
+---
+
+## Step 3: Run Setup
+
+Navigate to wherever you put clood.exe, then run:
+
+```powershell
+.\clood.exe setup
+```
+
+This will:
+- Detect your hardware (GPU, memory, etc.)
+- Find Ollama and your models
+- Create a config file
+
+---
+
+## Step 4: Verify Everything Works
+
+Run the doctor command:
+
+```powershell
+.\clood.exe doctor
+```
+
+This checks:
+- Is your GPU detected?
+- Is Ollama running?
+- Are your models available?
+
+If something's wrong, it tells you exactly how to fix it.
+
+---
+
+## Step 5: Try It Out
+
+Now the fun part. Run some commands:
+
+```powershell
+# Ask a question
+.\clood.exe ask "What is the capital of France?"
+
+# See your system info
+.\clood.exe system
+
+# List your models
+.\clood.exe models
+
+# Compare two models on the same question
+.\clood.exe catfight "Write a short poem about computers"
+```
+
+---
+
+## Common Commands Cheat Sheet
+
+| Command | What It Does |
+|---------|--------------|
+| `.\clood.exe ask "question"` | Ask the AI something |
+| `.\clood.exe models` | List your downloaded models |
+| `.\clood.exe system` | Show your hardware info |
+| `.\clood.exe doctor` | Check if everything is working |
+| `.\clood.exe catfight "prompt"` | Compare multiple models |
+| `.\clood.exe --help` | Show all available commands |
+
+---
+
+## Troubleshooting
+
+### "clood.exe is not recognized"
+
+You need to run it from the folder where clood.exe lives:
+
+```powershell
+cd C:\Tools  # or wherever you put it
+.\clood.exe --help
+```
+
+### "Cannot connect to Ollama"
+
+1. Look in your system tray (bottom right of screen) for the Ollama icon
+2. If it's not there, open Ollama from your Start menu
+3. Try running: `ollama list` - if this works, Ollama is running
+
+### "No GPU detected"
+
+1. Open a command prompt and run: `nvidia-smi`
+2. If that doesn't work, you need to install/update NVIDIA drivers
+3. After updating drivers, restart your computer
+
+### Something else is broken
+
+Run this and send me the output:
+
+```powershell
+.\clood.exe doctor -v
+```
+
+---
+
+## Your Hardware Advantage
+
+With your beefy GPU (32GB+ VRAM), you can run bigger models than most people:
+
+| Model | Difficulty for You |
+|-------|-------------------|
+| qwen2.5-coder:3b | Trivial |
+| qwen2.5-coder:7b | Easy |
+| llama3.1:8b | Easy |
+| deepseek-r1:14b | Easy |
+| qwen2.5-coder:14b | Easy |
+| codestral:22b | Doable |
+
+Want to try a bigger model? Just run:
+
+```powershell
+ollama pull codestral:22b
+```
+
+---
+
+## What's Different for You
+
+You have ONE machine. Bird-san has THREE machines networked together (the "server garden").
+
+For you, everything is simpler:
+- All commands run locally
+- No need for network configuration
+- `catfight` compares models on YOUR machine
+
+Commands like `thunderdome`, `delegate`, and `hosts` exist for multi-machine setups. You can ignore them - your single powerful machine does everything locally.
+
+---
+
+## Report Back
+
+After you get it working, let me know:
+
+1. What GPU you have
+2. How much VRAM
+3. Which models you tried
+4. Any issues you ran into
+
+You can create an issue at: https://github.com/dirtybirdnj/clood/issues/new
+
+---
+
+*Your machine. Your models. Your rules.*

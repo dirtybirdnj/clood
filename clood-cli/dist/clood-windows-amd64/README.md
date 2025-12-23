@@ -1,63 +1,83 @@
-# clood Quickstart - Windows
+# clood for Windows
 
 Lightning in a Bottle - Local LLM Infrastructure
 
 ## Quick Start
-
-### Option 1: PowerShell (Recommended)
 
 ```powershell
 # 1. Install Ollama from https://ollama.ai/download
 
 # 2. Start Ollama (runs in system tray)
 
-# 3. Run setup wizard
+# 3. Pull at least one model
+ollama pull qwen2.5-coder:7b
+
+# 4. Run setup wizard
 .\clood.exe setup
 
-# 4. Verify installation
-.\clood.exe verify
+# 5. Verify installation
+.\clood.exe doctor
 ```
 
-### Option 2: Command Prompt
+## Single-Machine vs Multi-Machine
 
-```cmd
-REM 1. Install Ollama from https://ollama.ai/download
+**Single Machine (Most Users)**
+- Just you and your GPU
+- Only `localhost` in config
+- All commands work locally
+- This is the default setup
 
-REM 2. Start Ollama (runs in system tray)
+**Multi-Machine (Server Garden)**
+- Multiple networked machines
+- Distributed model inference
+- Requires additional configuration
+- See full docs for details
 
-REM 3. Run setup wizard
-clood.exe setup
+## NVIDIA GPU Detection
 
-REM 4. Verify installation
-clood.exe verify
-```
-
-## NVIDIA GPU Users
-
-clood automatically detects your GPU via nvidia-smi. Ensure you have:
+clood automatically detects your GPU via `nvidia-smi`. Ensure you have:
 - NVIDIA GeForce/RTX drivers installed
-- nvidia-smi in your PATH (usually installed with drivers)
+- `nvidia-smi` in your PATH (usually installed with drivers)
 
 Check GPU detection:
 ```powershell
 .\clood.exe system
 ```
 
-## Configuration Location
+## Configuration
 
 Config file: `%APPDATA%\clood\config.yaml`
 
-## First Commands
+Default (single-machine):
+```yaml
+hosts:
+  - name: localhost
+    url: http://localhost:11434
+
+tiers:
+  fast:
+    model: qwen2.5-coder:3b
+  deep:
+    model: qwen2.5-coder:7b
+```
+
+## Essential Commands
 
 ```powershell
-# Check your system
+# System diagnostics
 .\clood.exe doctor
 
-# Run a catfight (model comparison)
-.\clood.exe catfight "Write a hello world in Go"
+# Hardware info
+.\clood.exe system
+
+# Available models
+.\clood.exe models
 
 # Ask a question
-.\clood.exe ask "What is the best way to handle errors in Go?"
+.\clood.exe ask "Explain recursion"
+
+# Compare models
+.\clood.exe catfight "Write hello world in Go"
 ```
 
 ## Troubleshooting
@@ -68,13 +88,15 @@ Add the clood directory to your PATH, or run from the directory containing clood
 ### "Cannot connect to Ollama"
 1. Ensure Ollama is running (check system tray)
 2. Try: `ollama serve` in a terminal
+3. Test: `curl http://localhost:11434/api/version`
 
 ### "No GPU detected"
 1. Ensure NVIDIA drivers are installed
 2. Check: `nvidia-smi` in command prompt
+3. Restart Ollama after driver updates
 
 ## Need Help?
 
-- `clood.exe --help` - Full documentation
-- `clood.exe doctor` - System diagnostics
+- `.\clood.exe --help` - Full command list
+- `.\clood.exe doctor -v` - Detailed diagnostics
 - https://github.com/dirtybirdnj/clood
