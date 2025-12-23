@@ -80,6 +80,7 @@ func CatfightCmd() *cobra.Command {
 	var outputDir string
 	var host string
 	var hostNames string
+	var allHosts bool
 	var quiet bool
 	var jsonOutput bool
 	var markdownOutput bool
@@ -90,32 +91,39 @@ func CatfightCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "catfight [prompt]",
-		Short: "Run multiple models against the same prompt (Kitchen Stadium style)",
-		Long: `Release the cats! Run multiple LLMs against the same prompt and compare outputs.
+		Short: "Compare multiple models on the same prompt",
+		Long: `Compare multiple LLM models against the same prompt.
 
-Default cats (proven performers):
-  Persian  - deepseek-coder:6.7b (reigning champion)
-  Tabby    - mistral:7b
-  Siamese  - qwen2.5-coder:3b
+SINGLE MACHINE (default):
+  Runs on localhost. Perfect for standalone workstations.
 
-Two-Kitchen Mode:
-  Use --hosts to run across multiple machines (e.g., ubuntu25,mac-mini)
-  Use --cross-host to compare same model on different hardware
+MULTI-HOST OPTIONS:
+  --host URL        Run on a specific Ollama instance
+  --hosts "a,b"     Run on specific named hosts from config
+  --all-hosts       Run on ALL online hosts in parallel (garden mode)
+
+MODELS:
+  Default: qwen2.5-coder:3b, mistral:7b, deepseek-coder:6.7b
+  Override with --models "model1,model2,model3"
 
 Examples:
-  clood catfight "Write a hello world in Go"
+  # Single machine (default)
+  clood catfight "Write hello world in Go"
   clood catfight -f prompt.txt
-  clood catfight --models "llama3.1:8b,mistral:7b" "Explain recursion"
-  clood catfight -o /tmp/battle3 -f battle3_prompt.txt
-  clood catfight --stream "Write a haiku"
+  clood catfight --models "llama3.1:8b,qwen2.5-coder:7b" "Explain recursion"
 
-  # Two-Kitchen Showdown
-  clood catfight --hosts "ubuntu25,mac-mini" --models "qwen2.5-coder:3b" --cross-host "prompt"
-  clood catfight --hosts "ubuntu25,mac-mini" --json -f prompt.txt
+  # Specific host
+  clood catfight --host http://192.168.1.100:11434 "prompt"
+
+  # Multiple specific hosts
+  clood catfight --hosts "mac-mini,ubuntu25" "prompt"
+
+  # All online hosts (garden mode)
+  clood catfight --all-hosts "Write fizzbuzz"
+  clood catfight --all-hosts --json -f prompt.txt
 
   # Post results to GitHub issue
-  clood catfight --issue "Compare sorting algorithms"
-  clood catfight --issue --labels "catfight,benchmark" "Write fizzbuzz"`,
+  clood catfight --issue "Compare sorting algorithms"`,
 		Run: func(cmd *cobra.Command, args []string) {
 			// Get the prompt
 			var prompt string
@@ -159,7 +167,38 @@ Examples:
 			}
 			var hostClients []hostClient
 
-			if hostNames != "" {
+			if allHosts {
+				// Garden mode: discover and use ALL online hosts
+				cfg, err := config.Load()
+				if err != nil {
+					fmt.Fprintln(os.Stderr, tui.ErrorStyle.Render("Error loading config: "+err.Error()))
+					return
+				}
+				mgr := hosts.NewManager()
+				mgr.AddHosts(cfg.Hosts)
+				// Also add default hosts for discovery
+				mgr.AddHosts(hosts.DefaultHosts())
+
+				statuses := mgr.CheckAllHosts()
+				for _, s := range statuses {
+					if s.Online && len(s.Models) > 0 {
+						hostClients = append(hostClients, hostClient{
+							name:   s.Host.Name,
+							url:    s.Host.URL,
+							client: mgr.GetClient(s.Host.Name),
+						})
+					}
+				}
+
+				if len(hostClients) == 0 {
+					fmt.Fprintln(os.Stderr, tui.ErrorStyle.Render("No online hosts found. Check 'clood hosts' for status."))
+					return
+				}
+
+				if !jsonOutput && !markdownOutput {
+					fmt.Printf("%s Garden mode: %d hosts online\n", tui.AccentStyle.Render("🌿"), len(hostClients))
+				}
+			} else if hostNames != "" {
 				// Multi-host mode: use named hosts from config
 				cfg, err := config.Load()
 				if err != nil {
@@ -190,7 +229,7 @@ Examples:
 					client: ollama.NewClient(host, 5*time.Minute),
 				})
 			} else {
-				// Default: localhost
+				// Default: localhost only
 				hostClients = append(hostClients, hostClient{
 					name:   "localhost",
 					url:    "http://localhost:11434",
@@ -564,17 +603,18 @@ Examples:
 	}
 
 	cmd.Flags().StringVarP(&promptFile, "file", "f", "", "Read prompt from file")
-	cmd.Flags().StringVarP(&models, "models", "m", "", "Comma-separated list of models (default: persian,tabby,siamese)")
+	cmd.Flags().StringVarP(&models, "models", "m", "", "Comma-separated list of models to compare")
 	cmd.Flags().StringVarP(&outputDir, "output", "o", "", "Directory to save outputs")
-	cmd.Flags().StringVarP(&host, "host", "H", "", "Ollama host URL (default: http://localhost:11434)")
-	cmd.Flags().StringVar(&hostNames, "hosts", "", "Comma-separated host names from config (e.g., ubuntu25,mac-mini)")
+	cmd.Flags().StringVarP(&host, "host", "H", "", "Ollama host URL (single host)")
+	cmd.Flags().StringVar(&hostNames, "hosts", "", "Comma-separated host names (e.g., ubuntu25,mac-mini)")
+	cmd.Flags().BoolVar(&allHosts, "all-hosts", false, "Run on ALL online hosts in parallel (garden mode)")
 	cmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "Don't show prompt preview")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output results as JSON")
-	cmd.Flags().BoolVar(&markdownOutput, "markdown", false, "Output results as Markdown (for PRs)")
-	cmd.Flags().BoolVar(&crossHost, "cross-host", false, "Compare same model across multiple hosts")
-	cmd.Flags().BoolVarP(&streamOutput, "stream", "s", false, "Show live progress spinner during generation")
-	cmd.Flags().BoolVar(&createIssue, "issue", false, "Create a GitHub issue with the results")
-	cmd.Flags().StringVar(&issueLabels, "labels", "", "Comma-separated labels for the GitHub issue (requires --issue)")
+	cmd.Flags().BoolVar(&markdownOutput, "markdown", false, "Output results as Markdown")
+	cmd.Flags().BoolVar(&crossHost, "cross-host", false, "Compare same model across hosts")
+	cmd.Flags().BoolVarP(&streamOutput, "stream", "s", false, "Show live progress during generation")
+	cmd.Flags().BoolVar(&createIssue, "issue", false, "Create GitHub issue with results")
+	cmd.Flags().StringVar(&issueLabels, "labels", "", "Labels for GitHub issue (requires --issue)")
 
 	return cmd
 }
