@@ -122,6 +122,7 @@ func main() {
 	// 🤖 AI-POWERED TOOLS
 	// ═══════════════════════════════════════════════════════════════
 	addWithGroup(rootCmd, commands.AnalyzeCmd(), GroupAIPowered)
+	addWithGroup(rootCmd, commands.DiagnoseCmd(), GroupAIPowered)
 	addWithGroup(rootCmd, commands.CommitMsgCmd(), GroupAIPowered)
 	addWithGroup(rootCmd, commands.ReviewPRCmd(), GroupAIPowered)
 	addWithGroup(rootCmd, commands.GenerateTestsCmd(), GroupAIPowered)
