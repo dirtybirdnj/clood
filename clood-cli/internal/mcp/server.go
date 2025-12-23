@@ -23,6 +23,7 @@ import (
 	"github.com/dirtybirdnj/clood/internal/git"
 	"github.com/dirtybirdnj/clood/internal/hosts"
 	"github.com/dirtybirdnj/clood/internal/inception"
+	"github.com/dirtybirdnj/clood/internal/ollama"
 	"github.com/dirtybirdnj/clood/internal/memory"
 	"github.com/dirtybirdnj/clood/internal/sqlite"
 	"github.com/dirtybirdnj/clood/internal/system"
@@ -130,6 +131,9 @@ func (s *Server) registerTools() {
 
 	// THUNDERDOME: Parallel multi-host catfights
 	s.mcpServer.AddTool(s.thunderdomeTool(), s.thunderdomeHandler)
+
+	// WHOAMI: Garden identity
+	s.mcpServer.AddTool(s.whoamiTool(), s.whoamiHandler)
 }
 
 // =============================================================================
@@ -2214,4 +2218,113 @@ func (s *Server) thunderdomeHandler(ctx context.Context, req mcp.CallToolRequest
 		thunderResult.Summary.TotalRuns, thunderResult.Summary.OnlineHosts, thunderResult.Summary.ParallelFactor))
 
 	return mcp.NewToolResultText(sb.String()), nil
+}
+
+// =============================================================================
+// WHOAMI TOOL - Garden identity
+// =============================================================================
+
+func (s *Server) whoamiTool() mcp.Tool {
+	return mcp.NewTool("clood_whoami",
+		mcp.WithDescription(`🌿 Identify which machine you're on in the server garden.
+
+Returns:
+- Hostname and lore name (e.g., "Iron Keep")
+- Role (commander/sentinel/worker)
+- Local Ollama status and model count
+- Sibling hosts and their status
+
+Use this to understand your current context in a multi-machine setup.
+Cost: ZERO network for local info, fast pings for siblings.`),
+		mcp.WithBoolean("verbose", mcp.Description("Show detailed hardware and model list")),
+	)
+}
+
+func (s *Server) whoamiHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+	verbose := false
+	if v, ok := args["verbose"].(bool); ok {
+		verbose = v
+	}
+
+	// Get hostname
+	hostname, _ := os.Hostname()
+	hostname = strings.ToLower(strings.Split(hostname, ".")[0])
+
+	// Lore names map
+	loreNames := map[string]struct {
+		Name   string
+		Spirit string
+	}{
+		"ubuntu25":         {"Iron Keep", "Heavy lifting, background processing, the patient work."},
+		"mac-mini":         {"Sentinel Tower", "Always watching, always ready."},
+		"macbook-air":      {"Jade Palace", "Mobile command, agile decisions."},
+		"mgilberts-air":    {"Jade Palace", "Mobile command, agile decisions."},
+		"mgilberts-laptop": {"Jade Palace", "Mobile command, agile decisions."},
+	}
+
+	loreName := hostname
+	spirit := "A node in the garden."
+	if lore, ok := loreNames[hostname]; ok {
+		loreName = lore.Name
+		spirit = lore.Spirit
+	}
+
+	// Determine role
+	role := "node"
+	switch {
+	case strings.Contains(hostname, "ubuntu"):
+		role = "worker"
+	case strings.Contains(hostname, "mini"):
+		role = "sentinel"
+	case strings.Contains(hostname, "air") || strings.Contains(hostname, "laptop"):
+		role = "commander"
+	}
+
+	// Check local Ollama
+	client := ollama.NewClient("http://localhost:11434", 10e9)
+	models, err := client.ListModels()
+	ollamaOnline := err == nil
+	modelCount := len(models)
+
+	// Check siblings
+	mgr := hosts.NewManager()
+	mgr.AddHosts(hosts.DefaultHosts())
+	statuses := mgr.CheckAllHosts()
+
+	var whoamiSb strings.Builder
+	whoamiSb.WriteString("🌿 GARDEN IDENTITY\n")
+	whoamiSb.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+	whoamiSb.WriteString(fmt.Sprintf("Machine:  %s (%s)\n", loreName, hostname))
+	whoamiSb.WriteString(fmt.Sprintf("Role:     %s\n", role))
+
+	if ollamaOnline {
+		whoamiSb.WriteString(fmt.Sprintf("Ollama:   ● Online (%d models)\n", modelCount))
+	} else {
+		whoamiSb.WriteString("Ollama:   ○ Offline\n")
+	}
+
+	// Siblings
+	whoamiSb.WriteString("\nSiblings:\n")
+	for _, s := range statuses {
+		if s.Host.Name == "localhost" || strings.EqualFold(s.Host.Name, hostname) {
+			continue
+		}
+		if s.Online {
+			whoamiSb.WriteString(fmt.Sprintf("  ● %s (%d models)\n", s.Host.Name, len(s.Models)))
+		} else {
+			whoamiSb.WriteString(fmt.Sprintf("  ○ %s (offline)\n", s.Host.Name))
+		}
+	}
+
+	whoamiSb.WriteString(fmt.Sprintf("\nSpirit:   \"%s\"\n", spirit))
+
+	if verbose && ollamaOnline {
+		whoamiSb.WriteString("\nModels:\n")
+		for _, m := range models {
+			whoamiSb.WriteString(fmt.Sprintf("  • %s\n", m.Name))
+		}
+	}
+
+	return mcp.NewToolResultText(whoamiSb.String()), nil
 }
