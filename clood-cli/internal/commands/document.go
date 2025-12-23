@@ -1,0 +1,349 @@
+package commands
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/dirtybirdnj/clood/internal/hosts"
+	"github.com/dirtybirdnj/clood/internal/ollama"
+	"github.com/dirtybirdnj/clood/internal/output"
+	"github.com/dirtybirdnj/clood/internal/tui"
+	"github.com/spf13/cobra"
+)
+
+// DocumentOutput is the JSON output structure
+type DocumentOutput struct {
+	Timestamp     string   `json:"timestamp"`
+	Path          string   `json:"path"`
+	FilesAnalyzed int      `json:"files_analyzed"`
+	Documentation string   `json:"documentation"`
+	Model         string   `json:"model"`
+	Duration      float64  `json:"duration_sec"`
+	ContextFiles  []string `json:"context_files,omitempty"`
+}
+
+func DocumentCmd() *cobra.Command {
+	var model string
+	var withContext string
+	var format string
+	var readme bool
+	var onboarding bool
+
+	cmd := &cobra.Command{
+		Use:   "document [path]",
+		Short: "Generate context-aware documentation",
+		Long: `Generate documentation that understands the codebase.
+
+Unlike basic doc generators, this uses:
+- Existing docs for context
+- Code structure analysis
+- Relationship mapping
+
+Thinking stairs, not stupid escalators.
+
+Examples:
+  # Document a file
+  clood document src/api/handlers.go
+
+  # Document with context from existing docs
+  clood document src/api/ --with-context docs/*.md
+
+  # Generate a README section
+  clood document src/ --readme
+
+  # Generate onboarding guide
+  clood document . --onboarding
+
+  # Output as markdown
+  clood document src/auth/ --format markdown`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			targetPath := "."
+			if len(args) > 0 {
+				targetPath = args[0]
+			}
+
+			// Resolve path
+			absPath, err := filepath.Abs(targetPath)
+			if err != nil {
+				return fmt.Errorf("resolving path: %w", err)
+			}
+
+			if !output.JSONMode {
+				fmt.Println(tui.RenderHeader("DOCUMENT"))
+				fmt.Println()
+				fmt.Printf("  %s %s\n", tui.MutedStyle.Render("Path:"), absPath)
+			}
+
+			// Gather source files
+			files, err := gatherSourceFiles(absPath)
+			if err != nil {
+				return fmt.Errorf("gathering files: %w", err)
+			}
+
+			if len(files) == 0 {
+				return fmt.Errorf("no source files found in %s", absPath)
+			}
+
+			if !output.JSONMode {
+				fmt.Printf("  %s %d files\n", tui.MutedStyle.Render("Found:"), len(files))
+			}
+
+			// Gather context files if specified
+			var contextContent string
+			var contextFiles []string
+			if withContext != "" {
+				matches, _ := filepath.Glob(withContext)
+				for _, m := range matches {
+					content, err := os.ReadFile(m)
+					if err == nil {
+						contextContent += fmt.Sprintf("\n--- %s ---\n%s\n", m, string(content))
+						contextFiles = append(contextFiles, m)
+					}
+				}
+				if !output.JSONMode && len(contextFiles) > 0 {
+					fmt.Printf("  %s %d context files\n",
+						tui.MutedStyle.Render("Context:"), len(contextFiles))
+				}
+			}
+
+			// Build code content (sample if too large)
+			codeContent := buildCodeSample(files, 8000)
+
+			// Find online host
+			mgr := hosts.NewManager()
+			mgr.AddHosts(hosts.DefaultHosts())
+			statuses := mgr.CheckAllHosts()
+
+			var onlineHost *hosts.HostStatus
+			var selectedModel string
+
+			for _, s := range statuses {
+				if s.Online && len(s.Models) > 0 {
+					onlineHost = s
+					if model != "" {
+						selectedModel = model
+					} else {
+						selectedModel = s.Models[0].Name
+					}
+					break
+				}
+			}
+
+			if onlineHost == nil {
+				return fmt.Errorf("no online Ollama hosts found")
+			}
+
+			if !output.JSONMode {
+				fmt.Printf("  %s %s\n\n",
+					tui.AccentStyle.Render(""),
+					selectedModel)
+			}
+
+			// Build prompt based on mode
+			var prompt string
+			if onboarding {
+				prompt = buildOnboardingPrompt(codeContent, contextContent)
+			} else if readme {
+				prompt = buildReadmePrompt(codeContent, contextContent)
+			} else {
+				prompt = buildDocPrompt(codeContent, contextContent, format)
+			}
+
+			// Query the model
+			client := ollama.NewClient(onlineHost.Host.URL, 5*time.Minute)
+			startTime := time.Now()
+
+			if !output.JSONMode {
+				fmt.Print(tui.MutedStyle.Render("  Generating documentation..."))
+			}
+
+			resp, err := client.Generate(selectedModel, prompt)
+			duration := time.Since(startTime)
+
+			if !output.JSONMode {
+				fmt.Print("\r                                    \r")
+			}
+
+			if err != nil {
+				return fmt.Errorf("generation failed: %w", err)
+			}
+
+			// Output
+			docOutput := DocumentOutput{
+				Timestamp:     time.Now().Format(time.RFC3339),
+				Path:          absPath,
+				FilesAnalyzed: len(files),
+				Documentation: resp.Response,
+				Model:         selectedModel,
+				Duration:      duration.Seconds(),
+				ContextFiles:  contextFiles,
+			}
+
+			if output.JSONMode {
+				data, _ := json.MarshalIndent(docOutput, "", "  ")
+				fmt.Println(string(data))
+				return nil
+			}
+
+			fmt.Println(tui.RenderHeader("DOCUMENTATION"))
+			fmt.Println()
+			fmt.Println(resp.Response)
+			fmt.Println()
+			fmt.Println(tui.MutedStyle.Render(fmt.Sprintf("  Generated by %s in %.1fs", selectedModel, duration.Seconds())))
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&model, "model", "", "Model to use")
+	cmd.Flags().StringVar(&withContext, "with-context", "", "Glob pattern for context files (e.g., docs/*.md)")
+	cmd.Flags().StringVar(&format, "format", "markdown", "Output format (markdown, plain)")
+	cmd.Flags().BoolVar(&readme, "readme", false, "Generate README section")
+	cmd.Flags().BoolVar(&onboarding, "onboarding", false, "Generate onboarding guide")
+
+	return cmd
+}
+
+func gatherSourceFiles(path string) ([]string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+
+	if !info.IsDir() {
+		return []string{path}, nil
+	}
+
+	var files []string
+	extensions := []string{".go", ".py", ".js", ".ts", ".rs", ".java", ".rb", ".c", ".cpp", ".h"}
+
+	err = filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			// Skip common non-source directories
+			base := filepath.Base(p)
+			if base == "node_modules" || base == "vendor" || base == ".git" || base == "dist" || base == "build" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		ext := filepath.Ext(p)
+		for _, e := range extensions {
+			if ext == e {
+				files = append(files, p)
+				break
+			}
+		}
+		return nil
+	})
+
+	return files, err
+}
+
+func buildCodeSample(files []string, maxChars int) string {
+	var content strings.Builder
+	charCount := 0
+
+	for _, f := range files {
+		if charCount >= maxChars {
+			break
+		}
+
+		data, err := os.ReadFile(f)
+		if err != nil {
+			continue
+		}
+
+		fileContent := string(data)
+		remaining := maxChars - charCount
+
+		content.WriteString(fmt.Sprintf("\n--- %s ---\n", f))
+		if len(fileContent) > remaining {
+			content.WriteString(fileContent[:remaining])
+			content.WriteString("\n... (truncated)\n")
+			charCount = maxChars
+		} else {
+			content.WriteString(fileContent)
+			charCount += len(fileContent)
+		}
+	}
+
+	return content.String()
+}
+
+func buildDocPrompt(code, context, format string) string {
+	contextSection := ""
+	if context != "" {
+		contextSection = fmt.Sprintf(`
+EXISTING DOCUMENTATION (for context):
+%s
+`, context)
+	}
+
+	return fmt.Sprintf(`You are a senior technical writer generating documentation for code.
+%s
+CODE TO DOCUMENT:
+%s
+
+Generate clear, helpful documentation that:
+1. Explains what each major component does
+2. Documents key functions with their purpose (not just signatures)
+3. Notes important relationships between components
+4. Highlights any gotchas or non-obvious behavior
+5. Uses %s format
+
+Focus on the "why" not just the "what". Be concise but thorough.`, contextSection, code, format)
+}
+
+func buildReadmePrompt(code, context string) string {
+	contextSection := ""
+	if context != "" {
+		contextSection = fmt.Sprintf(`
+EXISTING DOCUMENTATION:
+%s
+`, context)
+	}
+
+	return fmt.Sprintf(`You are a senior technical writer creating a README section.
+%s
+CODE:
+%s
+
+Generate a README section that includes:
+1. Brief overview of what this code does
+2. Key features/components
+3. Basic usage examples
+4. Any prerequisites or dependencies noted in the code
+
+Use markdown format with clear headers. Be concise.`, contextSection, code)
+}
+
+func buildOnboardingPrompt(code, context string) string {
+	contextSection := ""
+	if context != "" {
+		contextSection = fmt.Sprintf(`
+EXISTING DOCUMENTATION:
+%s
+`, context)
+	}
+
+	return fmt.Sprintf(`You are a senior developer writing an onboarding guide for new team members.
+%s
+CODEBASE:
+%s
+
+Create an onboarding guide that:
+1. Gives a high-level overview of the system architecture
+2. Explains the key components and how they interact
+3. Points out the most important files to understand first
+4. Notes common patterns used in the codebase
+5. Lists potential gotchas for newcomers
+
+Write in a friendly, helpful tone. Use markdown format.`, contextSection, code)
+}

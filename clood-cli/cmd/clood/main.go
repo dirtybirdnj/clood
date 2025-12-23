@@ -123,6 +123,7 @@ func main() {
 	// ═══════════════════════════════════════════════════════════════
 	addWithGroup(rootCmd, commands.AnalyzeCmd(), GroupAIPowered)
 	addWithGroup(rootCmd, commands.DiagnoseCmd(), GroupAIPowered)
+	addWithGroup(rootCmd, commands.DocumentCmd(), GroupAIPowered)
 	addWithGroup(rootCmd, commands.CommitMsgCmd(), GroupAIPowered)
 	addWithGroup(rootCmd, commands.ReviewPRCmd(), GroupAIPowered)
 	addWithGroup(rootCmd, commands.GenerateTestsCmd(), GroupAIPowered)
