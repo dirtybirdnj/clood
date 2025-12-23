@@ -37,13 +37,13 @@ The bonsai represents careful cultivation of local resources.
 Each tree is unique, grown from the seeds of your configuration.
 
 DEFAULTS:
-  Format: terminal (colored output directly to terminal)
+  Format: ascii (clean text, works everywhere)
   Size:   medium (life=32, multiplier=5)
   Seed:   random (use --seed for reproducible trees)
 
 OUTPUT FORMATS:
-  terminal  Direct ncurses output with ANSI colors (default)
-  ascii     Clean ASCII text, no escape codes (good for logs, agents)
+  ascii     Clean ASCII text, no escape codes (default)
+  terminal  Direct ncurses output with ANSI colors (unreliable)
   svg       SVG with single-line fonts for pen plotters
 
 SIZE PRESETS:
@@ -59,14 +59,14 @@ SVG FONTS (--font):
   EMSCasualHand   Casual handwritten style
 
 EXAMPLES:
-  # Default: colored terminal output, medium size
+  # Default: clean ASCII output, medium size
   clood bonsai
 
   # Tiny tree with a message
   clood bonsai --size tiny --message "Hello"
 
-  # Clean ASCII for piping or logging
-  clood bonsai --format ascii
+  # Colored terminal output (may not work in all terminals)
+  clood bonsai --format terminal
 
   # SVG for pen plotter with reproducible seed
   clood bonsai --format svg --seed 42 -o tree.svg
@@ -109,8 +109,13 @@ EXAMPLES:
 				return nil
 			}
 
+			// Default to ascii format
+			if outputFormat == "" {
+				outputFormat = "ascii"
+			}
+
 			// For terminal output, use direct output to preserve ncurses behavior
-			if outputFormat == "" || outputFormat == "terminal" {
+			if outputFormat == "terminal" {
 				cbCmd := exec.Command("cbonsai", cbArgs...)
 				cbCmd.Stdout = os.Stdout
 				cbCmd.Stderr = os.Stderr
@@ -166,7 +171,7 @@ EXAMPLES:
 	cmd.Flags().StringVarP(&size, "size", "s", "", "Size preset: tiny/small/medium/large/ancient (default: medium)")
 	cmd.Flags().StringVarP(&message, "message", "m", "", "Message to display in the pot")
 	cmd.Flags().StringVarP(&outputFile, "output", "o", "", "Output file path (default: stdout)")
-	cmd.Flags().StringVarP(&outputFormat, "format", "f", "", "Output format: terminal/ascii/svg (default: terminal)")
+	cmd.Flags().StringVarP(&outputFormat, "format", "f", "", "Output format: ascii/terminal/svg (default: ascii)")
 	cmd.Flags().StringVar(&fontName, "font", "", "SVG font: HersheySans1/EMSDelight/EMSCasualHand (default: HersheySans1)")
 	cmd.Flags().IntVar(&seed, "seed", 0, "Random seed for reproducible trees (default: random)")
 
