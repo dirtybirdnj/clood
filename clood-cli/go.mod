@@ -12,6 +12,7 @@ require (
 	github.com/mark3labs/mcp-go v0.43.2
 	github.com/spf13/cobra v1.8.1
 	golang.design/x/clipboard v0.7.1
+	golang.org/x/term v0.6.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.41.0
 )

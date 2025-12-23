@@ -261,8 +261,12 @@ func (vs *VirtualScreen) RenderColored() string {
 // For ncurses programs like cbonsai that use alternate screen buffer,
 // it captures the content before the screen is cleared on exit.
 func ParseANSI(input string) string {
-	// Default terminal size (cbonsai uses 80x24 by default)
-	screen := NewVirtualScreen(80, 24)
+	return ParseANSIWithDimensions(input, 80, 24)
+}
+
+// ParseANSIWithDimensions parses ncurses/ANSI output with specified screen dimensions
+func ParseANSIWithDimensions(input string, width, height int) string {
+	screen := NewVirtualScreen(width, height)
 
 	// Track clear events - cbonsai clears once at start, once before exit
 	clearCount := 0
@@ -327,9 +331,13 @@ func ParseANSI(input string) string {
 		case "J": // Erase in display
 			if params == "2" || params == "" {
 				clearCount++
-				// Save screen before the SECOND clear (the exit clear)
-				if clearCount == 2 {
-					savedScreen = screen.Render()
+				// Save screen before every clear after the first (if it has content)
+				// This captures the tree content before cbonsai clears on exit
+				if clearCount > 1 {
+					rendered := screen.Render()
+					if len(rendered) > 0 {
+						savedScreen = rendered
+					}
 				}
 				screen.Clear()
 			}
@@ -409,7 +417,12 @@ type BonsaiResult struct {
 
 // ParseANSIWithColors parses ncurses/ANSI output and returns both clean ASCII and color layers
 func ParseANSIWithColors(input string) BonsaiResult {
-	screen := NewVirtualScreen(80, 24)
+	return ParseANSIWithColorsAndDimensions(input, 80, 24)
+}
+
+// ParseANSIWithColorsAndDimensions parses ncurses/ANSI output with specified screen dimensions
+func ParseANSIWithColorsAndDimensions(input string, width, height int) BonsaiResult {
+	screen := NewVirtualScreen(width, height)
 	clearCount := 0
 	var savedScreen *VirtualScreen
 
@@ -459,8 +472,9 @@ func ParseANSIWithColors(input string) BonsaiResult {
 		case "J":
 			if params == "2" || params == "" {
 				clearCount++
-				if clearCount == 2 {
-					// Deep copy the screen before clearing
+				// Save screen before every clear after the first (the first is just initialization)
+				// This captures the tree content before cbonsai clears on exit
+				if clearCount > 1 && countNonEmptyLines(screen) > 0 {
 					savedScreen = copyScreen(screen)
 				}
 				screen.Clear()

@@ -4,19 +4,22 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 
 	"github.com/dirtybirdnj/clood/internal/bonsai"
 	"github.com/dirtybirdnj/clood/internal/tui"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
-// Size presets for cbonsai: [life, multiplier]
-var sizePresets = map[string][2]int{
-	"tiny":    {10, 2},
-	"small":   {20, 3},
-	"medium":  {32, 5},
-	"large":   {60, 8},
-	"ancient": {100, 12},
+// Size presets for cbonsai: [life, multiplier, minWidth, minHeight]
+// minWidth/minHeight ensure the virtual screen is large enough for the tree
+var sizePresets = map[string][4]int{
+	"tiny":    {10, 2, 80, 24},
+	"small":   {20, 3, 80, 24},
+	"medium":  {32, 5, 80, 30},
+	"large":   {60, 8, 100, 40},
+	"ancient": {100, 12, 120, 50},
 }
 
 // BonsaiCmd returns a command that generates ASCII bonsai trees
@@ -91,6 +94,20 @@ EXAMPLES:
 
 			life := preset[0]
 			multiplier := preset[1]
+			minWidth := preset[2]
+			minHeight := preset[3]
+
+			// Detect terminal size for proper rendering
+			// Use the larger of terminal size or minimum size for this tree preset
+			termWidth, termHeight := minWidth, minHeight
+			if w, h, err := term.GetSize(int(os.Stdout.Fd())); err == nil && w > 0 && h > 0 {
+				if w > termWidth {
+					termWidth = w
+				}
+				if h > termHeight {
+					termHeight = h
+				}
+			}
 
 			// Build cbonsai arguments
 			cbArgs := []string{
@@ -131,14 +148,20 @@ EXAMPLES:
 			}
 
 			// For other formats, capture and process the output
+			// Pass terminal size to cbonsai via environment
 			cbCmd := exec.Command("cbonsai", cbArgs...)
+			cbCmd.Env = append(os.Environ(),
+				"TERM=xterm",
+				"COLUMNS="+strconv.Itoa(termWidth),
+				"LINES="+strconv.Itoa(termHeight),
+			)
 			output, err := cbCmd.CombinedOutput()
 			if err != nil {
 				return fmt.Errorf("cbonsai error: %v", err)
 			}
 
-			// Parse the output with color extraction
-			result := bonsai.ParseANSIWithColors(string(output))
+			// Parse the output with color extraction using detected terminal size
+			result := bonsai.ParseANSIWithColorsAndDimensions(string(output), termWidth, termHeight)
 
 			var finalOutput string
 			switch outputFormat {
