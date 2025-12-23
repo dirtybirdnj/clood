@@ -525,3 +525,47 @@ Stay home, call for takeout—remember this song!
 ```
 
 *Composed during M4 MacBook Air benchmarking, Burlington VT weather: 27°F, flurries, 1-3" snow*
+
+---
+
+## Backend Comparison: Ollama vs llama.cpp
+
+Both Ollama and llama.cpp can run GGUF models. This section compares performance on the same hardware.
+
+### ubuntu25 (RX 590 8GB Vulkan)
+
+| Model | Ollama | llama.cpp | Winner | Date |
+|-------|--------|-----------|--------|------|
+| TinyLlama 1.1B Q4_K_M | 183.43 tok/s | 144.56 tok/s | Ollama (+27%) | 2024-12-23 |
+| Qwen 7B Q4_K_M | 7.41 tok/s | 30.49 tok/s | **llama.cpp (+311%)** | 2024-12-23 |
+
+### Key Findings
+
+1. **Small models (1-3B):** Ollama wins due to better startup/overhead optimization
+2. **Medium+ models (7B+):** llama.cpp dominates with 4x faster inference
+3. **Both use Vulkan:** Same GPU backend, but llama.cpp's implementation is more efficient for larger models
+
+### Recommendation
+
+- Use **Ollama** for quick queries with small models
+- Use **llama.cpp** for serious coding work with 7B+ models
+- The `clood huggingface` command manages GGUF downloads for llama.cpp
+
+### llama.cpp Setup on ubuntu25
+
+```bash
+# Server location
+/data/repos/llama.cpp/build/bin/llama-server
+
+# Model storage
+/data/cache/llama-models/
+
+# Start server (example)
+./llama-server -m /data/cache/llama-models/qwen2.5-coder-7b-q4_k_m.gguf \
+    --host 0.0.0.0 --port 8080 -ngl 99
+
+# Access from any machine
+curl http://192.168.4.64:8080/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -d '{"messages":[{"role":"user","content":"Hello"}]}'
+```

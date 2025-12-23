@@ -88,6 +88,7 @@ func main() {
 	addWithGroup(rootCmd, commands.HealthCmd(), GroupInfra)
 	addWithGroup(rootCmd, commands.TuneCmd(), GroupInfra)
 	addWithGroup(rootCmd, commands.PullCmd(), GroupInfra)
+	addWithGroup(rootCmd, commands.HuggingfaceCmd(), GroupInfra)
 
 	// ═══════════════════════════════════════════════════════════════
 	// 💬 QUERYING LLMs
