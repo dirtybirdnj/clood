@@ -104,6 +104,7 @@ func main() {
 	addWithGroup(rootCmd, commands.CatfightCmd(), GroupCompare)
 	addWithGroup(rootCmd, commands.CatfightLiveCmd(), GroupCompare)
 	addWithGroup(rootCmd, commands.ThunderdomeCmd(), GroupCompare)
+	addWithGroup(rootCmd, commands.TriageCmd(), GroupCompare)
 	addWithGroup(rootCmd, commands.WatchCmd(), GroupCompare)
 	addWithGroup(rootCmd, commands.BenchCmd(), GroupCompare)
 
