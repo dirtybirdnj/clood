@@ -37,13 +37,14 @@ The bonsai represents careful cultivation of local resources.
 Each tree is unique, grown from the seeds of your configuration.
 
 DEFAULTS:
-  Format: ascii (clean text, works everywhere)
+  Format: ascii (colored output, works everywhere)
   Size:   medium (life=32, multiplier=5)
   Seed:   random (use --seed for reproducible trees)
 
 OUTPUT FORMATS:
-  ascii     Clean ASCII text, no escape codes (default)
-  terminal  Direct ncurses output with ANSI colors (unreliable)
+  ascii     Colored ASCII with ANSI codes (default)
+  plain     Plain ASCII without colors (for piping/logs)
+  terminal  Direct ncurses passthrough (unreliable)
   svg       SVG with single-line fonts for pen plotters
 
 SIZE PRESETS:
@@ -59,14 +60,14 @@ SVG FONTS (--font):
   EMSCasualHand   Casual handwritten style
 
 EXAMPLES:
-  # Default: clean ASCII output, medium size
+  # Default: colored ASCII output
   clood bonsai
 
   # Tiny tree with a message
   clood bonsai --size tiny --message "Hello"
 
-  # Colored terminal output (may not work in all terminals)
-  clood bonsai --format terminal
+  # Plain text (no colors) for piping/logs
+  clood bonsai --format plain > tree.txt
 
   # SVG output to file
   clood bonsai -f svg -o tree.svg
@@ -142,6 +143,11 @@ EXAMPLES:
 			var finalOutput string
 			switch outputFormat {
 			case "ascii":
+				// Use colored output for terminal display
+				finalOutput = result.Colored
+
+			case "plain":
+				// Plain ASCII without colors (for piping/logs)
 				finalOutput = result.ASCII
 
 			case "svg":
@@ -155,7 +161,7 @@ EXAMPLES:
 				finalOutput = gen.GenerateSVG(result)
 
 			default:
-				return fmt.Errorf("unknown format: %s (use terminal/ascii/svg)", outputFormat)
+				return fmt.Errorf("unknown format: %s (use ascii/plain/terminal/svg)", outputFormat)
 			}
 
 			// Write output
@@ -165,7 +171,9 @@ EXAMPLES:
 				}
 				fmt.Printf("Wrote %s (%d bytes)\n", outputFile, len(finalOutput))
 			} else {
-				fmt.Print(finalOutput)
+				// Add spacing for terminal display
+				fmt.Print("\n")
+				fmt.Println(finalOutput)
 			}
 
 			return nil
@@ -175,7 +183,7 @@ EXAMPLES:
 	cmd.Flags().StringVarP(&size, "size", "s", "", "Size preset: tiny/small/medium/large/ancient (default: medium)")
 	cmd.Flags().StringVarP(&message, "message", "m", "", "Message to display in the pot")
 	cmd.Flags().StringVarP(&outputFile, "output", "o", "", "Output file path (default: stdout)")
-	cmd.Flags().StringVarP(&outputFormat, "format", "f", "", "Output format: ascii/terminal/svg (default: ascii)")
+	cmd.Flags().StringVarP(&outputFormat, "format", "f", "", "Output format: ascii/plain/terminal/svg (default: ascii)")
 	cmd.Flags().StringVar(&fontName, "font", "", "SVG font: HersheySans1/EMSDelight/EMSCasualHand (default: HersheySans1)")
 	cmd.Flags().IntVar(&seed, "seed", 0, "Random seed for reproducible trees (default: random)")
 

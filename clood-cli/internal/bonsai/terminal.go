@@ -187,6 +187,75 @@ func (vs *VirtualScreen) Render() string {
 	return strings.Join(lines, "\n")
 }
 
+// RenderColored returns the screen with ANSI color codes applied
+func (vs *VirtualScreen) RenderColored() string {
+	var result strings.Builder
+	lastNonEmpty := -1
+
+	// First pass: find last non-empty line
+	for i, row := range vs.Buffer {
+		for _, char := range row {
+			if char != ' ' {
+				lastNonEmpty = i
+				break
+			}
+		}
+	}
+
+	if lastNonEmpty < 0 {
+		return ""
+	}
+
+	// Second pass: render with colors
+	for i := 0; i <= lastNonEmpty; i++ {
+		row := vs.Buffer[i]
+		colorRow := vs.ColorBuffer[i]
+
+		// Find last non-space character in row
+		lastChar := -1
+		for j := len(row) - 1; j >= 0; j-- {
+			if row[j] != ' ' {
+				lastChar = j
+				break
+			}
+		}
+
+		currentColor := ""
+		for j := 0; j <= lastChar || (lastChar < 0 && j == 0); j++ {
+			if lastChar < 0 {
+				break // Empty line
+			}
+
+			char := row[j]
+			color := colorRow[j]
+
+			// Change color if needed
+			if color != currentColor {
+				if currentColor != "" {
+					result.WriteString("\x1b[0m") // Reset
+				}
+				if color != "" {
+					result.WriteString(fmt.Sprintf("\x1b[%sm", color))
+				}
+				currentColor = color
+			}
+
+			result.WriteRune(char)
+		}
+
+		// Reset color at end of line if we had one active
+		if currentColor != "" {
+			result.WriteString("\x1b[0m")
+		}
+
+		if i < lastNonEmpty {
+			result.WriteString("\n")
+		}
+	}
+
+	return result.String()
+}
+
 // ParseANSI parses ncurses/ANSI output and returns clean ASCII
 // It handles cursor positioning, color codes, and other escape sequences.
 // For ncurses programs like cbonsai that use alternate screen buffer,
@@ -331,10 +400,11 @@ func parseNum(s string) int {
 
 // BonsaiResult contains the parsed bonsai tree with color information
 type BonsaiResult struct {
-	ASCII  string       // Clean ASCII representation
-	Layers []ColorLayer // Characters grouped by color
-	Width  int          // Screen width
-	Height int          // Actual height (trimmed)
+	ASCII   string       // Clean ASCII representation (no colors)
+	Colored string       // ASCII with ANSI color codes
+	Layers  []ColorLayer // Characters grouped by color
+	Width   int          // Screen width
+	Height  int          // Actual height (trimmed)
 }
 
 // ParseANSIWithColors parses ncurses/ANSI output and returns both clean ASCII and color layers
@@ -410,10 +480,11 @@ func ParseANSIWithColors(input string) BonsaiResult {
 		case "l":
 			if strings.Contains(params, "1049") && savedScreen != nil {
 				return BonsaiResult{
-					ASCII:  savedScreen.Render(),
-					Layers: savedScreen.GetColorLayers(),
-					Width:  savedScreen.Width,
-					Height: countNonEmptyLines(savedScreen),
+					ASCII:   savedScreen.Render(),
+					Colored: savedScreen.RenderColored(),
+					Layers:  savedScreen.GetColorLayers(),
+					Width:   savedScreen.Width,
+					Height:  countNonEmptyLines(savedScreen),
 				}
 			}
 		case "m":
@@ -434,10 +505,11 @@ func ParseANSIWithColors(input string) BonsaiResult {
 		resultScreen = savedScreen
 	}
 	return BonsaiResult{
-		ASCII:  resultScreen.Render(),
-		Layers: resultScreen.GetColorLayers(),
-		Width:  resultScreen.Width,
-		Height: countNonEmptyLines(resultScreen),
+		ASCII:   resultScreen.Render(),
+		Colored: resultScreen.RenderColored(),
+		Layers:  resultScreen.GetColorLayers(),
+		Width:   resultScreen.Width,
+		Height:  countNonEmptyLines(resultScreen),
 	}
 }
 
