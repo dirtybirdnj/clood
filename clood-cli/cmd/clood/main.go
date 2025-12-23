@@ -95,6 +95,7 @@ func main() {
 	// 💬 QUERYING LLMs
 	// ═══════════════════════════════════════════════════════════════
 	addWithGroup(rootCmd, commands.AskCmd(), GroupQuery)
+	addWithGroup(rootCmd, commands.BatchCmd(), GroupQuery)
 	addWithGroup(rootCmd, commands.RunCmd(), GroupQuery)
 	addWithGroup(rootCmd, commands.ChatCmd(), GroupQuery)
 
