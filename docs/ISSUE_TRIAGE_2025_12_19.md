@@ -35,8 +35,8 @@
 | # | Title | Labels | Priority |
 |---|-------|--------|----------|
 | 59 | UI: Separate consistent text input area | jelly-bean | 🔴 Blocking |
-| 84 | TUI Multi-Question Interface: Left sidebar | foggy-path, crush | 🟡 |
-| 96 | Crush UX: Unfurling Scroll Interface | high-priority, crush | 🔴 |
+| 84 | TUI Multi-Question Interface: Left sidebar | foggy-path, clood | 🟡 |
+| 96 | clood UX: Unfurling Scroll Interface | high-priority, clood | 🔴 |
 | 124 | Expandable Scroll Sections: CLI hyperlinks | - | 🟡 |
 | 130 | 🐉 Shenron: Infinite Scroll & Floating Frame | - | 🟡 |
 | 135 | [EPIC] Snake Way: Flying Nimbus Navigation | epic, jelly-bean | 🔴 Epic |
@@ -62,8 +62,8 @@
 |---|-------|--------|----------|
 | 37 | Add MCP server for agent tool access | needs-design, triumvirate | 🟢 Done |
 | 39 | Workflow orchestration for multi-agent pipelines | needs-design, triumvirate | 🟡 |
-| 85 | Crush Integration Roadmap | crush | 🟡 |
-| 108 | Golden path system prompts for Crush | - | 🔴 |
+| 85 | clood Integration Roadmap | clood | 🟡 |
+| 108 | Golden path system prompts for clood | - | 🔴 |
 
 ---
 
@@ -167,7 +167,7 @@
 ### 🔴 IMMEDIATE (This Week)
 
 1. **#152-159: Windows Support Epic** (Spear 5) — *Active in other window*
-2. **#108: Golden Path Prompts for Crush** (Spear 4) — Unblock Crush integration
+2. **#108: Golden Path Prompts for clood** (Spear 4) — Unblock clood integration
 3. **#135: Snake Way Epic** (Spear 2) — TUI is the experience
 4. **#151: Storytime** (Spear 3) — The narrative layer
 

@@ -9,7 +9,7 @@ Vision for making clood useful to others beyond the original author's hardware.
 **clood = docs + config**
 
 Not a framework. Not an application. A curated collection of:
-- Configuration templates (Crush, Ollama, SearXNG)
+- Configuration templates (clood, Ollama, SearXNG)
 - Prompts and seed artifacts for local LLM workflows
 - Hardware optimization guides
 - Workflow documentation
@@ -34,7 +34,7 @@ The repo should work on any machine that can run Ollama:
 Hardware-specific docs belong in `hardware/` with clear machine identifiers.
 
 ### 2. Tool Agnostic
-Crush is the current default, but clood patterns should work with:
+clood is the current default, but clood patterns should work with:
 - Aider (terminal + Git)
 - OpenCode (Claude Code clone)
 - Any MCP-compatible client
@@ -58,7 +58,7 @@ clood/
 ├── skills/            # Agent capabilities (portable)
 │
 ├── infrastructure/    # Config templates (adapt to your setup)
-│   └── configs/       # Crush, SearXNG, etc.
+│   └── configs/       # clood, SearXNG, etc.
 │
 ├── hardware/          # Machine-specific (BYOH - Bring Your Own Hardware)
 │   ├── OPTIMIZATION-GUIDE.md   # General principles
@@ -105,12 +105,12 @@ clood/
 
 ## Known Limitations
 
-### Crush MCP Issues (Dec 2025)
-- [Global MCP tools not loaded with project config](https://github.com/charmbracelet/crush/issues/870)
-- [Broken pipe errors](https://github.com/charmbracelet/crush/issues/840)
-- [Transport initialization failures](https://github.com/charmbracelet/crush/issues/475)
+### clood MCP Issues (Dec 2025)
+- [Global MCP tools not loaded with project config](https://github.com/charmbracelet/clood/issues/870)
+- [Broken pipe errors](https://github.com/charmbracelet/clood/issues/840)
+- [Transport initialization failures](https://github.com/charmbracelet/clood/issues/475)
 
-**Workaround:** Use Aider for file operations, Crush for chat.
+**Workaround:** Use Aider for file operations, clood for chat.
 
 ### Model Tool-Use Reliability
 Not all "tool-capable" models reliably use tools:
@@ -130,7 +130,7 @@ Not all "tool-capable" models reliably use tools:
 - [ ] Add setup script that asks for machine-specific values
 
 ### Phase 2: Multi-Tool Support
-- [ ] Document Aider integration alongside Crush
+- [ ] Document Aider integration alongside clood
 - [ ] Add OpenCode config template
 - [ ] Create tool-agnostic prompt format
 

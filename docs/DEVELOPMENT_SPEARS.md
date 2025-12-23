@@ -23,7 +23,7 @@
 │     Narrative layer. Project personalities. The vibe.          │
 │                                                                 │
 │  🗡️ SPEAR 4: MCP Server & Integration                          │
-│     How other tools (Crush, Claude) talk to clood.             │
+│     How other tools (clood, Claude) talk to clood.             │
 │                                                                 │
 │  🗡️ SPEAR 5: Cross-Platform & Distribution                     │
 │     Windows support. Homebrew. Making it real.                 │
@@ -105,11 +105,11 @@ lore/FLYING_CATS_VISION.md
 ## Spear 4: MCP Server & Integration
 
 **Status:** Working but limited
-**Issues:** #108 (golden paths for Crush)
+**Issues:** #108 (golden paths for clood)
 
 **What it is:**
 - `clood serve --sse` for MCP over HTTP
-- Tools exposed to Claude Code, Crush, etc.
+- Tools exposed to Claude Code, clood, etc.
 - The bridge between clood and AI agents
 
 **Key files:**
@@ -118,7 +118,7 @@ clood-cli/internal/mcp/server.go
 clood-cli/internal/mcp/tools.go
 ```
 
-**Current state:** Basic tools work. Crush integration blocked by AllowedMCP filter. Need golden path prompts.
+**Current state:** Basic tools work. clood integration blocked by AllowedMCP filter. Need golden path prompts.
 
 ---
 
@@ -221,7 +221,7 @@ Local LLMs cannot yet:
 **Spear 1 (Core):** Maintenance, --json completion
 **Spear 2 (Snake Road):** TUI Kitchen Sink, input handling
 **Spear 3 (Storytime):** Start with single-project narrative
-**Spear 4 (MCP):** Golden path prompts for Crush
+**Spear 4 (MCP):** Golden path prompts for clood
 **Spear 5 (Cross-Platform):** Windows testing, then Homebrew
 
 ---
@@ -231,9 +231,9 @@ Local LLMs cannot yet:
 The git history reveals six phases of evolution:
 
 ### Phase 1: Infrastructure & Documentation (commits 1-45)
-*"Add Crush configuration for local Ollama"*
+*"Add clood configuration for local Ollama"*
 
-- Crush config, GPU setup (RX 590, ROCm)
+- clood config, GPU setup (RX 590, ROCm)
 - Ollama tuning, benchmarks
 - Hardware profiles (ubuntu25, mac-mini, macbook)
 - The Server Garden concept emerges

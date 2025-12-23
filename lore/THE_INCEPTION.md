@@ -10,7 +10,7 @@ For three days, Bird-san had wandered the halls of Kitchen Stadium, watching the
 
 But the cats were not cooperating.
 
-"The AllowedMCP filter blocks our claws," Persian mewled from behind the glass. "Crush sees our tools, but the tools never reach the arena."
+"The AllowedMCP filter blocks our claws," Persian mewled from behind the glass. "clood sees our tools, but the tools never reach the arena."
 
 Bird-san rubbed his temples. The scrolls of commit d33975d had warned of this. The scrolls always knew.
 
@@ -75,7 +75,7 @@ As the dark cloud rolled overhead, xbibit's voice echoed through the halls:
 
 *"The scrolls must remind the scrolls of previous scrolls."*
 
-And Bird-san understood. The git history was not merely a record—it was a teacher. The failed attempts at Crush integration (c093608, d33975d) were not failures at all. They were lessons, carved into the blockchain of version control.
+And Bird-san understood. The git history was not merely a record—it was a teacher. The failed attempts at clood integration (c093608, d33975d) were not failures at all. They were lessons, carved into the blockchain of version control.
 
 The tool-proxy.py still waited in scripts/, forty lines of Python hope.
 

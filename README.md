@@ -8,189 +8,135 @@ Local LLM toolkit for a Claude-like experience on your own hardware.
 
 ## What is this?
 
-clood is a framework for running local LLMs with:
+clood is a CLI and MCP server for running local LLMs with:
 
-1. **Tiered Model Inference** - Fast models gather context, powerful models do reasoning
-2. **Project Awareness** - Models know about your projects via `projects_manifest.json`
-3. **Tool Integration** - MCP servers for filesystem, web search, and GitHub
-4. **Multi-Machine Support** - Distribute workloads across your hardware
-
-**Primary Interface:** [Crush CLI](https://github.com/charmbracelet/crush) with local Ollama
+1. **Multi-Host Routing** - Distribute queries across your hardware fleet
+2. **Tiered Model Inference** - Fast models for context, powerful models for reasoning
+3. **MCP Integration** - Works as an MCP server for Claude Code
+4. **Local-First Tools** - grep, tree, symbols, imports - no network needed
 
 ## Quick Start
 
-See [START-HERE.md](START-HERE.md) for the complete setup checklist.
-
-### Verify Your Setup
-
-After setup, run the verification script:
 ```bash
-./scripts/verify-setup.sh
+# Install clood
+cd clood-cli
+go build -o clood ./cmd/clood
+./clood setup
+
+# Check your hosts
+./clood preflight
+./clood hosts
+
+# Ask a question
+./clood ask "What is the best way to structure a Go CLI?"
+
+# Use as MCP server with Claude Code
+./clood mcp
 ```
 
-This checks Ollama, SearXNG, GPU, CPU governor, and Crush configuration.
-
-### TL;DR
-
-```bash
-# 1. Install Ollama
-curl -fsSL https://ollama.com/install.sh | sh
-
-# 2. Install Crush
-# macOS:
-brew install charmbracelet/tap/crush
-# Linux: download from https://github.com/charmbracelet/crush/releases
-
-# 3. Pull a model
-ollama pull llama3-groq-tool-use:8b
-
-# 4. Start SearXNG (for web search)
-cd infrastructure && docker compose up -d searxng
-
-# 5. Copy Crush config
-mkdir -p ~/.config/crush
-cp infrastructure/configs/crush/crush.json ~/.config/crush/crush.json
-
-# 6. Run Crush
-crush
-```
+See [clood-cli/docs/USAGE_GUIDE.md](clood-cli/docs/USAGE_GUIDE.md) for complete documentation.
 
 ## Architecture
 
 ```
-User Query
-    │
-    ▼
-┌─────────────────────────┐
-│  TIER 1: Router         │  TinyLlama (~150 tok/s)
-│  Classify query type    │
-└───────────┬─────────────┘
-            │
-    ┌───────┴───────┐
-    ▼               ▼
-┌─────────┐   ┌─────────┐
-│ TIER 2  │   │ TIER 2  │   3B models (~64 tok/s)
-│ Search  │   │ Files   │
-└────┬────┘   └────┬────┘
-     │             │
-     └──────┬──────┘
-            ▼
-┌─────────────────────────┐
-│  Context Assembly       │
-└───────────┬─────────────┘
-            ▼
-┌─────────────────────────┐
-│  TIER 3: Reasoning      │  7-8B models (~30 tok/s)
-│  Generate solution      │
-└─────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│  Claude Code (or any MCP client)                                    │
+└───────────────────────────┬─────────────────────────────────────────┘
+                            │ MCP
+                            ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  clood MCP server                                                   │
+│  • clood_grep, clood_tree, clood_symbols (local, instant)           │
+│  • clood_ask (routes to best available Ollama host)                 │
+│  • clood_context, clood_imports (project awareness)                 │
+└───────────────────────────┬─────────────────────────────────────────┘
+                            │
+            ┌───────────────┼───────────────┐
+            ▼               ▼               ▼
+     ┌───────────┐   ┌───────────┐   ┌───────────┐
+     │ mac-mini  │   │ ubuntu25  │   │mac-laptop │
+     │ localhost │   │ .64       │   │ .47       │
+     │ M2        │   │ RX 590    │   │ M-series  │
+     └───────────┘   └───────────┘   └───────────┘
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for full details.
+## The Server Garden
+
+| Host | IP | GPU | Models | Role |
+|------|-----|-----|--------|------|
+| mac-mini | localhost | M2 | 16 models | Always-on, fast routing |
+| ubuntu25 | 192.168.4.64 | RX 590 8GB | 17 models | GPU muscle, reasoning |
+| mac-laptop | 192.168.4.47 | M-series | 12 models | Heavy lifting (32B models) |
+
+## Key Commands
+
+| Command | Purpose |
+|---------|---------|
+| `clood preflight` | Start-of-session check - what's available |
+| `clood hosts` | Check Ollama host status and latency |
+| `clood ask "question"` | Query local LLM (auto-routes) |
+| `clood grep PATTERN` | Search codebase (instant, local) |
+| `clood tree` | Project structure |
+| `clood symbols PATH` | Extract functions/types |
+| `clood mcp` | Start MCP server for Claude Code |
+| `clood analyze FILE` | Code review with reasoning model |
+
+## MCP Tools (for Claude Code)
+
+When running as an MCP server, clood provides:
+
+| Tool | Purpose | Network |
+|------|---------|---------|
+| `clood_preflight` | Session startup check | None |
+| `clood_grep` | Regex search codebase | None |
+| `clood_tree` | Directory structure | None |
+| `clood_symbols` | Extract functions/types | None |
+| `clood_imports` | Dependency analysis | None |
+| `clood_context` | Project summary | None |
+| `clood_ask` | Query local Ollama | LAN only |
+| `clood_hosts` | Check host status | LAN only |
 
 ## Directory Structure
 
 ```
 clood/
-├── START-HERE.md           # Setup checklist (start here!)
-├── ARCHITECTURE.md         # System design and tiered model approach
-├── crush.md                # Crush CLI configuration guide
-├── ollama-tuning.md        # Performance optimization
-├── model-comparison.md     # Model selection guide
+├── clood-cli/              # The CLI tool
+│   ├── cmd/clood/          # Main entry point
+│   ├── internal/           # Implementation
+│   ├── docs/               # CLI documentation
+│   │   ├── USAGE_GUIDE.md  # How to use clood
+│   │   └── CLI_GUIDE.md    # Command reference
+│   └── scripts/            # Build and utility scripts
 │
-├── infrastructure/         # Docker configs, service setup
-│   ├── docker-compose.yml  # SearXNG container
-│   ├── configs/
-│   │   ├── crush/          # Crush config template
-│   │   └── searxng/        # SearXNG settings
-│   └── SSH-SETUP.md        # Multi-machine SSH config
-│
-├── hardware/               # Machine-specific documentation
-│   ├── i7-8086k.md         # CPU tuning (ubuntu25)
-│   └── rx590.md            # GPU setup (AMD Vulkan)
-│
-├── skills/                 # Portable agent capabilities
-│   ├── claude-code/        # Slash commands for Claude Code
-│   └── prompts/            # Reusable system prompts
-│
-├── seeds/                  # Templates and examples
-│   └── tests/              # Test generation templates
-│
-├── scripts/                # Utility scripts
-│   └── verify-setup.sh     # Test infrastructure is working
-│
-└── drop-zone/              # Local file staging (gitignored)
+├── docs/                   # Project documentation
+├── hardware/               # Machine-specific tuning
+├── infrastructure/         # Docker, SSH setup
+├── lore/                   # Project history and narrative
+└── scripts/                # Utility scripts
 ```
-
-## Services
-
-| Service | URL | Purpose |
-|---------|-----|---------|
-| Ollama | http://localhost:11434 | Model serving |
-| SearXNG | http://localhost:8888 | Web search (MCP) |
-| Crush | CLI | Chat interface with MCP tools |
-
-## MCP Servers (Tools)
-
-Crush is configured with these MCP servers:
-
-| Server | Purpose | Package |
-|--------|---------|---------|
-| filesystem | Read/write ~/Code | @modelcontextprotocol/server-filesystem |
-| searxng | Web search | @kevinwatt/mcp-server-searxng |
-| github | gh CLI commands | any-cli-mcp-server |
-
-## Recommended Models
-
-| Use Case | Model | Speed | VRAM |
-|----------|-------|-------|------|
-| Tool calling | llama3-groq-tool-use:8b | ~30 tok/s | 6GB |
-| Coding | qwen2.5-coder:7b | ~32 tok/s | 6GB |
-| Fast tasks | qwen2.5-coder:3b | ~64 tok/s | 2.5GB |
-| Router | tinyllama | ~150 tok/s | 1GB |
-
-See [model-comparison.md](model-comparison.md) for full comparison.
-
-## Hardware
-
-Currently tested on:
-
-| Machine | IP | GPU | RAM | Role |
-|---------|-----|-----|-----|------|
-| ubuntu25 | 192.168.4.63 | RX 590 8GB (Vulkan) | 64GB | Primary server |
-| MacBook Air | 192.168.4.47 | M4 10-core | 32GB unified | Mobile/Primary dev |
-| Mac Mini | 192.168.4.41 | M4 | TBD | Always-on server |
 
 ## Documentation
 
 | Doc | Purpose |
 |-----|---------|
-| [START-HERE.md](START-HERE.md) | First-time setup checklist |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | System design, tiered models |
-| [crush.md](crush.md) | Crush CLI configuration |
+| [clood-cli/docs/USAGE_GUIDE.md](clood-cli/docs/USAGE_GUIDE.md) | How to use clood |
+| [clood-cli/docs/CLI_GUIDE.md](clood-cli/docs/CLI_GUIDE.md) | Command reference |
+| [CLAUDE.md](CLAUDE.md) | Instructions for Claude agents |
 | [ollama-tuning.md](ollama-tuning.md) | Performance optimization |
-| [model-comparison.md](model-comparison.md) | Model selection |
-| [GPU-SETUP.md](GPU-SETUP.md) | AMD GPU with Vulkan |
-| [WORKFLOW.md](WORKFLOW.md) | Claude Code + Crush workflow |
-| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common issues and fixes |
-| [hardware/OPTIMIZATION-GUIDE.md](hardware/OPTIMIZATION-GUIDE.md) | Deep performance tuning |
-| [hardware/BIOS-TUNING.md](hardware/BIOS-TUNING.md) | BIOS settings for i7-8086K |
+| [hardware/](hardware/) | Machine-specific tuning |
+
+## Requirements
+
+- Go 1.21+ (to build clood)
+- Ollama running on at least one host
+- Optional: Multiple machines for distributed inference
 
 ## TODO
 
-- [ ] Tiered routing prompts for TinyLlama
-- [ ] Auto-generate projects_manifest.json script
-- [ ] RAG with nomic-embed-text for code search
-- [ ] Multi-machine load balancing
-- [ ] tmux dashboard script
+- [ ] llama.cpp integration on ubuntu25
+- [ ] Speculative decoding experiments
+- [ ] Model evaluation framework (Chimborazo)
 
 ---
 
-## Archived: Open WebUI
-
-Open WebUI was previously used but abandoned due to broken tool calling in v0.6.13+.
-The docker-compose.yml still includes it but Crush is now the recommended interface.
-
-If you want to try Open WebUI anyway:
-- Pin to v0.6.10: `ghcr.io/open-webui/open-webui:v0.6.10`
-- See infrastructure/docker-compose.yml for config
-- Known issues: [#14577](https://github.com/open-webui/open-webui/issues/14577)
+*Lightning in a Bottle*

@@ -12,7 +12,7 @@ Run models across your server garden from any workstation.
 │  (ubuntu25 / MacBook Air / Mac Mini - wherever you are)     │
 │                                                             │
 │  ┌─────────────┐                                            │
-│  │   crush     │──┐                                         │
+│  │   clood     │──┐                                         │
 │  │   aider     │  │                                         │
 │  │   chain.sh  │  │                                         │
 │  └─────────────┘  │                                         │

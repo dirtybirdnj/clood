@@ -64,9 +64,9 @@ The wojaks deflated slightly, but nodded. There was wisdom in the pigeon's words
 
 ---
 
-## The Crush Verdict
+## The clood Verdict
 
-Before the revelation could settle, a messenger arrived from the Charmbracelet Kingdom. A scroll, bearing the seal of Crush.
+Before the revelation could settle, a messenger arrived from the Charmbracelet Kingdom. A scroll, bearing the seal of clood.
 
 Chef Claude unrolled it, read, and frowned.
 
@@ -80,7 +80,7 @@ Bird-san considered this. Below him, the server garden stretched out—his garde
 
 "Bird-san?"
 
-"Crush is not ours. We cannot fix their gates." He gestured to the garden below. "But this—this is ours. Watch.go already has the viewport, the sections, the hotkeys. Chat.go has the saga, the guardian, the persistence. We build Snake Way here. In our own garden."
+"clood is not ours. We cannot fix their gates." He gestured to the garden below. "But this—this is ours. Watch.go already has the viewport, the sections, the hotkeys. Chat.go has the saga, the guardian, the persistence. We build Snake Way here. In our own garden."
 
 Chef Claude bowed. "Good artists borrow."
 
@@ -136,6 +136,6 @@ Bird-san closes eyes
 
 **Session Notes:**
 - Bean #9 planted: Snake Way & The Flying Nimbus
-- Crush verdict: Build on what we own
+- clood verdict: Build on what we own
 - Key insight: watch.go + chat.go = 80% of Snake Way
 - Testing plan: 5 phases documented in LAST_SESSION.md

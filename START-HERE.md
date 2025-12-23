@@ -1,241 +1,184 @@
-# Start Here - Clood Setup Checklist
+# Start Here - clood Setup
 
-Complete these steps in order to get clood running on your machine.
+Get clood running on your machine.
 
 ## Prerequisites
 
-- [ ] Linux (Ubuntu 24/25) or macOS (M-series recommended)
-- [ ] 8GB+ RAM (16GB+ recommended)
-- [ ] GPU with 6GB+ VRAM for decent performance (optional but recommended)
+- Go 1.21+ (to build clood)
+- Ollama installed and running
+- Optional: Multiple machines with Ollama for distributed inference
 
 ---
 
-## Phase 1: Core Infrastructure
+## Phase 1: Install Ollama
 
-### 1.1 Install Ollama
-
+### Linux
 ```bash
-# Linux
 curl -fsSL https://ollama.com/install.sh | sh
+```
 
-# macOS
+### macOS
+```bash
 brew install ollama
 ```
 
 Verify: `ollama --version`
 
-### 1.2 Install Docker (for SearXNG)
-
-```bash
-# Linux
-sudo apt install docker.io docker-compose-v2
-sudo usermod -aG docker $USER
-# Log out and back in
-
-# macOS
-brew install --cask docker
-# Open Docker Desktop
-```
-
-Verify: `docker ps`
-
-### 1.3 Install Node.js (for MCP servers)
-
-```bash
-# Linux
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
-
-# macOS
-brew install node
-```
-
-Verify: `node --version && npm --version`
-
-### 1.4 Install Crush CLI
-
-```bash
-# macOS
-brew install charmbracelet/tap/crush
-
-# Linux - download from GitHub releases
-# https://github.com/charmbracelet/crush/releases
-# Example for amd64:
-wget https://github.com/charmbracelet/crush/releases/latest/download/crush_Linux_x86_64.tar.gz
-tar xzf crush_Linux_x86_64.tar.gz
-sudo mv crush /usr/local/bin/
-```
-
-Verify: `crush --version`
-
 ---
 
-## Phase 2: GPU Setup (Optional but Recommended)
-
-### AMD GPU (RX 500/5000/6000/7000 series)
-
-See [GPU-SETUP.md](GPU-SETUP.md) for detailed instructions.
-
-**Quick check:**
-```bash
-# Check if GPU is detected
-ollama run tinyllama "hello" --verbose 2>&1 | grep -i "gpu\|layer"
-```
-
-### NVIDIA GPU
-
-Usually works out of the box. Ensure CUDA drivers installed.
-
-### Apple Silicon
-
-Works automatically via Metal. No setup needed.
-
----
-
-## Phase 3: Pull Models
-
-Run these manually in your terminal (not via Claude CLI):
+## Phase 2: Pull Models
 
 ```bash
-# Essential - Tool calling (pick one)
-ollama pull llama3-groq-tool-use:8b   # Best for MCP tools
-ollama pull qwen3:8b                   # Alternative with tools
+# Essential - pick based on your VRAM
+ollama pull qwen2.5-coder:3b    # 2.5GB - fast, good for routing
+ollama pull qwen2.5-coder:7b    # 6GB - balanced
+ollama pull llama3.1:8b         # 6GB - general purpose
 
-# Essential - Coding
-ollama pull qwen2.5-coder:7b          # Best coding model for 8GB VRAM
+# Reasoning (if you have 8GB+ VRAM)
+ollama pull deepseek-r1:14b     # 14GB - deep reasoning
 
-# Fast/Small
-ollama pull tinyllama                  # Router/classifier (~150 tok/s)
-ollama pull qwen2.5-coder:3b          # Fast coding (~64 tok/s)
-
-# Embeddings (for future RAG)
-ollama pull nomic-embed-text
+# Tool calling
+ollama pull llama3-groq-tool-use:8b  # 6GB - optimized for tools
 ```
 
 Verify: `ollama list`
 
 ---
 
-## Phase 4: Start Services
-
-### 4.1 Start SearXNG (Web Search)
+## Phase 3: Build clood
 
 ```bash
-cd ~/Code/clood/infrastructure
-docker compose up -d searxng
-```
-
-Verify: `curl http://localhost:8888/search?q=test&format=json | head`
-
-### 4.2 Start Ollama (if not running)
-
-```bash
-# Linux (systemd)
-sudo systemctl start ollama
-sudo systemctl enable ollama
-
-# macOS
-ollama serve &
-```
-
-Verify: `curl http://localhost:11434/api/tags`
-
----
-
-## Phase 5: Configure Crush
-
-### 5.1 Copy config template
-
-```bash
-mkdir -p ~/.config/crush
-cp ~/Code/clood/infrastructure/configs/crush/crush.json ~/.config/crush/crush.json
-```
-
-### 5.2 Test Crush
-
-```bash
-crush
-# Select a model from the list
-# Try: "What is 2+2?"
-```
-
-### 5.3 Test MCP servers
-
-```bash
-# In Crush, try these prompts with llama3-groq-tool-use:8b:
-"List files in /home/mgilbert/Code/clood"      # Tests filesystem MCP
-"Search the web for 'ollama performance tips'" # Tests SearXNG MCP
+cd ~/Code/clood/clood-cli
+go build -o clood ./cmd/clood
+./clood --version
 ```
 
 ---
 
-## Phase 6: Performance Tuning (Linux)
-
-### 6.1 CPU Governor
+## Phase 4: Configure clood
 
 ```bash
-# Check current
-cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+# Run setup wizard
+./clood setup
 
-# Set to performance (temporary)
-echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
-
-# Make permanent
-sudo apt install linux-tools-common linux-tools-$(uname -r)
-sudo cpupower frequency-set -g performance
-```
-
-### 6.2 Ollama Tuning
-
-See [ollama-tuning.md](ollama-tuning.md) for GPU-specific settings.
-
----
-
-## Phase 7: Project Awareness
-
-Create or update the projects manifest so models know about your projects:
-
-```bash
-# Check if manifest exists
-cat ~/Code/projects_manifest.json
-
-# If not, create one based on ARCHITECTURE.md template
+# Or manually create config
+mkdir -p ~/.config/clood
+cat > ~/.config/clood/config.yaml << 'EOF'
+hosts:
+  - name: localhost
+    url: http://localhost:11434
+    priority: 1
+    enabled: true
+tiers:
+  fast:
+    model: qwen2.5-coder:3b
+  deep:
+    model: qwen2.5-coder:7b
+  analysis:
+    model: deepseek-r1:14b
+EOF
 ```
 
 ---
 
-## Verification Checklist
+## Phase 5: Verify Setup
 
-Run through this to confirm everything works:
+```bash
+# Check what's available
+./clood preflight
 
-- [ ] `ollama list` shows your models
-- [ ] `curl http://localhost:11434/api/tags` returns JSON
-- [ ] `curl http://localhost:8888` returns SearXNG HTML
-- [ ] `crush` opens and connects to Ollama
-- [ ] Crush can use filesystem MCP (list files)
-- [ ] Crush can use searxng MCP (web search)
+# Check hosts
+./clood hosts
+
+# Test a query
+./clood ask "Hello, what model are you?"
+
+# Test local tools
+./clood tree .
+./clood grep "func main"
+```
+
+---
+
+## Phase 6: Add to Claude Code (Optional)
+
+Add clood as an MCP server in Claude Code settings:
+
+```json
+{
+  "mcpServers": {
+    "clood": {
+      "command": "/path/to/clood",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+---
+
+## Multi-Machine Setup
+
+If you have multiple machines with Ollama:
+
+```yaml
+# ~/.config/clood/config.yaml
+hosts:
+  - name: mac-mini
+    url: http://localhost:11434
+    priority: 2
+    enabled: true
+  - name: ubuntu25
+    url: http://192.168.4.64:11434
+    priority: 1
+    enabled: true
+  - name: mac-laptop
+    url: http://192.168.4.47:11434
+    priority: 3
+    enabled: true
+```
+
+On remote machines, expose Ollama to the network:
+```bash
+# Set in environment or systemd
+OLLAMA_HOST=0.0.0.0 ollama serve
+```
 
 ---
 
 ## Troubleshooting
 
-### Ollama running on CPU instead of GPU
-See [GPU-SETUP.md](GPU-SETUP.md) - likely need Vulkan backend for AMD.
+### Ollama not responding
+```bash
+# Check if running
+curl http://localhost:11434/api/tags
 
-### MCP servers not responding
-Check that Node.js is installed and npx works: `npx --version`
+# Start it
+ollama serve
+```
 
-### Crush can't connect to Ollama
-Verify Ollama is running: `curl http://localhost:11434/api/tags`
+### Remote host not connecting
+```bash
+# Test connectivity
+curl http://192.168.4.64:11434/api/tags
 
-### Out of disk space
-Move Ollama models to /home partition - see [ollama-tuning.md](ollama-tuning.md#troubleshooting)
+# Check if Ollama is bound to 0.0.0.0
+ssh ubuntu25 'ss -tlnp | grep 11434'
+```
+
+### Model too slow
+```bash
+# Check GPU usage
+./clood system
+
+# Use a smaller model
+./clood ask "question" --model qwen2.5-coder:3b
+```
 
 ---
 
 ## Next Steps
 
-1. Read [ARCHITECTURE.md](ARCHITECTURE.md) to understand the tiered model approach
-2. Read [crush.md](crush.md) for advanced Crush configuration
-3. Read [WORKFLOW.md](WORKFLOW.md) for Claude Code + Crush workflow
-4. Explore [model-comparison.md](model-comparison.md) for model selection
+1. Read [clood-cli/docs/USAGE_GUIDE.md](clood-cli/docs/USAGE_GUIDE.md) for full documentation
+2. Explore `clood help` for all commands
+3. Try `clood preflight` at the start of each session

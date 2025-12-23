@@ -25,7 +25,7 @@ func ServeCmd() *cobra.Command {
 		Short: "Start clood as an MCP server",
 		Long: `Starts clood as a Model Context Protocol (MCP) server.
 
-This allows AI agents (like Claude Code, crush) to call clood tools via HTTP/SSE streaming.
+This allows AI agents (like Claude Code) to call clood tools via HTTP/SSE streaming.
 
 Examples:
   # Start SSE server on default port (localhost only)
@@ -83,7 +83,7 @@ Examples:
 			fmt.Printf("  %s %s/sse\n", tui.MutedStyle.Render("SSE Endpoint:"), baseURL)
 			fmt.Printf("  %s %s/message\n", tui.MutedStyle.Render("Message Endpoint:"), baseURL)
 			fmt.Println()
-			fmt.Println(tui.MutedStyle.Render("  crush.json config:"))
+			fmt.Println(tui.MutedStyle.Render("  MCP client config (SSE mode):"))
 			fmt.Println(tui.MutedStyle.Render(fmt.Sprintf(`  "clood": {
     "type": "sse",
     "url": "%s/sse"

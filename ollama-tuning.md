@@ -359,7 +359,7 @@ From any machine, access ubuntu25's Ollama:
 curl http://192.168.4.63:11434/v1/models
 ```
 
-Crush config for remote Ollama:
+clood config for remote Ollama:
 ```json
 {
   "providers": {

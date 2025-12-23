@@ -86,7 +86,7 @@ Checks:
   • Hardware (CPU, memory, GPU/VRAM)
   • Ollama (installed, running, hosts reachable)
   • Config (valid, models available)
-  • CLI tools (mods, crush, gh, etc.)
+  • CLI tools (mods, gh, ollama, etc.)
 
 Provides actionable recommendations with exact commands to fix issues.`,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -337,7 +337,7 @@ func runDiagnostics(verbose bool) DoctorReport {
 	}
 
 	// CLI tools check
-	cliTools := []string{"mods", "crush", "gh", "ollama"}
+	cliTools := []string{"mods", "gh", "ollama"}
 	for _, tool := range cliTools {
 		path, err := exec.LookPath(tool)
 		td := ToolDiag{Name: tool, Installed: err == nil}

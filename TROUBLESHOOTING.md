@@ -109,55 +109,6 @@ curl "http://localhost:8888/search?q=test&format=json&engines=duckduckgo"
 
 ---
 
-## Crush CLI Issues
-
-### Crush not finding models
-
-```bash
-# Check Crush config
-cat ~/.config/crush/crush.json | head -30
-
-# Verify base_url points to Ollama
-# Should be: "base_url": "http://localhost:11434/v1/"
-
-# Test Ollama API directly
-curl http://localhost:11434/api/tags
-```
-
-### MCP servers not working in Crush
-
-**Filesystem MCP:**
-```bash
-# Check config has filesystem MCP
-grep -A5 "filesystem" ~/.config/crush/crush.json
-
-# Should see:
-# "command": "npx"
-# "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/mgilbert/Code"]
-```
-
-**SearXNG MCP:**
-```bash
-# Check config has searxng MCP
-grep -A5 "searxng" ~/.config/crush/crush.json
-
-# Verify SearXNG URL in config matches running instance
-# Default: http://localhost:8888
-```
-
-### "Model not found" in Crush
-
-```bash
-# List available models
-ollama list
-
-# Check model name matches exactly (including tag)
-# Wrong: llama3-groq-tool-use
-# Right: llama3-groq-tool-use:8b
-```
-
----
-
 ## Performance Issues
 
 ### Slow inference
@@ -281,10 +232,10 @@ ollama rm unused-model-name
 
 ## Getting Help
 
-1. Run verification: `./scripts/verify-setup.sh`
+1. Run `clood doctor` for diagnostics
 2. Check this doc for your specific error
 3. Review component-specific docs:
    - Ollama: `ollama-tuning.md`
    - GPU: `GPU-SETUP.md`, `hardware/rx590.md`
-   - Crush: `crush.md`, `infrastructure/CRUSH-INSTALL.md`
+   - clood: `clood-cli/docs/USAGE_GUIDE.md`
 4. Check logs: `sudo journalctl -u ollama -f`

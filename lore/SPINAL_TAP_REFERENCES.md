@@ -78,7 +78,7 @@ The clood terminal experience aspires to this standard. Clean. Minimal. None mor
 A **Stonehenge Moment** occurs when:
 - Scope and implementation don't match
 - What was envisioned as MASSIVE arrives as tiny
-- Or worse: tiny scope balloons into crushing reality
+- Or worse: tiny scope balloons into clooding reality
 
 **Warning Signs:**
 ```

@@ -26,7 +26,7 @@ The Goal: Create a cohesive local LLM platform with a 'Tiered Intelligence' rout
 We need to generate 4 specific files:
 1. scripts/clood-common.sh: A shared library defining OLLAMA_HOST, MODEL_FAST, MODEL_SMART.
 2. scripts/verify-setup.sh: A health check script that sources clood-common.sh.
-3. scripts/clood-ask: The main BASH router script that uses 'mods' for simple queries and 'crush' for complex ones.
+3. scripts/clood-ask: The main BASH router script that uses 'mods' for simple queries and 'clood' for complex ones.
 4. scripts/context-ask.py: A Python utility to fetch file context safely using XML tags.
 "
 
@@ -79,10 +79,10 @@ generate_file "clood-common.sh" \
 "Define standard env vars (OLLAMA_HOST, MODEL_FAST=tinyllama, MODEL_SMART=llama3-groq-tool-use) and a 'log_tier' helper function for colored output."
 
 generate_file "verify-setup.sh" \
-"Source clood-common.sh. Check if 'mods' and 'crush' are in PATH. Verify config files exist."
+"Source clood-common.sh. Check if 'mods' and 'clood' are in PATH. Verify config files exist."
 
 generate_file "clood-ask" \
-"Source clood-common.sh. Use 'mods' to classify input as SIMPLE or COMPLEX. If SIMPLE, pipe to mods. If COMPLEX, launch crush. Check for project context files."
+"Source clood-common.sh. Use 'mods' to classify input as SIMPLE or COMPLEX. If SIMPLE, pipe to mods. If COMPLEX, launch clood. Check for project context files."
 
 generate_file "context-ask.py" \
 "Refactor to use XML tags <file_context> around content to prevent prompt injection. Ensure it reads variables from clood-common.sh if possible or defaults safely."

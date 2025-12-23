@@ -102,11 +102,10 @@ This file tells models about available projects without them having to discover 
       "key_files": [
         "README.md",
         "ARCHITECTURE.md",
-        "crush.md",
         "ollama-tuning.md",
-        "model-comparison.md"
+        "clood-cli/docs/USAGE_GUIDE.md"
       ],
-      "tags": ["llm", "infrastructure", "tooling", "ollama", "crush"]
+      "tags": ["llm", "infrastructure", "tooling", "ollama", "clood"]
     },
     {
       "name": "example-project",
@@ -133,7 +132,7 @@ Models can be instructed to:
 
 ## MCP Server Integration
 
-Current MCP servers in Crush:
+MCP tools available in clood:
 
 | Server | Purpose | Tier |
 |--------|---------|------|
@@ -201,8 +200,8 @@ Current MCP servers in Crush:
 │  │                │  │                │  │                │    │
 │  │  Services:     │  │  Can run:      │  │  Can run:      │    │
 │  │  - Ollama      │  │  - Ollama      │  │  - Ollama      │    │
-│  │  - SearXNG     │  │  - Crush       │  │  - Crush       │    │
-│  │  - Crush       │  │                │  │  - Larger      │    │
+│  │  - SearXNG     │  │  - clood       │  │  - clood       │    │
+│  │  - clood       │  │                │  │  - Larger      │    │
 │  │                │  │  Connects to:  │  │    models      │    │
 │  │  :11434        │  │  ubuntu25 for  │  │                │    │
 │  │  :8888         │  │  search/models │  │  :11434        │    │
@@ -226,8 +225,8 @@ Current MCP servers in Crush:
 
 ### Phase 1: Foundation (Current)
 - [x] Ollama running with GPU acceleration
-- [x] Crush configured with MCP servers
-- [x] Basic model selection in crush.json
+- [x] clood CLI with MCP server capability
+- [x] Multi-host routing configuration
 - [x] Documentation framework
 
 ### Phase 2: Project Awareness
@@ -257,9 +256,7 @@ Current MCP servers in Crush:
 | File | Purpose |
 |------|---------|
 | `ARCHITECTURE.md` | This file - system design |
-| `crush.md` | Crush CLI configuration |
+| `clood-cli/docs/USAGE_GUIDE.md` | How to use clood |
 | `ollama-tuning.md` | Performance optimization |
-| `model-comparison.md` | Model selection guide |
 | `hardware/i7-8086k.md` | CPU documentation |
-| `LAST_SESSION.md` | Session continuity |
-| `~/Code/projects_manifest.json` | Project registry (created) |
+| `~/Code/projects_manifest.json` | Project registry |

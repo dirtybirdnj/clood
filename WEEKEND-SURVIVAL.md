@@ -38,13 +38,13 @@ If all three work → you're golden.
 
 ---
 
-## Workflow 1: Crush + MCP (Recommended)
+## Workflow 1: clood + MCP (Recommended)
 
 ### On ubuntu25
 
 ```bash
-# Start Crush
-crush
+# Start clood
+clood
 
 # Select: llama3-groq-tool-use:8b
 
@@ -58,21 +58,21 @@ crush
 **If tools work:** You can read files, search the web, and generate code.
 
 **If tools don't work:** The model will try to respond without calling tools. Check:
-- Is the MCP server configured in `~/.config/crush/crush.json`?
-- Try: `cat ~/.config/crush/crush.json | grep mcp`
+- Is the MCP server configured in `~/.config/clood/clood.json`?
+- Try: `cat ~/.config/clood/clood.json | grep mcp`
 
 ### From Mac (Remote to ubuntu25)
 
-Option A: SSH and run Crush on ubuntu25
+Option A: SSH and run clood on ubuntu25
 ```bash
 ssh mgilbert@192.168.4.63
-crush
+clood
 ```
 
-Option B: Configure Crush on Mac to use ubuntu25's Ollama
+Option B: Configure clood on Mac to use ubuntu25's Ollama
 ```bash
-mkdir -p ~/.config/crush
-cat > ~/.config/crush/crush.json << 'EOF'
+mkdir -p ~/.config/clood
+cat > ~/.config/clood/clood.json << 'EOF'
 {
   "providers": {
     "ubuntu25": {
@@ -84,7 +84,7 @@ cat > ~/.config/crush/crush.json << 'EOF'
   }
 }
 EOF
-crush
+clood
 ```
 
 ---
@@ -174,11 +174,11 @@ docker compose up -d searxng
 docker compose logs searxng
 ```
 
-### Crush can't find models
+### clood can't find models
 
 Make sure the config points to ubuntu25:
 ```bash
-cat ~/.config/crush/crush.json
+cat ~/.config/clood/clood.json
 # Should have: "base_url": "http://192.168.4.63:11434/v1/"
 ```
 
@@ -233,8 +233,8 @@ I am in control.
 # Test ubuntu25
 curl http://192.168.4.63:11434/api/tags
 
-# Start Crush (on ubuntu25)
-ssh mgilbert@192.168.4.63 -t "crush"
+# Start clood (on ubuntu25)
+ssh mgilbert@192.168.4.63 -t "clood"
 
 # Aider (from any machine)
 aider --model ollama/llama3-groq-tool-use:8b --ollama-api-base http://192.168.4.63:11434

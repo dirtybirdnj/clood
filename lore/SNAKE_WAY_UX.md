@@ -147,7 +147,7 @@ Parse AI responses for question patterns:
 ### Integration Points
 
 - **clood chat** - Primary interface
-- **crush** - Could adopt same pattern
+- **clood** - Could adopt same pattern
 - **Claude Code** - The inspiration for solving confirm fatigue
 
 ## The Visual

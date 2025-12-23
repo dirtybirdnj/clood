@@ -77,14 +77,14 @@ ssh ubuntu25
 curl http://localhost:4000/models
 ```
 
-### 4. Test MCP Tools in Crush
-On ubuntu25, open Crush and test:
+### 4. Test MCP Tools in clood
+On ubuntu25, open clood and test:
 - "List files in /home/mgilbert/Code/clood"
 - "Search for ollama vulkan performance"
 - "List my github repos"
 
 ### 5. End-to-End PR Test
-- Open clood repo in Crush
+- Open clood repo in clood
 - "Read README and suggest improvement"
 - "Create branch, make change, open PR"
 

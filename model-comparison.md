@@ -123,7 +123,7 @@ A comprehensive guide to model selection and workload distribution across the cl
 
 ## Recommended Models for Tool Calling / MCP
 
-Priority order for Crush + MCP:
+Priority order for clood + MCP:
 
 1. **`llama3-groq-tool-use:8b`** - Purpose-built for tool calling
 2. **`qwen3:8b`** - Latest generation, good tool support
@@ -177,7 +177,7 @@ Test any model:
 # Quick speed test
 ollama run MODEL_NAME "Write fizzbuzz in Python" --verbose 2>&1 | grep "eval rate"
 
-# Tool calling test (in Crush)
+# Tool calling test (in clood)
 # Ask: "List the files in the current directory"
 # Watch if it calls MCP or hallucinates JSON
 ```
@@ -297,7 +297,7 @@ To compare local models vs Claude:
 | Agent Tool | Works With | Best For |
 |------------|------------|----------|
 | **Aider** | Ollama, OpenAI, Claude | Git-aware coding, file editing |
-| **Crush + MCP** | Ollama | Tool calling, web search |
+| **clood + MCP** | Ollama | Tool calling, web search |
 | **Continue.dev** | Ollama, any API | IDE integration (VSCode/JetBrains) |
 | **Open Interpreter** | Ollama, OpenAI | Code execution, system control |
 

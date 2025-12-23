@@ -118,7 +118,7 @@ func HealthCmd() *cobra.Command {
 			}
 
 			// CLI Tools
-			cliTools := []string{"mods", "crush", "aider", "gh", "ollama"}
+			cliTools := []string{"mods", "aider", "gh", "ollama"}
 			for _, tool := range cliTools {
 				path, err := exec.LookPath(tool)
 				th := CLIToolHealth{

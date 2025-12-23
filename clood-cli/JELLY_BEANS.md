@@ -110,7 +110,7 @@ Enable true streaming MCP via Server-Sent Events:
 clood serve --sse --port 8765
 ```
 
-crush config:
+clood config:
 ```json
 "clood": {
   "type": "sse",
@@ -127,7 +127,7 @@ crush config:
 **Status:** Planted
 **Session:** The Bar Session (Dec 17, 2025)
 
-Create system prompts/instructions that teach crush HOW to use clood tools in sequence. Instead of one big tool call, guide the AI to:
+Create system prompts/instructions that teach clood HOW to use clood tools in sequence. Instead of one big tool call, guide the AI to:
 
 1. Gather context first (tree, grep, symbols)
 2. Explain what it found
@@ -135,7 +135,7 @@ Create system prompts/instructions that teach crush HOW to use clood tools in se
 4. Report progress at each step
 
 Could be:
-- A CLAUDE.md-style instruction file for crush
+- A CLAUDE.md-style instruction file for clood
 - MCP server metadata that describes workflows
 - Example conversations that demonstrate the pattern
 
@@ -217,7 +217,7 @@ clood session dump --format markdown > SESSION_2025_12_17.md
 
 ### UI Brainstorm
 
-**Option A: Status Bar (crush integration)**
+**Option A: Status Bar (clood integration)**
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │ 🟢 clood │ 3 hosts │ 🫘 7 beans │ ████████░░ 78% tokens │ 12:47 │
@@ -251,7 +251,7 @@ The best context is the one that's preserved. Don't let infodumps disappear into
 - Track token count per message
 - Heuristics for "infodump" detection
 - Integration with `clood session` commands
-- crush UI for visual feedback
+- clood UI for visual feedback
 - Hardware detection for smart thresholds
 
 ---
@@ -320,7 +320,7 @@ Status: 🔵🟢🔴🔵🟡🟡🟡 = 2 done, 1 progress, 1 dream, 3 planted
 ```
 
 **Integration points:**
-- crush status bar
+- clood status bar
 - clood session show
 - clood beans (new command to list all beans with status)
 - MCP tool for agents to self-monitor

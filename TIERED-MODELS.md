@@ -29,7 +29,7 @@ Use fast models to gather info, slow models to produce quality output.
 Use 3B/7B to quickly gather information:
 
 ```
-# In Crush with qwen2.5-coder:3b
+# In clood with qwen2.5-coder:3b
 
 > List all the files in src/ that handle authentication
 > Summarize what each one does in 1 sentence
@@ -72,7 +72,7 @@ Read the notes. Decide what to do. Write a clear task:
 Feed the context + task to 14B/33B:
 
 ```
-# In Crush with qwen2.5-coder:14b
+# In clood with qwen2.5-coder:14b
 
 [paste your task document]
 
@@ -85,10 +85,10 @@ Slow model has full context, produces better code.
 
 ## Practical Commands
 
-### Quick model switching in Crush
+### Quick model switching in clood
 
-Crush remembers your model choice per session. To switch:
-1. Exit Crush (`Ctrl+C` or `/exit`)
+clood remembers your model choice per session. To switch:
+1. Exit clood (`Ctrl+C` or `/exit`)
 2. Restart and select different model
 
 ### Running models in parallel
@@ -98,11 +98,11 @@ You can have multiple terminals:
 ```bash
 # Terminal 1: Fast exploration
 cd ~/Code/myproject
-crush  # select 3b
+clood  # select 3b
 
 # Terminal 2: Quality implementation
 cd ~/Code/myproject
-crush  # select 14b
+clood  # select 14b
 ```
 
 Both hit the same Ollama server.
@@ -202,9 +202,9 @@ Show each file separately.
 
 ---
 
-## Model Config for Crush
+## Model Config for clood
 
-Make sure all tiers are in your Crush config:
+Make sure all tiers are in your clood config:
 
 ```json
 {

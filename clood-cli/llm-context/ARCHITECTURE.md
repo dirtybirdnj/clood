@@ -7,13 +7,13 @@ clood is an **infrastructure layer**, not a coding assistant. It answers:
 - "Which Ollama host should handle this query?"
 - "What models should I have installed?"
 
-Applications like aider, crush, or custom tools sit on top of clood.
+Applications like aider, clood, or custom tools sit on top of clood.
 
 ## System Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Applications (aider, crush, mods, custom)              │
+│  Applications (aider, clood, mods, custom)              │
 ├─────────────────────────────────────────────────────────┤
 │  clood CLI                                              │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐   │

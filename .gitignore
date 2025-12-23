@@ -28,3 +28,4 @@ clood-cli/.clood/
 
 # Session handoffs - INTENTIONALLY TRACKED for cross-machine context
 # LAST_SESSION.md is NOT ignored - it passes context between agents
+repomix-output.xml

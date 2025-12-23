@@ -66,65 +66,54 @@ git commit -m "Add seed: [description]"
 
 ---
 
-## Phase 2: Crush Session (Execute)
+## Phase 2: Local LLM Session (Execute)
 
-Open Crush in the same project:
+Use clood to have local LLMs implement the seeds:
+
+### Option A: Direct ask
 
 ```bash
-cd ~/Code/rat-king
-crush
+# Read the seed and pipe to clood
+cat seeds/skeletons/my-feature.py | clood ask "Implement all TODOs in this code"
+
+# Or with context
+clood ask "Implement all TODOs" --context seeds/skeletons/my-feature.py
 ```
 
-### Step 1: Load the seed
+### Option B: Interactive chat
 
-Copy the seed file contents:
 ```bash
-cat seeds/skeletons/my-feature.py
+clood chat
+# Then paste the seed and prompt
 ```
 
-Or open in editor and copy.
-
-### Step 2: Paste and prompt
-
-Paste the seed into Crush, then add a simple instruction:
+### Prompting tips for local LLMs
 
 **For skeletons:**
 ```
-[paste skeleton]
-
 Implement this code by filling in all the TODO comments.
 Output only the completed code, no explanations.
 ```
 
 **For checklists:**
 ```
-[paste checklist with code inserted]
-
 Answer each question with only YES or NO.
 One answer per line.
 ```
 
 **For tests:**
 ```
-[paste test file]
-
 Write the implementation that makes all these tests pass.
 Output only the code, no explanations.
 ```
 
 **For transforms:**
 ```
-[paste transform spec with code to transform]
-
 Apply these rules to convert the code.
 Output only the converted code.
 ```
 
-### Step 3: Copy output
-
-Select the code from Crush's response and paste into your editor.
-
-### Step 4: Review and fix
+### Step 3: Review and fix
 
 Local LLM output needs review:
 - Check for obvious errors
@@ -135,7 +124,7 @@ Local LLM output needs review:
 
 ## Quick Reference
 
-| I want to... | Claude creates... | Crush prompt |
+| I want to... | Claude creates... | clood prompt |
 |--------------|-------------------|--------------|
 | Add feature | Skeleton with TODOs | "Implement the TODOs" |
 | Review code | YES/NO checklist | "Answer YES or NO only" |
@@ -146,47 +135,10 @@ Local LLM output needs review:
 
 ---
 
-## Example: rat-king Project
-
-### In Claude:
-
-```
-> analyze this codebase
-
-[Claude explains rat-king structure]
-
-> Create a skeleton for adding a new command called "status"
-> that shows the current state of all tracked items.
-> Put it in seeds/skeletons/status-command.py
-> Make the TODOs very specific.
-
-[Claude creates the file]
-
-> Now create a YES/NO checklist for reviewing the main.py file
-> for error handling issues. Put it in seeds/checklists/main-error-handling.md
-
-[Claude creates the file]
-```
-
-### In Crush:
-
-```
-> [paste contents of seeds/skeletons/status-command.py]
->
-> Implement this following the TODO comments exactly.
-> Output only the completed code.
-
-[Crush/Qwen outputs implementation]
-```
-
-Copy output, paste into your actual source file, review.
-
----
-
 ## Directory Structure in Your Project
 
 ```
-rat-king/
+my-project/
 ├── src/                    # Your actual code
 ├── tests/
 ├── seeds/                  # Add this directory
@@ -197,7 +149,7 @@ rat-king/
 └── ...
 ```
 
-The `seeds/` directory is for Claude↔Crush handoff. You can gitignore it or keep it for reference.
+The `seeds/` directory is for Claude ↔ local LLM handoff. You can gitignore it or keep it for reference.
 
 ---
 

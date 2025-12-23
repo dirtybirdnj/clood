@@ -112,7 +112,7 @@ rsync -av --progress ubuntu25:/home/ollama-models/ ~/.ollama/models/
 → ubuntu25 + qwen2.5-coder:7b (better output, 32 tok/s)
 
 ### "I need an agent with tools"
-→ ubuntu25 + llama3-groq-tool-use:8b + Crush/MCP
+→ ubuntu25 + llama3-groq-tool-use:8b + clood/MCP
 
 ### "I need to generate images"
 → MacBook Air + Draw Things (fastest)

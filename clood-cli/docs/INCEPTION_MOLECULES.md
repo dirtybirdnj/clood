@@ -68,10 +68,10 @@ curl -X POST http://localhost:8765/tools/clood_inception \
   -d '{"expert": "science", "query": "What is orbital velocity?"}'
 ```
 
-### Molecule 4: Crush Integration (Limited)
+### Molecule 4: clood Integration (Limited)
 
-⚠️ **Known Issue:** Crush's `AllowedMCP` filter blocks MCP tools from reaching the LLM.
-See commit `d33975d` - "Crush tool-calling bug documented"
+⚠️ **Known Issue:** clood's `AllowedMCP` filter blocks MCP tools from reaching the LLM.
+See commit `d33975d` - "clood tool-calling bug documented"
 
 **Workaround Options:**
 1. Use `tool-proxy.py` to inject tools into Ollama requests
@@ -79,7 +79,7 @@ See commit `d33975d` - "Crush tool-calling bug documented"
 3. Build in clood (Snake Road with inception - what we did!)
 
 ```
-Crush → tool-proxy.py → Ollama → (tools injected) → tool call → clood → Expert
+clood → tool-proxy.py → Ollama → (tools injected) → tool call → clood → Expert
 ```
 
 ### Molecule 5: Multi-Expert Chain (Future)
@@ -101,7 +101,7 @@ This requires depth > 1 and parallel sub-queries. Currently limited to depth=1.
 | 1 | Direct CLI | ✅ Working | `clood inception` |
 | 2 | any-cli-mcp | 🔄 Testable | `npx any-cli-mcp-server clood` |
 | 3 | Native MCP | ✅ Working | `clood serve --sse` |
-| 4 | Crush | ⚠️ Blocked | See workarounds |
+| 4 | clood | ⚠️ Blocked | See workarounds |
 | 5 | Multi-Expert | 📋 Future | Jelly Bean #150 |
 
 ## The Scrolls Remind the Scrolls
@@ -110,7 +110,7 @@ From git history (xbibit postulates):
 
 **Commit c093608** - tool-proxy.py:
 > Proxy works - model calls tools
-> Crush ignores - the loop stays broken
+> clood ignores - the loop stays broken
 > Forty lines wait
 
 **Commit d33975d** - Bug documented:
@@ -165,7 +165,7 @@ echo "=== Done ==="
 │    │                                                               │        │
 │    ├──→ MCP Client ──→ clood serve (SSE) ──→ clood_inception ──→ Expert   │
 │    │                                                               │        │
-│    └──→ Crush ──→ (blocked by AllowedMCP) ──→ ❌                   │        │
+│    └──→ clood ──→ (blocked by AllowedMCP) ──→ ❌                   │        │
 │              │                                                     │        │
 │              └──→ tool-proxy.py ──→ Ollama ──→ inception ──→ Expert        │
 │                                                                             │
@@ -176,6 +176,6 @@ echo "=== Done ==="
 
 1. **Test Molecule 1** - Run `clood inception` interactively
 2. **Test Molecule 3** - Start MCP server, call via curl
-3. **Investigate Crush** - Can we patch AllowedMCP or use tool-proxy?
+3. **Investigate clood** - Can we patch AllowedMCP or use tool-proxy?
 4. **Document Results** - Update this file with findings
 5. **Bean #150** - Track multi-expert chains as future work

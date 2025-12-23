@@ -1,7 +1,7 @@
 # LAST SESSION - The Nimbus Revelation
 
 **Date:** December 18, 2025
-**Session:** Snake Way Architecture & The Crush Verdict
+**Session:** Snake Way Architecture & The clood Verdict
 **Bird-san Status:** Exhausted. Brain smoking. Gentle wisps from ears.
 
 ---
@@ -22,9 +22,9 @@ We designed the solution to "confirm fatigue" and multi-question chaos.
 - `lore/SNAKE_WAY_UX.md` - Full specification
 - Bean #9 added to `clood-cli/JELLY_BEANS.md`
 
-### 2. We Don't Need Crush
+### 2. We Don't Need clood
 
-**The Problem:** Crush MCP tools initialize but don't reach the LLM. The `AllowedMCP` filter in `buildTools()` blocks them.
+**The Problem:** clood MCP tools initialize but don't reach the LLM. The `AllowedMCP` filter in `buildTools()` blocks them.
 
 **The Solution:** Build Snake Way as `clood chat --tui` using patterns we already have.
 
@@ -138,7 +138,7 @@ Status: Documented, needs infrastructure.
 
 Fetcher implemented on `feature/recipe-parser`. Rest of MVP pending.
 
-### crush AllowedMCP
+### clood AllowedMCP
 
 If revisiting: check `AllowedMCP` config, file bug about SSE tool exposure.
 
@@ -208,7 +208,7 @@ Tier 3 (Think): deepseek-r1 → Complex reasoning, validation
 - Local models: 4% signal from catfight, good for consensus not implementation
 - De-icing pattern exists in `issue_catfight_processor.py`
 - `clood watch` already has viewport + sections + hotkeys
-- We control clood. We don't control crush. Build on what we own.
+- We control clood. We don't control clood. Build on what we own.
 - qwen2.5-coder:3b can handle both generation AND parsing (layer cake tier 1)
 
 ---

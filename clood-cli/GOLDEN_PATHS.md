@@ -10,12 +10,12 @@ It's the AI orchestrating many small, focused tools in sequence.
 
 ## Why Granular > Monolithic
 
-When crush/AI calls `clood catfight` and waits 30 seconds for results:
+When clood/AI calls `clood catfight` and waits 30 seconds for results:
 - User sees loading spinner
 - No feedback during execution
 - Feels like a black box
 
-When crush/AI breaks it into steps:
+When clood/AI breaks it into steps:
 - "Checking available models..." → `clood models`
 - "Analyzing your hardware..." → `clood system`
 - "Running qwen2.5-coder:14b..." → `clood run --model qwen2.5-coder:14b "prompt"`
@@ -111,7 +111,7 @@ clood tree + grep + symbols  → Gather context
 clood analyze               → Understand current state
 [AI proposes changes]
 [User approves]
-[AI makes changes via crush file tools]
+[AI makes changes via clood file tools]
 clood analyze               → Verify changes
 [Repeat]
 ```
@@ -144,7 +144,7 @@ The user should never wonder "what's happening?"
 
 ## The Vision
 
-crush + clood should feel like pair programming with a skilled colleague who:
+clood + clood should feel like pair programming with a skilled colleague who:
 - Looks before leaping
 - Explains their thinking
 - Uses the right tool for each step

@@ -224,7 +224,7 @@ func deice(prompt string, models []string) string {
 
 **The Pattern:** When debugging integration issues, ask "do we even need this dependency?"
 
-**Origin:** The crush verdict - MCP tools initialized but were filtered out by crush's `AllowedMCP`. Instead of fighting the bug, we asked: "clood already has 80% of what we need in watch.go. Why fight crush?"
+**Origin:** The clood verdict - MCP tools initialized but were filtered out by clood's `AllowedMCP`. Instead of fighting the bug, we asked: "clood already has 80% of what we need in watch.go. Why fight clood?"
 
 **Decision Framework:**
 1. How much do we control the dependency?

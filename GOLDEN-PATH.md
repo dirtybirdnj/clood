@@ -27,7 +27,7 @@ echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governo
 
 ## Phase 2: Test MCP Tools
 
-In Crush, select `llama3-groq-tool-use:8b`, then test:
+In clood, select `llama3-groq-tool-use:8b`, then test:
 
 ```
 List files in /home/mgilbert/Code/clood
@@ -50,8 +50,8 @@ If it works → SearXNG MCP is functional.
 - SearXNG: `http://192.168.4.62:8888`
 
 ### MacBook Air / Mac Mini
-1. Install Ollama + Crush
-2. Copy crush.json, change `base_url` to ubuntu25:
+1. Install Ollama + clood
+2. Copy clood.json, change `base_url` to ubuntu25:
 ```json
 "base_url": "http://192.168.4.62:11434/v1/"
 ```
@@ -61,7 +61,7 @@ If it works → SearXNG MCP is functional.
 ## Phase 4: Local Workflow (No More Claude)
 
 ### For Coding Tasks
-1. Open Crush with `llama3-groq-tool-use:8b`
+1. Open clood with `llama3-groq-tool-use:8b`
 2. Use MCP to read files, search web
 3. Generate code, copy to editor
 4. Run tests locally: `pytest` / `cargo test` / `npm test`
@@ -81,7 +81,7 @@ gh pr create --title "..." --body "..."
 ## What's Working Now
 
 - [x] Ollama + GPU (Vulkan on ubuntu25)
-- [x] Crush configured with MCP servers
+- [x] clood configured with MCP servers
 - [x] SearXNG running (192.168.4.63:8888)
 - [x] Documentation consolidated
 - [x] BIOS tuning guide created
@@ -89,9 +89,9 @@ gh pr create --title "..." --body "..."
 
 ## What Needs Testing/Verification
 
-- [ ] MCP filesystem in Crush
-- [ ] MCP searxng in Crush
-- [ ] MCP github in Crush
+- [ ] MCP filesystem in clood
+- [ ] MCP searxng in clood
+- [ ] MCP github in clood
 - [ ] llama3-groq-tool-use:8b tool calling
 - [ ] Post-BIOS benchmark (after applying settings)
 
@@ -149,8 +149,8 @@ curl http://localhost:11434/api/tags
 # Check SearXNG
 curl "http://localhost:8888/search?q=test&format=json" | head
 
-# Check Crush config
-cat ~/.config/crush/crush.json | head -20
+# Check clood config
+cat ~/.config/clood/clood.json | head -20
 
 # Test model
 ollama run llama3-groq-tool-use:8b "Hello"

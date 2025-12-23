@@ -17,7 +17,7 @@ Prompt templates designed for small local models (7B and under).
 
 1. Open template in editor
 2. Replace `{PLACEHOLDER}` with your code
-3. Paste entire prompt into Crush
+3. Paste entire prompt into clood
 4. Copy output
 
 ## Tips

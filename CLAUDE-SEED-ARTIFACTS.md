@@ -287,7 +287,7 @@ Output format: r"your_pattern_here"
 3. Save to `seeds/` directory or drop zone
 4. Commit and push to repo
 
-### In Crush (local LLM):
+### In clood (local LLM):
 
 1. Pull repo or copy seed artifact
 2. Paste the artifact as the prompt
@@ -301,8 +301,8 @@ Output format: r"your_pattern_here"
 claude
 > analyze src/api/ and create a TODO skeleton for adding rate limiting
 
-# Crush session - implement it
-crush
+# clood session - implement it
+clood
 > [paste the skeleton Claude created]
 > implement this following the TODOs exactly
 ```

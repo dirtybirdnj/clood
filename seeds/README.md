@@ -19,7 +19,7 @@ Input→Output transformation specs with rules and examples.
 ## Usage
 
 1. Claude creates a seed artifact here
-2. Copy/paste into Crush with target code
+2. Copy/paste into clood with target code
 3. Local LLM produces output
 4. Review and iterate
 

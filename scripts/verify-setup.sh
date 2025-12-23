@@ -143,13 +143,13 @@ else
     ((WARNINGS++))
 fi
 
-# 10. Check Crush CLI
-echo -e "${INFO} Checking Crush CLI..."
-if command -v crush &> /dev/null; then
-    echo -e "  ${PASS} Crush CLI installed"
+# 10. Check clood CLI
+echo -e "${INFO} Checking clood CLI..."
+if command -v clood &> /dev/null || [ -x "$HOME/Code/clood/clood-cli/clood" ]; then
+    echo -e "  ${PASS} clood CLI available"
 else
-    echo -e "  ${WARN} Crush CLI not found"
-    echo "       Install: See infrastructure/CRUSH-INSTALL.md"
+    echo -e "  ${WARN} clood CLI not found"
+    echo "       Build: cd clood-cli && go build -o clood ./cmd/clood"
     ((WARNINGS++))
 fi
 
