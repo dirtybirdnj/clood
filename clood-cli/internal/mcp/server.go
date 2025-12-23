@@ -137,6 +137,9 @@ func (s *Server) registerTools() {
 
 	// DELEGATE: Task delegation to remote hosts
 	s.mcpServer.AddTool(s.delegateTool(), s.delegateHandler)
+
+	// CATFIGHT: Single-host model comparison
+	s.mcpServer.AddTool(s.catfightTool(), s.catfightHandler)
 }
 
 // =============================================================================
@@ -2472,4 +2475,165 @@ func (s *Server) delegateHandler(ctx context.Context, req mcp.CallToolRequest) (
 		model, hostName, duration.Seconds(), resp.EvalCount))
 
 	return mcp.NewToolResultText(result.String()), nil
+}
+
+// =============================================================================
+// CATFIGHT: Single-host model comparison
+// =============================================================================
+
+func (s *Server) catfightTool() mcp.Tool {
+	return mcp.NewTool("clood_catfight",
+		mcp.WithDescription(`🐱 Run a catfight - compare multiple models on the same prompt.
+
+Unlike thunderdome (which runs across ALL hosts in parallel), catfight is focused:
+- Runs on a single host (or localhost by default)
+- Compares 2-5 models head-to-head
+- Returns responses with timing metrics
+
+Use for quick model comparisons during development.
+
+Examples:
+- Compare coding models on a task
+- Test which model handles a specific prompt best
+- Benchmark model performance on your hardware`),
+		mcp.WithString("prompt", mcp.Required(), mcp.Description("The prompt to send to all models")),
+		mcp.WithString("models", mcp.Description("Comma-separated models to compare (default: qwen2.5-coder:3b,mistral:7b,llama3.1:8b)")),
+		mcp.WithString("host", mcp.Description("Target host (default: localhost)")),
+	)
+}
+
+func (s *Server) catfightHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+	prompt, _ := args["prompt"].(string)
+	modelsStr, _ := args["models"].(string)
+	hostName, _ := args["host"].(string)
+
+	if prompt == "" {
+		return mcp.NewToolResultError("prompt is required"), nil
+	}
+
+	// Load config
+	cfg, err := config.Load()
+	if err != nil {
+		return mcp.NewToolResultError("Error loading config: " + err.Error()), nil
+	}
+
+	// Setup host manager
+	mgr := hosts.NewManager()
+	mgr.AddHosts(cfg.Hosts)
+
+	// Find host
+	if hostName == "" {
+		hostName = "localhost"
+	}
+
+	var targetHost *hosts.Host
+	if hostName == "localhost" {
+		targetHost = &hosts.Host{Name: "localhost", URL: "http://localhost:11434"}
+	} else {
+		targetHost = mgr.GetHost(hostName)
+	}
+
+	if targetHost == nil {
+		return mcp.NewToolResultError("Host not found: " + hostName), nil
+	}
+
+	// Check host status
+	client := ollama.NewClient(targetHost.URL, 5*time.Minute)
+	availableModels, err := client.ListModels()
+	if err != nil {
+		return mcp.NewToolResultError("Host offline or error: " + err.Error()), nil
+	}
+
+	// Parse models or use defaults
+	var modelsToTest []string
+	if modelsStr != "" {
+		for _, m := range strings.Split(modelsStr, ",") {
+			modelsToTest = append(modelsToTest, strings.TrimSpace(m))
+		}
+	} else {
+		// Default models - use first 3 available
+		defaults := []string{"qwen2.5-coder:3b", "mistral:7b", "llama3.1:8b"}
+		for _, d := range defaults {
+			for _, a := range availableModels {
+				if a.Name == d {
+					modelsToTest = append(modelsToTest, d)
+					break
+				}
+			}
+		}
+		// If no defaults found, use first 3 available
+		if len(modelsToTest) == 0 {
+			for i, m := range availableModels {
+				if i >= 3 {
+					break
+				}
+				modelsToTest = append(modelsToTest, m.Name)
+			}
+		}
+	}
+
+	if len(modelsToTest) == 0 {
+		return mcp.NewToolResultError("No models available for catfight"), nil
+	}
+
+	// Run catfight
+	type catfightResult struct {
+		Model    string
+		Response string
+		Duration time.Duration
+		Tokens   int
+		TokSec   float64
+		Error    string
+	}
+
+	var results []catfightResult
+	for _, model := range modelsToTest {
+		start := time.Now()
+		resp, err := client.Generate(model, prompt)
+		duration := time.Since(start)
+
+		result := catfightResult{
+			Model:    model,
+			Duration: duration,
+		}
+
+		if err != nil {
+			result.Error = err.Error()
+		} else {
+			result.Response = resp.Response
+			result.Tokens = resp.EvalCount
+			if resp.EvalDuration > 0 {
+				result.TokSec = float64(resp.EvalCount) / (float64(resp.EvalDuration) / 1e9)
+			}
+		}
+
+		results = append(results, result)
+	}
+
+	// Build output
+	var out strings.Builder
+	out.WriteString("🐱 CATFIGHT RESULTS\n")
+	out.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+	out.WriteString(fmt.Sprintf("Host: %s | Models: %d | Prompt: %s\n\n", hostName, len(modelsToTest), truncateStr(prompt, 50)))
+
+	for i, r := range results {
+		out.WriteString(fmt.Sprintf("── %d. %s ", i+1, r.Model))
+		if r.Error != "" {
+			out.WriteString(fmt.Sprintf("(ERROR: %s)\n\n", r.Error))
+			continue
+		}
+		out.WriteString(fmt.Sprintf("(%.1fs, %d tok, %.1f tok/s) ──\n", r.Duration.Seconds(), r.Tokens, r.TokSec))
+		out.WriteString(r.Response)
+		out.WriteString("\n\n")
+	}
+
+	return mcp.NewToolResultText(out.String()), nil
+}
+
+func truncateStr(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "..."
 }
