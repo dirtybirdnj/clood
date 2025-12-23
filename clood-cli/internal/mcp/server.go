@@ -127,6 +127,9 @@ func (s *Server) registerTools() {
 
 	// CONDUCTOR: Remote orchestrator on ubuntu25
 	s.mcpServer.AddTool(s.conductorTool(), s.conductorHandler)
+
+	// THUNDERDOME: Parallel multi-host catfights
+	s.mcpServer.AddTool(s.thunderdomeTool(), s.thunderdomeHandler)
 }
 
 // =============================================================================
@@ -2087,4 +2090,128 @@ func (s *Server) conductorHandler(ctx context.Context, req mcp.CallToolRequest) 
 	)
 
 	return mcp.NewToolResultText(result), nil
+}
+
+// =============================================================================
+// THUNDERDOME TOOL - Parallel multi-host catfights
+// =============================================================================
+
+func (s *Server) thunderdomeTool() mcp.Tool {
+	return mcp.NewTool("clood_thunderdome",
+		mcp.WithDescription(`⚔️ Run parallel catfights across ALL Ollama hosts!
+
+THUNDERDOME auto-discovers online hosts and runs the same prompt
+against all available models IN PARALLEL, then crowns a champion.
+
+Use this for:
+- Quick model comparisons across your entire server garden
+- Finding the fastest model for a specific task
+- Benchmarking before delegating heavy work
+
+Returns: Unified leaderboard with model@host rankings and champion.
+Cost: Uses local Ollama hosts, ZERO cloud API.`),
+		mcp.WithString("prompt", mcp.Required(), mcp.Description("The prompt to test across all hosts")),
+		mcp.WithString("hosts", mcp.Description("Comma-separated host names (default: all online hosts)")),
+		mcp.WithBoolean("fast", mcp.Description("Fast mode: only top 3 models per host")),
+		mcp.WithNumber("top", mcp.Description("Show only top N results (default: 10)")),
+	)
+}
+
+func (s *Server) thunderdomeHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	prompt, ok := args["prompt"].(string)
+	if !ok || prompt == "" {
+		return mcp.NewToolResultError("prompt is required"), nil
+	}
+
+	// Build command args
+	cmdArgs := []string{"thunderdome", "--json"}
+
+	if hostFilter, ok := args["hosts"].(string); ok && hostFilter != "" {
+		cmdArgs = append(cmdArgs, "--hosts", hostFilter)
+	}
+
+	if fast, ok := args["fast"].(bool); ok && fast {
+		cmdArgs = append(cmdArgs, "--fast")
+	}
+
+	topN := 10
+	if t, ok := args["top"].(float64); ok && t > 0 {
+		topN = int(t)
+	}
+	cmdArgs = append(cmdArgs, "--top", fmt.Sprintf("%d", topN))
+
+	cmdArgs = append(cmdArgs, prompt)
+
+	// Get executable path (same as current process)
+	executable, err := os.Executable()
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get executable: %v", err)), nil
+	}
+
+	// Run thunderdome
+	cmd := exec.CommandContext(ctx, executable, cmdArgs...)
+	output, err := cmd.Output()
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Thunderdome failed: %v", err)), nil
+	}
+
+	// Parse JSON output
+	var thunderResult struct {
+		Hosts    []string `json:"hosts"`
+		Champion *struct {
+			ModelHost   string  `json:"model_host"`
+			DurationSec float64 `json:"duration_sec"`
+			Tokens      int     `json:"tokens"`
+			TokSec      float64 `json:"tokens_per_sec"`
+		} `json:"champion"`
+		Summary struct {
+			OnlineHosts    int     `json:"online_hosts"`
+			TotalRuns      int     `json:"total_runs"`
+			Successful     int     `json:"successful"`
+			ParallelFactor float64 `json:"parallel_factor"`
+		} `json:"summary"`
+		Results []struct {
+			ModelHost   string  `json:"model_host"`
+			DurationSec float64 `json:"duration_sec"`
+			Tokens      int     `json:"tokens"`
+			TokSec      float64 `json:"tokens_per_sec"`
+			Error       string  `json:"error,omitempty"`
+		} `json:"results"`
+	}
+
+	if err := json.Unmarshal(output, &thunderResult); err != nil {
+		// Return raw output if JSON parse fails
+		return mcp.NewToolResultText(string(output)), nil
+	}
+
+	// Format nice summary
+	var sb strings.Builder
+	sb.WriteString("⚔️ THUNDERDOME RESULTS\n")
+	sb.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+
+	if thunderResult.Champion != nil {
+		sb.WriteString(fmt.Sprintf("🏆 CHAMPION: %s\n", thunderResult.Champion.ModelHost))
+		sb.WriteString(fmt.Sprintf("   Time: %.1fs | Tokens: %d | Speed: %.1f tok/s\n\n",
+			thunderResult.Champion.DurationSec, thunderResult.Champion.Tokens, thunderResult.Champion.TokSec))
+	}
+
+	sb.WriteString("📊 LEADERBOARD:\n")
+	for i, r := range thunderResult.Results {
+		if i >= topN {
+			break
+		}
+		if r.Error != "" {
+			sb.WriteString(fmt.Sprintf("%2d. %-30s ERROR\n", i+1, r.ModelHost))
+		} else {
+			sb.WriteString(fmt.Sprintf("%2d. %-30s %6.1fs  %5d tok  %6.1f tok/s\n",
+				i+1, r.ModelHost, r.DurationSec, r.Tokens, r.TokSec))
+		}
+	}
+
+	sb.WriteString(fmt.Sprintf("\n📈 Summary: %d runs across %d hosts (%.1fx parallel speedup)\n",
+		thunderResult.Summary.TotalRuns, thunderResult.Summary.OnlineHosts, thunderResult.Summary.ParallelFactor))
+
+	return mcp.NewToolResultText(sb.String()), nil
 }
