@@ -68,11 +68,15 @@ EXAMPLES:
   # Colored terminal output (may not work in all terminals)
   clood bonsai --format terminal
 
-  # SVG for pen plotter with reproducible seed
-  clood bonsai --format svg --seed 42 -o tree.svg
+  # SVG output to file
+  clood bonsai -f svg -o tree.svg
+  clood bonsai -f svg > tree.svg
 
-  # SVG with cursive font
-  clood bonsai -f svg --font EMSDelight -o fancy.svg`,
+  # SVG with seed and font, piped to file
+  clood bonsai -f svg --seed 42 --font EMSDelight > fancy.svg
+
+  # Pipe to other tools
+  clood bonsai -f svg | rat-king fill -p lines -o filled.svg`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Default to medium if no size specified
 			if size == "" {
