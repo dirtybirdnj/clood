@@ -1,191 +1,175 @@
-# LAST SESSION - Crush Meets the Conductor
+# LAST SESSION - The Great Triage of December 23rd
 
-**Date:** December 23, 2025 (late night)
-**Session:** Configuring Crush to Talk to Ubuntu25's Conductor
-**Status:** Almost ready to test - clood MCP server now has conductor tool
-
----
-
-## THE GOAL
-
-Configure Crush (Charm's CLI chat interface) on mac-laptop to communicate with ubuntu25's conductor LLM and have it create HTML files through the agentic interface.
+**Date:** December 23, 2025 (3am planning session)
+**Session:** Issue Triage + ATC Architecture Design
+**Status:** 51 issues → 28 clean workstreams. Kitchen is clean.
 
 ---
 
-## WHAT WE DID
+## WHAT WE ACCOMPLISHED
 
-### 1. Fixed Crush Configuration
+### 1. Fixed Crush → Conductor Pipeline
+- Fixed ubuntu25 IP in `crush.json` (192.168.4.63 → 192.168.4.64)
+- Added `clood_conductor` MCP tool to `server.go`
+- Built and pushed to main (commit `b801c42`)
 
-**Problem:** `crush.json` had wrong IP for ubuntu25 (`192.168.4.63` instead of `192.168.4.64`)
+### 2. Designed ATC (Air Traffic Control) Architecture
 
-**Fixed:** `~/.config/crush/crush.json`
-```json
-"ubuntu25": {
-  "name": "ubuntu25 (RX 590) - Conductor",
-  "base_url": "http://192.168.4.64:11434/v1/",
-  "type": "openai",
-  "api_key": "ollama",
-  "supports_tools": true,
-  "models": [
-    {
-      "name": "🎭 Conductor (Tool Use 8B)",
-      "id": "llama3-groq-tool-use:8b",
-      "context_window": 8192,
-      "default_max_tokens": 4096,
-      "supports_tools": true
-    },
-    ...
-  ]
-}
-```
-
-### 2. Added `clood_conductor` MCP Tool
-
-**File:** `clood-cli/internal/mcp/server.go`
-
-Added a new tool that invokes the orchestrator on ubuntu25 via SSH:
-
-```go
-func (s *Server) conductorTool() mcp.Tool {
-    return mcp.NewTool("clood_conductor",
-        mcp.WithDescription(`🎭 Invoke the Conductor agent on ubuntu25 to create files...`),
-        mcp.WithString("task", mcp.Required(), mcp.Description("The task for the conductor to perform")),
-        mcp.WithString("conductor_model", mcp.Description("Conductor model (default: llama3-groq-tool-use:8b)")),
-        mcp.WithNumber("max_iterations", mcp.Description("Max agent iterations (default: 10)")),
-    )
-}
-```
-
-The handler SSHs to ubuntu25 and runs:
-```bash
-cd /data/repos/workspace && python3 orchestrator.py --conductor MODEL --max-iterations N "TASK"
-```
-
-### 3. Built Successfully
-
-```bash
-cd ~/Code/clood/clood-cli && go build -o clood ./cmd/clood
-```
-
-Build succeeded - clood CLI now has the conductor tool.
-
----
-
-## ARCHITECTURE
-
+**Physical Setup:**
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  MAC LAPTOP                                                      │
-│  ┌─────────────┐         ┌──────────────────────────────────┐   │
-│  │   Crush     │ ──MCP──▶│  clood MCP Server                │   │
-│  │  (UI Chat)  │         │  (localhost:8765)                │   │
-│  └─────────────┘         │  - clood_conductor tool          │   │
-│                          └───────────────┬──────────────────┘   │
-│                                          │ SSH                   │
-│  ┌─────────────┐         ┌───────────────▼──────────────────┐   │
-│  │  Ollama     │◀────────│  Ubuntu25: Conductor             │   │
-│  │  32B models │ delegate│  (llama3-groq-tool-use:8b)       │   │
-│  │  (the beef) │─────────▶  - Orchestrates tasks            │   │
-│  └─────────────┘         │  - Writes to /workspace          │   │
-│                          └──────────────────────────────────┘   │
+│  Mac Laptop     - Driver seat #1, Claude Code/Crush            │
+│  Mac Mini 40"   - Passive dashboard (HTML + WebSocket)         │
+│  Ubuntu25 25"   - Driver seat #2, llama.cpp web UI             │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+**Two Dashboard Modes:**
+1. **Planning Mode** - Issues as cards, priority changes, agent activity
+2. **Active Mode** - Host status, model events, token throughput, tasks
+
+**Key Decisions:**
+| Aspect | Decision |
+|--------|----------|
+| Event sources | GitHub webhooks + host agents + conductor |
+| History | Aggregator keeps in-memory, sends on reconnect |
+| Multi-dashboard | Supported |
+| Persistence | Ephemeral v1, GitHub Actions for historical |
+| Launch | `clood atc --mode planning` or `--mode active` |
+
+### 3. Triaged All 51 Issues (#95-187)
+
+**Results:**
+- 🔴 Fix immediately: 1 (#186 bonsai bug)
+- ✅ Closed as done: 3 (#149, #150, #175)
+- 🟠 Merged into epics: 20
+- 🟢 Keep as standalone: 16
+- 🟡 Deferred: 3
+
+**Triage documented in:** GitHub Issue #188
+
 ---
 
-## TO TEST (NEXT SESSION)
+## CLEAN EPIC STRUCTURE
 
-### Step 1: Start the clood MCP server
+| Epic | # | Focus |
+|------|---|-------|
+| **ATC** | #168 | Mission Control Dashboard |
+| **Catfight Advanced** | #162 | Multi-machine battles |
+| **AI-Powered Commands** | #163 | LLM does the work |
+| **Documentation** | #164 | Docs & onboarding |
+| **Storytime & Sauce** | #165 | Narrative layer |
+| **Preflight & Safety** | #166 | Guardrails |
+| **Infrastructure** | #167 | CI/CD plumbing |
+| **Fear and Loathing** | #152 | Portability |
+| **Snake Way** | #135 | CLI navigation (evaluate if needed) |
+| **ENSŌ** | #123 | Image generation |
+| **llama.cpp** | #187 | Backend performance |
 
+---
+
+## PRIORITY SEQUENCE (Apollo Mission)
+
+```
+Phase 0: TRIAGE ✅ COMPLETE
+    └── 23 issues closed/merged
+
+Phase 1: STABILIZATION
+    └── Fix #186 (bonsai terminal corruption)
+    └── Test conductor tool (clood mcp + crush)
+    └── Verify MCP bridge works
+
+Phase 2: ATC TOWER (#168)
+    └── Build WebSocket aggregator
+    └── HTML dashboard (Planning + Active modes)
+    └── CLI: clood atc --mode planning|active
+
+Phase 3: CHIMBORAZO REDUX
+    └── Re-run experiment with new infrastructure
+    └── Conductor delegates to mac-laptop 32B
+    └── Measure improvement over original attempt
+
+Phase 4: APOLLO - BONSAI GARDEN
+    └── 3D gallery of ASCII bonsais
+    └── WASD navigation
+    └── The moonshot
+```
+
+---
+
+## KEY PRINCIPLES REINFORCED
+
+1. **BCBC** - CLI for machines, visual for humans. Same data, two interfaces.
+2. **GitHub as Database** - Issues for state, Actions for persistence (90 days free)
+3. **Engines vs Displays** - triage/thunderdome/batch are engines, ATC visualizes
+4. **llama.cpp may change things** - Snake Way might be obsolete, Crush + MCP may suffice
+
+---
+
+## READY TO TEST
+
+### Conductor Test
 ```bash
-# In one terminal
+# Terminal 1: Start MCP server
 ~/Code/clood/clood-cli/clood mcp
-```
 
-This starts the MCP server on localhost:8765.
-
-### Step 2: Start Crush
-
-```bash
-# In another terminal
+# Terminal 2: Start Crush
 crush
+# Ask: "Create a hello.html using the conductor"
 ```
 
-Crush should see the clood MCP tools including `clood_conductor`.
-
-### Step 3: Test the conductor
-
-In Crush, try:
-```
-Create a simple hello world HTML file using the conductor on ubuntu25
-```
-
-Crush should use the `clood_conductor` tool which SSHs to ubuntu25 and runs the orchestrator.
-
-### Alternative: Test directly via CLI
-
+### Direct Orchestrator Test
 ```bash
-# Test the orchestrator directly
-ssh ubuntu25 "cd /data/repos/workspace && python3 orchestrator.py 'Create a hello.html with nice CSS'"
-
-# Check result
-ssh ubuntu25 "cat /data/repos/workspace/hello.html"
+ssh ubuntu25 "cd /data/repos/workspace && python3 orchestrator.py 'Create a calculator.html'"
 ```
 
 ---
 
-## KEY FILES
+## NEXT SESSION SUGGESTIONS
 
-| File | Purpose |
-|------|---------|
-| `~/.config/crush/crush.json` | Crush config (ubuntu25 IP fixed) |
-| `~/.config/crush/mcp.json` | Crush MCP server config (clood on 8765) |
-| `clood-cli/internal/mcp/server.go` | MCP server with conductor tool |
-| `scripts/orchestrator.py` | The agentic conductor on ubuntu25 |
+1. **Quick win first:** Fix #186 (bonsai bug) - probably a terminal escape sequence issue. Should be a focused 30-min fix.
+
+2. **Test the conductor before building more:**
+   ```bash
+   ssh ubuntu25 "cd /data/repos/workspace && python3 orchestrator.py 'Create hello.html'"
+   ```
+   Make sure the plumbing works before adding complexity.
+
+3. **Parallel agents:** You could run:
+   - One agent on #186 (bonsai fix)
+   - One agent on ATC prototype (#168)
+   - One agent on Chimborazo validation
+
+4. **Low-hanging fruit in older backlog:** Issues below #95 weren't triaged. Some might be stale or already done. Could be another quick cleanup.
+
+5. **Start ATC prototype** - WebSocket server + simple HTML dashboard
 
 ---
 
-## VERIFIED CONNECTIVITY
+## FILES CHANGED THIS SESSION
 
-| What | Status |
+| File | Change |
 |------|--------|
-| SSH to ubuntu25 | Working |
-| Ollama on ubuntu25 (localhost) | Working |
-| Ollama on ubuntu25 (network) | Working at 192.168.4.64:11434 |
-| llama3-groq-tool-use:8b on ubuntu25 | Available |
-| clood CLI build | Successful |
+| `~/.config/crush/crush.json` | Fixed ubuntu25 IP |
+| `clood-cli/internal/mcp/server.go` | Added clood_conductor tool |
+| `LAST_SESSION.md` | This file |
 
 ---
 
-## REMAINING TODOS
+## GITHUB ACTIVITY
 
-1. [x] Fix crush.json with correct ubuntu25 IP
-2. [x] Add clood_conductor tool to MCP server
-3. [x] Build clood CLI
-4. [ ] Start clood MCP server and test
-5. [ ] Test crush -> conductor -> file creation flow
-
----
-
-## RESUME PROMPTS
-
-**To test immediately:**
-> Start the clood MCP server and use crush to create an HTML file via the conductor
-
-**To verify conductor works:**
-> SSH to ubuntu25 and run the orchestrator directly to create a test file
-
-**To see if crush sees the conductor:**
-> Start crush and check if clood_conductor tool is available
+- **Commit:** `b801c42` - feat: Add clood_conductor MCP tool
+- **Issue #188 created** - Triage changelog
+- **23 issues closed** - Merges and completions
 
 ---
 
 ```
-Conductor awaits—
-MCP bridge is complete,
-test at morning light.
+Fifty-one reduced,
+ATC architecture born—
+Moonshot path is clear.
 ```
 
 ---
 
-*The plumbing is done. Tomorrow we make music.*
+*The planning room empties. The Chairman heads to rest. Tomorrow, agents fly.*
