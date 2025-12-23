@@ -81,6 +81,7 @@ func main() {
 	// 🔌 INFRASTRUCTURE & DISCOVERY
 	// ═══════════════════════════════════════════════════════════════
 	addWithGroup(rootCmd, commands.PreflightCmd(), GroupInfra)
+	addWithGroup(rootCmd, commands.WhoamiCmd(), GroupInfra)
 	addWithGroup(rootCmd, commands.SystemCmd(), GroupInfra)
 	addWithGroup(rootCmd, commands.HostsCmd(), GroupInfra)
 	addWithGroup(rootCmd, commands.ModelsCmd(), GroupInfra)
