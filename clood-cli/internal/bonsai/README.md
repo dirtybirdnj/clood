@@ -13,17 +13,28 @@ This package converts cbonsai ASCII art output into clean SVG suitable for pen p
 ### CLI
 
 ```bash
-# ASCII output (clean text)
-clood bonsai --format ascii --size medium
+# Default: clean ASCII output
+clood bonsai
 
-# SVG output with default Hershey font
-clood bonsai --format svg --size medium -o bonsai.svg
+# ASCII with size options
+clood bonsai --size tiny
+clood bonsai --size ancient
+
+# SVG output with -o flag
+clood bonsai --format svg -o bonsai.svg
+
+# SVG piped to file (equivalent to -o)
+clood bonsai -f svg > bonsai.svg
 
 # SVG with custom font
-clood bonsai --format svg --font EMSDelight -o bonsai-delight.svg
+clood bonsai -f svg --font EMSDelight -o bonsai-delight.svg
+clood bonsai -f svg --font EMSCasualHand > casual.svg
 
 # Reproducible output with seed
-clood bonsai --format svg --seed 42 --size large -o bonsai.svg
+clood bonsai -f svg --seed 42 --size large -o bonsai.svg
+
+# Pipe to other tools
+clood bonsai -f svg --seed 42 | rat-king fill -p lines -o filled.svg
 ```
 
 ### Available Fonts
