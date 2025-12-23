@@ -1,211 +1,191 @@
-# LAST SESSION - The Conductor's Baton
+# LAST SESSION - Crush Meets the Conductor
 
-**Date:** December 23, 2025
-**Session:** Orchestrator Agent & Conductor Catfight
-**Status:** Ubuntu25 now has a brain. Mac-laptop provides the muscle.
+**Date:** December 23, 2025 (late night)
+**Session:** Configuring Crush to Talk to Ubuntu25's Conductor
+**Status:** Almost ready to test - clood MCP server now has conductor tool
 
 ---
 
-## THE BIG PICTURE
+## THE GOAL
 
-Ubuntu25 is now a **conductor** - a lightweight orchestration agent that:
-- Receives tasks via SSH
-- Delegates heavy coding to mac-laptop's big models (qwen2.5-coder:32b)
-- Writes files to `/data/repos/workspace/`
-- Runs git operations locally
+Configure Crush (Charm's CLI chat interface) on mac-laptop to communicate with ubuntu25's conductor LLM and have it create HTML files through the agentic interface.
+
+---
+
+## WHAT WE DID
+
+### 1. Fixed Crush Configuration
+
+**Problem:** `crush.json` had wrong IP for ubuntu25 (`192.168.4.63` instead of `192.168.4.64`)
+
+**Fixed:** `~/.config/crush/crush.json`
+```json
+"ubuntu25": {
+  "name": "ubuntu25 (RX 590) - Conductor",
+  "base_url": "http://192.168.4.64:11434/v1/",
+  "type": "openai",
+  "api_key": "ollama",
+  "supports_tools": true,
+  "models": [
+    {
+      "name": "🎭 Conductor (Tool Use 8B)",
+      "id": "llama3-groq-tool-use:8b",
+      "context_window": 8192,
+      "default_max_tokens": 4096,
+      "supports_tools": true
+    },
+    ...
+  ]
+}
+```
+
+### 2. Added `clood_conductor` MCP Tool
+
+**File:** `clood-cli/internal/mcp/server.go`
+
+Added a new tool that invokes the orchestrator on ubuntu25 via SSH:
+
+```go
+func (s *Server) conductorTool() mcp.Tool {
+    return mcp.NewTool("clood_conductor",
+        mcp.WithDescription(`🎭 Invoke the Conductor agent on ubuntu25 to create files...`),
+        mcp.WithString("task", mcp.Required(), mcp.Description("The task for the conductor to perform")),
+        mcp.WithString("conductor_model", mcp.Description("Conductor model (default: llama3-groq-tool-use:8b)")),
+        mcp.WithNumber("max_iterations", mcp.Description("Max agent iterations (default: 10)")),
+    )
+}
+```
+
+The handler SSHs to ubuntu25 and runs:
+```bash
+cd /data/repos/workspace && python3 orchestrator.py --conductor MODEL --max-iterations N "TASK"
+```
+
+### 3. Built Successfully
+
+```bash
+cd ~/Code/clood/clood-cli && go build -o clood ./cmd/clood
+```
+
+Build succeeded - clood CLI now has the conductor tool.
+
+---
+
+## ARCHITECTURE
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  MAC LAPTOP                                                      │
 │  ┌─────────────┐         ┌──────────────────────────────────┐   │
-│  │   Crush     │ ──SSH──▶│  Ubuntu25: Conductor             │   │
-│  │  (You chat) │         │  (llama3-groq-tool-use:8b)       │   │
-│  └─────────────┘         │  - Orchestrates tasks            │   │
-│                          │  - Writes files to /workspace    │   │
-│  ┌─────────────┐         │  - Git operations                │   │
-│  │  Ollama     │◀────────│                                  │   │
-│  │  32B models │ delegate│  Delegates heavy coding BACK     │   │
-│  │  (the beef) │─────────▶  to laptop's big GPU            │   │
-│  └─────────────┘         └──────────────────────────────────┘   │
+│  │   Crush     │ ──MCP──▶│  clood MCP Server                │   │
+│  │  (UI Chat)  │         │  (localhost:8765)                │   │
+│  └─────────────┘         │  - clood_conductor tool          │   │
+│                          └───────────────┬──────────────────┘   │
+│                                          │ SSH                   │
+│  ┌─────────────┐         ┌───────────────▼──────────────────┐   │
+│  │  Ollama     │◀────────│  Ubuntu25: Conductor             │   │
+│  │  32B models │ delegate│  (llama3-groq-tool-use:8b)       │   │
+│  │  (the beef) │─────────▶  - Orchestrates tasks            │   │
+│  └─────────────┘         │  - Writes to /workspace          │   │
+│                          └──────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## KEY DISCOVERIES
+## TO TEST (NEXT SESSION)
 
-### 1. Conductor Catfight Results
+### Step 1: Start the clood MCP server
 
-Not all models can orchestrate. We benchmarked tool-calling ability:
+```bash
+# In one terminal
+~/Code/clood/clood-cli/clood mcp
+```
 
-| Model | Behavior | Score |
-|-------|----------|-------|
-| **llama3-groq-tool-use:8b** | Actually invokes tools | BEST for agentic loops |
-| mistral:7b | Describes tools but doesn't call them | Good single-turn only |
-| qwen2.5-coder:* | Terrible at tool format | AVOID for orchestration |
-| codestral:* | No tool calls at all | AVOID |
+This starts the MCP server on localhost:8765.
 
-**Key insight:** "Coder" models are bad conductors. They're optimized for generating code, not orchestrating tools.
+### Step 2: Start Crush
 
-### 2. llama.cpp vs Ollama Benchmarks
+```bash
+# In another terminal
+crush
+```
 
-On ubuntu25 (RX 590 8GB):
+Crush should see the clood MCP tools including `clood_conductor`.
 
-| Model | Ollama | llama.cpp | Winner |
-|-------|--------|-----------|--------|
-| TinyLlama 1.1B | 183 tok/s | 145 tok/s | Ollama (+27%) |
-| Qwen 7B | 7.4 tok/s | 30.5 tok/s | **llama.cpp (+311%)** |
+### Step 3: Test the conductor
 
-**Key insight:** llama.cpp dominates for 7B+ models on RX 590.
+In Crush, try:
+```
+Create a simple hello world HTML file using the conductor on ubuntu25
+```
 
-### 3. The Orchestrator Architecture
+Crush should use the `clood_conductor` tool which SSHs to ubuntu25 and runs the orchestrator.
 
-Ubuntu25 runs a lightweight conductor (8B model) that:
-- Uses minimal VRAM for orchestration
-- Delegates heavy coding to mac-laptop's 32B models
-- Keeps all file I/O local to ubuntu25
+### Alternative: Test directly via CLI
+
+```bash
+# Test the orchestrator directly
+ssh ubuntu25 "cd /data/repos/workspace && python3 orchestrator.py 'Create a hello.html with nice CSS'"
+
+# Check result
+ssh ubuntu25 "cat /data/repos/workspace/hello.html"
+```
 
 ---
 
-## FILES CREATED THIS SESSION
+## KEY FILES
 
 | File | Purpose |
 |------|---------|
-| `scripts/orchestrator.py` | The agentic conductor agent |
-| `scripts/conductor-catfight.py` | Benchmark for conductor models |
-| `scripts/benchmark-backends.sh` | Ollama vs llama.cpp (TinyLlama) |
-| `scripts/benchmark-7b.sh` | Ollama vs llama.cpp (7B models) |
-| `clood-cli/internal/commands/huggingface.go` | GGUF model management |
+| `~/.config/crush/crush.json` | Crush config (ubuntu25 IP fixed) |
+| `~/.config/crush/mcp.json` | Crush MCP server config (clood on 8765) |
+| `clood-cli/internal/mcp/server.go` | MCP server with conductor tool |
+| `scripts/orchestrator.py` | The agentic conductor on ubuntu25 |
 
 ---
 
-## HOW TO USE THE ORCHESTRATOR
+## VERIFIED CONNECTIVITY
 
-### From mac-laptop (via Crush/Claude):
-
-```bash
-# SSH to ubuntu25 and run the orchestrator
-ssh ubuntu25 "cd /data/repos/workspace && python3 orchestrator.py 'Create a todo app with add/remove functionality'"
-```
-
-### Direct on ubuntu25:
-
-```bash
-cd /data/repos/workspace
-python3 orchestrator.py 'Create hello.html with nice styling'
-python3 orchestrator.py --conductor mistral:7b 'List files in workspace'
-```
-
-### Orchestrator Options:
-
-```
---conductor, -c    Conductor model (default: llama3-groq-tool-use:8b)
---max-iterations   Max agent iterations (default: 10)
-```
+| What | Status |
+|------|--------|
+| SSH to ubuntu25 | Working |
+| Ollama on ubuntu25 (localhost) | Working |
+| Ollama on ubuntu25 (network) | Working at 192.168.4.64:11434 |
+| llama3-groq-tool-use:8b on ubuntu25 | Available |
+| clood CLI build | Successful |
 
 ---
 
-## MODELS DOWNLOADING OVERNIGHT
+## REMAINING TODOS
 
-A queue script is running on ubuntu25:
-
-```bash
-# Check progress
-ssh ubuntu25 "cat /data/repos/workspace/pull-models.log"
-```
-
-Models in queue:
-- qwen3:8b (best tool-caller, F1=0.933)
-- hermes3:8b (NousResearch, trained for tools)
-- phi4
-- gemma2:9b
-- granite3.1-dense:8b
-- yi:9b
-- qwen2.5:14b (VRAM stress test)
-
----
-
-## CONDUCTOR TOOL CAPABILITIES
-
-The orchestrator has these tools:
-
-| Tool | Description |
-|------|-------------|
-| `delegate_coding(prompt, output_file)` | Send to mac-laptop's 32B model, auto-save |
-| `read_file(path)` | Read from workspace |
-| `write_file(path, content)` | Write to workspace |
-| `list_directory(path)` | List files |
-| `git_status()` | Check git state |
-| `git_commit(message)` | Stage and commit |
-| `git_push()` | Push to remote |
-| `task_complete(summary)` | Signal done |
-
----
-
-## CONFIGURATION
-
-### Orchestrator Config (`scripts/orchestrator.py`):
-
-```python
-ORCHESTRATOR_URL = "http://localhost:11434"  # Ollama on ubuntu25
-ORCHESTRATOR_MODEL = "llama3-groq-tool-use:8b"  # Conductor
-
-CODER_HOSTS = {
-    "mac-laptop": "http://192.168.4.47:11434",
-    "mac-mini": "http://192.168.4.41:11434",
-    "ubuntu25": "http://localhost:11434",
-}
-
-CODER_MODEL = "qwen2.5-coder:32b"  # Heavy lifting on mac-laptop
-WORKSPACE = Path("/data/repos/workspace")
-```
-
----
-
-## NEXT STEPS
-
-1. **Configure Crush on mac-laptop** - Add orchestrator awareness to CLAUDE.md
-2. **Run conductor catfight** with new models (qwen3:8b, hermes3:8b)
-3. **Test VRAM limits** with 14B+ models on ubuntu25
-4. **Add more tools** to orchestrator (run tests, lint, etc.)
+1. [x] Fix crush.json with correct ubuntu25 IP
+2. [x] Add clood_conductor tool to MCP server
+3. [x] Build clood CLI
+4. [ ] Start clood MCP server and test
+5. [ ] Test crush -> conductor -> file creation flow
 
 ---
 
 ## RESUME PROMPTS
 
-**To test the orchestrator:**
-> SSH to ubuntu25 and use the orchestrator to create a simple calculator.html
+**To test immediately:**
+> Start the clood MCP server and use crush to create an HTML file via the conductor
 
-**To run the catfight:**
-> Run the conductor catfight benchmark with the newly downloaded models
+**To verify conductor works:**
+> SSH to ubuntu25 and run the orchestrator directly to create a test file
 
-**To check downloads:**
-> Check the model download progress on ubuntu25
-
----
-
-## COMMITS THIS SESSION
-
-| Hash | Description |
-|------|-------------|
-| `a29d522` | feat: Add orchestrator agent and conductor benchmarking |
-
----
-
-## GITHUB ISSUES
-
-- **#187** - [EPIC] llama.cpp Integration for High-Performance Local Inference
+**To see if crush sees the conductor:**
+> Start crush and check if clood_conductor tool is available
 
 ---
 
 ```
-Conductor's baton raised—
-tool-use models lead the way,
-coders write, not wave.
+Conductor awaits—
+MCP bridge is complete,
+test at morning light.
 ```
 
 ---
 
-*The server garden has a new brain.*
-*Ubuntu25 thinks. Mac-laptop computes.*
-*The symphony plays on.*
+*The plumbing is done. Tomorrow we make music.*

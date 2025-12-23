@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -123,6 +124,9 @@ func (s *Server) registerTools() {
 	// CLIPBOARD: System clipboard access
 	s.mcpServer.AddTool(s.clipboardReadTool(), s.clipboardReadHandler)
 	s.mcpServer.AddTool(s.clipboardWriteTool(), s.clipboardWriteHandler)
+
+	// CONDUCTOR: Remote orchestrator on ubuntu25
+	s.mcpServer.AddTool(s.conductorTool(), s.conductorHandler)
 }
 
 // =============================================================================
@@ -2000,4 +2004,87 @@ func (s *Server) clipboardWriteHandler(ctx context.Context, req mcp.CallToolRequ
 	}
 
 	return mcp.NewToolResultText(fmt.Sprintf("Copied %d characters to clipboard", len(text))), nil
+}
+
+// =============================================================================
+// CONDUCTOR TOOL - Remote orchestrator on ubuntu25
+// =============================================================================
+
+func (s *Server) conductorTool() mcp.Tool {
+	return mcp.NewTool("clood_conductor",
+		mcp.WithDescription(`🎭 Invoke the Conductor agent on ubuntu25 to create files.
+
+The Conductor is an orchestrator that:
+- Runs on ubuntu25 (the server garden)
+- Uses llama3-groq-tool-use:8b for task planning
+- Delegates heavy coding to mac-laptop's 32B model
+- Can write files to /data/repos/workspace/
+
+Use this to CREATE FILES on the server without manual SSH.
+
+Example: clood_conductor task="Create a todo list HTML file"
+
+Cost: Uses local LLMs (ubuntu25 + mac-laptop), ZERO cloud API.`),
+		mcp.WithString("task", mcp.Required(), mcp.Description("The task for the conductor to perform (e.g., 'Create a todo list HTML file')")),
+		mcp.WithString("conductor_model", mcp.Description("Conductor model (default: llama3-groq-tool-use:8b)")),
+		mcp.WithNumber("max_iterations", mcp.Description("Max agent iterations (default: 10)")),
+	)
+}
+
+func (s *Server) conductorHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	task, ok := args["task"].(string)
+	if !ok || task == "" {
+		return mcp.NewToolResultError("task is required"), nil
+	}
+
+	conductorModel := "llama3-groq-tool-use:8b"
+	if cm, ok := args["conductor_model"].(string); ok && cm != "" {
+		conductorModel = cm
+	}
+
+	maxIterations := 10
+	if mi, ok := args["max_iterations"].(float64); ok {
+		maxIterations = int(mi)
+	}
+
+	// Build SSH command to run orchestrator on ubuntu25
+	sshCmd := fmt.Sprintf(
+		"cd /data/repos/workspace && python3 orchestrator.py --conductor %s --max-iterations %d %q",
+		conductorModel,
+		maxIterations,
+		task,
+	)
+
+	// Execute via SSH
+	cmd := exec.CommandContext(ctx, "ssh", "ubuntu25", sshCmd)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// Still return output even if command failed (might have partial results)
+		if len(output) > 0 {
+			return mcp.NewToolResultText(fmt.Sprintf("⚠️ Conductor finished with error: %v\n\nOutput:\n%s", err, string(output))), nil
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("SSH to ubuntu25 failed: %v", err)), nil
+	}
+
+	// Check workspace for created files
+	lsCmd := exec.CommandContext(ctx, "ssh", "ubuntu25", "ls -la /data/repos/workspace/")
+	lsOutput, _ := lsCmd.CombinedOutput()
+
+	result := fmt.Sprintf("🎭 CONDUCTOR RESULT\n"+
+		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"+
+		"Task: %s\n"+
+		"Conductor: %s\n"+
+		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"+
+		"%s\n\n"+
+		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"+
+		"📁 Workspace contents:\n%s",
+		task,
+		conductorModel,
+		string(output),
+		string(lsOutput),
+	)
+
+	return mcp.NewToolResultText(result), nil
 }
