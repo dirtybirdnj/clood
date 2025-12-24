@@ -60,7 +60,6 @@ func DefaultHosts() []*Host {
 	return []*Host{
 		// Ollama backends (auto-discover models)
 		{Name: "local-gpu", URL: "http://localhost:11434", Priority: 1, Enabled: true, Backend: BackendOllama},
-		{Name: "local-cpu", URL: "http://localhost:11435", Priority: 2, Enabled: true, Backend: BackendOllama},
 		{Name: "ubuntu25", URL: "http://192.168.4.64:11434", Priority: 1, Enabled: true, Backend: BackendOllama},
 		{Name: "mac-mini", URL: "http://192.168.4.41:11434", Priority: 2, Enabled: true, Backend: BackendOllama},
 		// Example llama.cpp backend (static model list required)
