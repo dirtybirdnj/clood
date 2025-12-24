@@ -786,7 +786,9 @@ var atcActiveHTML = `<!DOCTYPE html>
         .models { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px; }
         .models h4 { font-size: 10px; color: #666; text-transform: uppercase; margin-bottom: 8px; }
         .model-list { display: flex; flex-wrap: wrap; gap: 4px; max-height: 60px; overflow-y: auto; }
-        .model-tag { background: #333; padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #aaa; }
+        .model-tag { background: #333; padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #aaa; transition: all 0.3s ease; }
+        .model-tag.active { background: #ffaa00; color: #000; animation: model-pulse 1s infinite; box-shadow: 0 0 10px rgba(255,170,0,0.5); }
+        @keyframes model-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
 
         /* Full width events section */
         .events-section {
@@ -801,36 +803,39 @@ var atcActiveHTML = `<!DOCTYPE html>
         .battle-stat { text-align: center; }
         .battle-stat-value { font-size: 24px; font-weight: bold; color: #fff; }
         .battle-stat-label { font-size: 10px; color: #666; text-transform: uppercase; }
-        .events-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 10px; max-height: 300px; overflow-y: auto; }
+        .events-list { display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto; }
         .event-item {
             background: rgba(0,0,0,0.4);
             border-radius: 8px;
-            padding: 12px;
+            padding: 12px 16px;
             border-left: 4px solid #00ff88;
             display: flex;
-            flex-direction: column;
-            gap: 5px;
+            align-items: center;
+            gap: 15px;
+            width: 100%;
         }
         .event-item.start { border-left-color: #ffaa00; background: rgba(255,170,0,0.1); }
         .event-item.complete { border-left-color: #00ff88; background: rgba(0,255,136,0.1); }
         .event-item.progress { border-left-color: #888; }
+        .event-item.analysis { border-left-color: #aa88ff; background: rgba(170,136,255,0.15); border-width: 4px; }
         /* Host-colored events */
         .event-item.host-local-gpu { border-left-color: #4488ff; }
         .event-item.host-ubuntu25 { border-left-color: #ff8844; }
         .event-item.host-mac-mini { border-left-color: #44ff88; }
-        .event-header { display: flex; justify-content: space-between; align-items: center; }
-        .event-type { font-size: 11px; font-weight: bold; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; background: #333; }
+        .event-type { font-size: 11px; font-weight: bold; text-transform: uppercase; padding: 4px 10px; border-radius: 4px; background: #333; white-space: nowrap; min-width: 80px; text-align: center; }
         .event-type.start { background: #ffaa00; color: #000; }
         .event-type.complete { background: #00ff88; color: #000; }
-        .event-time { font-size: 10px; color: #666; }
-        .event-content { font-size: 13px; color: #ccc; }
-        .event-stats { display: flex; gap: 15px; font-size: 11px; color: #888; }
-        .event-stats span { display: flex; align-items: center; gap: 4px; }
-        .event-host { font-size: 10px; padding: 2px 6px; border-radius: 3px; font-weight: bold; }
-        .event-host.local-gpu { background: rgba(68,136,255,0.3); color: #4488ff; }
+        .event-type.analysis { background: #aa88ff; color: #000; }
+        .event-time { font-size: 11px; color: #666; white-space: nowrap; min-width: 70px; }
+        .event-host { font-size: 11px; padding: 4px 10px; border-radius: 4px; font-weight: bold; white-space: nowrap; min-width: 90px; text-align: center; }
+        .event-host.local-gpu, .event-host.localhost { background: rgba(68,136,255,0.3); color: #4488ff; }
         .event-host.ubuntu25 { background: rgba(255,136,68,0.3); color: #ff8844; }
         .event-host.mac-mini { background: rgba(68,255,136,0.3); color: #44ff88; }
-        .no-events { color: #666; font-size: 14px; text-align: center; padding: 40px; grid-column: 1 / -1; }
+        .event-content { flex: 1; font-size: 13px; color: #ccc; overflow: hidden; text-overflow: ellipsis; }
+        .event-stats { display: flex; gap: 20px; font-size: 12px; color: #888; white-space: nowrap; }
+        .event-stats .stat-item { display: flex; align-items: center; gap: 5px; }
+        .event-stats .stat-value { color: #fff; font-weight: bold; }
+        .no-events { color: #666; font-size: 14px; text-align: center; padding: 40px; }
 
         .footer {
             margin-top: 20px;
@@ -889,8 +894,8 @@ var atcActiveHTML = `<!DOCTYPE html>
                     </div>
                 </div>
             </div>
-            <div class="events-grid" id="events">
-                <div class="no-events">No catfight events yet.<br><br>Run: <code>clood catfight --atc http://localhost:8080 --all-hosts "prompt"</code></div>
+            <div class="events-list" id="events">
+                <div class="no-events">No catfight events yet. Run: <code>clood catfight --atc http://localhost:8080 --all-hosts "prompt"</code></div>
             </div>
         </div>
 
@@ -902,6 +907,7 @@ var atcActiveHTML = `<!DOCTYPE html>
     <script>
         let currentPoll = 10;
         let battleStats = { battles: 0, models: 0, tokens: 0, speeds: [] };
+        let activeModels = {}; // { hostName: modelName }
 
         const hostColors = {
             'local-gpu': '#4488ff',
@@ -939,6 +945,7 @@ var atcActiveHTML = `<!DOCTYPE html>
                 }
                 if (msg.type === 'event') {
                     addEvent(msg.data);
+                    highlightActiveModel(msg.data);
                 }
                 if (msg.type === 'events') {
                     msg.data.forEach(e => addEvent(e));
@@ -992,13 +999,14 @@ var atcActiveHTML = `<!DOCTYPE html>
             }
             updateStats();
 
+            const formatted = formatEventRow(event.data, event.type);
+            const showHost = hostName && hostName !== 'localhost' && event.type !== 'analysis' && event.type !== 'start' && event.type !== 'complete';
             const html = '<div class="event-item ' + typeClass + ' ' + hostClass + '">' +
-                '<div class="event-header">' +
                 '<span class="event-type ' + typeClass + '">' + (event.type || 'event') + '</span>' +
                 '<span class="event-time">' + time + '</span>' +
-                '</div>' +
-                '<div class="event-content">' + formatEventData(event.data) + '</div>' +
-                (event.data?.host ? '<div class="event-stats"><span class="event-host ' + hostName + '">' + hostName + '</span></div>' : '') +
+                (showHost ? '<span class="event-host ' + hostName + '">' + hostName + '</span>' : '') +
+                '<span class="event-content">' + formatted.content + '</span>' +
+                (formatted.stats ? '<div class="event-stats">' + formatted.stats + '</div>' : '') +
                 '</div>';
             container.insertAdjacentHTML('afterbegin', html);
             // Keep only last 30 events in DOM
@@ -1015,25 +1023,85 @@ var atcActiveHTML = `<!DOCTYPE html>
                 document.getElementById('stat-avgspeed').textContent = avg.toFixed(1);
             }
         }
-        function formatEventData(data) {
-            if (!data) return '';
-            if (typeof data === 'string') return data;
+        function highlightActiveModel(event) {
+            if (!event.data) return;
+            const hostName = event.data.host || 'localhost';
+            const modelName = event.data.model;
+
+            // Map host names to DOM data-host values
+            const hostMap = {
+                'localhost': 'local-gpu',
+                'local-gpu': 'local-gpu',
+                'ubuntu25': 'ubuntu25',
+                'mac-mini': 'mac-mini'
+            };
+            const domHost = hostMap[hostName] || hostName;
+
+            // Clear ALL previous highlights first
+            document.querySelectorAll('.model-tag.active').forEach(el => el.classList.remove('active'));
+
+            if (event.type === 'progress' && modelName) {
+                // Find the host card
+                const hostCard = document.querySelector('.host[data-host="' + domHost + '"]');
+                if (!hostCard) {
+                    console.log('Host card not found for:', domHost);
+                    return;
+                }
+
+                // Find and highlight the model tag (match full name or prefix)
+                const modelTags = hostCard.querySelectorAll('.model-tag');
+                const modelBase = modelName.split(':')[0];
+                modelTags.forEach(tag => {
+                    const tagText = tag.textContent.trim();
+                    if (tagText === modelName || tagText.startsWith(modelBase)) {
+                        tag.classList.add('active');
+                    }
+                });
+            }
+        }
+        function formatEventRow(data, eventType) {
+            if (!data) return { content: '', stats: '' };
+            if (typeof data === 'string') return { content: data, stats: '' };
+
+            // Progress event - model completed
             if (data.status === 'complete' && data.model) {
-                return '<strong>' + data.model + '</strong> completed in ' + (data.time_sec?.toFixed(1) || '?') + 's — ' +
-                    (data.tokens || 0) + ' tokens @ ' + (data.tokens_sec?.toFixed(1) || '?') + ' tok/s';
+                return {
+                    content: '<strong>' + data.model + '</strong>',
+                    stats: '<span class="stat-item">⏱ <span class="stat-value">' + (data.time_sec?.toFixed(1) || '?') + 's</span></span>' +
+                           '<span class="stat-item">📝 <span class="stat-value">' + (data.tokens || 0) + '</span> tokens</span>' +
+                           '<span class="stat-item">⚡ <span class="stat-value">' + (data.tokens_sec?.toFixed(1) || '?') + '</span> tok/s</span>'
+                };
             }
+            // Error event
             if (data.status === 'error') {
-                return '❌ <strong>' + data.model + '</strong>: ' + data.message;
+                return { content: '❌ <strong>' + data.model + '</strong>: ' + data.message, stats: '' };
             }
+            // Start event
             if (data.prompt) {
-                const models = data.models ? ' (' + data.models.length + ' models)' : '';
-                const hosts = data.hosts ? ' on ' + data.hosts.join(', ') : '';
-                return '🎯 ' + data.prompt.substring(0, 80) + (data.prompt.length > 80 ? '...' : '') + models + hosts;
+                const modelCount = data.models ? data.models.length : 0;
+                const hostCount = data.hosts ? data.hosts.length : 0;
+                return {
+                    content: data.prompt.substring(0, 100) + (data.prompt.length > 100 ? '...' : ''),
+                    stats: '<span class="stat-item">🐱 <span class="stat-value">' + modelCount + '</span> models</span>' +
+                           '<span class="stat-item">🖥 <span class="stat-value">' + hostCount + '</span> hosts</span>'
+                };
             }
+            // Complete event - winner
             if (data.winner) {
-                return '🏆 <strong>' + data.winner + '</strong> wins! (' + (data.winner_time?.toFixed(1) || '?') + 's on ' + (data.winner_host || 'localhost') + ')';
+                return {
+                    content: '🏆 <strong>' + data.winner + '</strong> wins!',
+                    stats: '<span class="stat-item">⏱ <span class="stat-value">' + (data.winner_time?.toFixed(1) || '?') + 's</span></span>' +
+                           '<span class="stat-item">🖥 ' + (data.winner_host || 'localhost') + '</span>'
+                };
             }
-            return JSON.stringify(data).substring(0, 150);
+            // Analysis event
+            if (data.analysis) {
+                return {
+                    content: '🔬 ' + data.analysis,
+                    stats: data.rankings ? '<span class="stat-item">' + data.rankings + '</span>' : ''
+                };
+            }
+            return { content: JSON.stringify(data).substring(0, 150), stats: '' };
         }
         connect();
     </script>

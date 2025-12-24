@@ -202,8 +202,14 @@ Examples:
 				mgr.AddHosts(hosts.DefaultHosts())
 
 				statuses := mgr.CheckAllHosts()
+				seenURLs := make(map[string]bool)
 				for _, s := range statuses {
 					if s.Online && len(s.Models) > 0 {
+						// Dedupe by URL to avoid running same machine twice
+						if seenURLs[s.Host.URL] {
+							continue
+						}
+						seenURLs[s.Host.URL] = true
 						hostClients = append(hostClients, hostClient{
 							name:   s.Host.Name,
 							url:    s.Host.URL,
@@ -485,6 +491,35 @@ Examples:
 				completeData["winner_host"] = fastest.Host
 			}
 			sendATCEvent(atcURL, "complete", completeData)
+
+			// Send analysis event with rankings and insights
+			if len(results) > 0 {
+				var rankings []string
+				for i, r := range results {
+					if r.Error == nil {
+						rankings = append(rankings, fmt.Sprintf("%d. %s@%s (%.1fs, %.0f tok/s)",
+							i+1, r.Cat.Model, r.Host, r.DurationSec, r.TokSec))
+					}
+				}
+				// Generate analysis summary
+				analysis := fmt.Sprintf("%s wins on %s. ", fastest.Cat.Model, fastest.Host)
+				if len(results) > 1 {
+					speedDiff := summary.AverageSpeed
+					if fastest != nil {
+						speedDiff = fastest.TokSec / summary.AverageSpeed * 100
+						analysis += fmt.Sprintf("%.0f%% faster than average (%.1f vs %.1f tok/s). ",
+							speedDiff-100, fastest.TokSec, summary.AverageSpeed)
+					}
+				}
+				analysis += fmt.Sprintf("%d runs, %d successful, avg %.1fs.",
+					len(results), successful, summary.AverageTime)
+
+				analysisData := map[string]interface{}{
+					"analysis": analysis,
+					"rankings": strings.Join(rankings, " → "),
+				}
+				sendATCEvent(atcURL, "analysis", analysisData)
+			}
 
 			// JSON output
 			if jsonOutput {
