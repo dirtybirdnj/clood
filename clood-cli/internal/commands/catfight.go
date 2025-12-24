@@ -1,8 +1,10 @@
 package commands
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +18,25 @@ import (
 	"github.com/dirtybirdnj/clood/internal/tui"
 	"github.com/spf13/cobra"
 )
+
+// sendATCEvent sends an event to the ATC dashboard
+func sendATCEvent(atcURL, eventType string, data interface{}) {
+	if atcURL == "" {
+		return
+	}
+	event := map[string]interface{}{
+		"type": eventType,
+		"data": data,
+	}
+	body, _ := json.Marshal(event)
+	// Fire and forget - don't block on ATC
+	go func() {
+		resp, err := http.Post(atcURL+"/events", "application/json", bytes.NewReader(body))
+		if err == nil {
+			resp.Body.Close()
+		}
+	}()
+}
 
 // Cat represents a model in the catfight
 type Cat struct {
@@ -88,6 +109,7 @@ func CatfightCmd() *cobra.Command {
 	var streamOutput bool
 	var createIssue bool
 	var issueLabels string
+	var atcURL string
 
 	cmd := &cobra.Command{
 		Use:   "catfight [prompt]",
@@ -275,6 +297,18 @@ Examples:
 				}
 			}
 
+			// Send ATC start event
+			sendATCEvent(atcURL, "start", map[string]interface{}{
+				"prompt": func() string {
+					if len(prompt) > 100 {
+						return prompt[:100] + "..."
+					}
+					return prompt
+				}(),
+				"models": modelNameList,
+				"hosts":  hostNameList,
+			})
+
 			// Run each cat on each host
 			results := []CatfightResult{}
 			runCount := 0
@@ -355,6 +389,13 @@ Examples:
 						if !jsonOutput && !markdownOutput {
 							fmt.Printf("    %s %v\n", tui.ErrorStyle.Render("ERROR:"), err)
 						}
+						// Send ATC error event
+						sendATCEvent(atcURL, "progress", map[string]interface{}{
+							"model":   cat.Model,
+							"host":    hc.name,
+							"status":  "error",
+							"message": err.Error(),
+						})
 					} else {
 						result.Response = resp.Response
 						result.Tokens = resp.EvalCount
@@ -378,6 +419,15 @@ Examples:
 								}
 							}
 						}
+						// Send ATC progress event
+						sendATCEvent(atcURL, "progress", map[string]interface{}{
+							"model":      cat.Model,
+							"host":       hc.name,
+							"status":     "complete",
+							"time_sec":   result.DurationSec,
+							"tokens":     result.Tokens,
+							"tokens_sec": result.TokSec,
+						})
 					}
 					results = append(results, result)
 				}
@@ -422,6 +472,19 @@ Examples:
 				summary.AverageTime = totalTime / float64(successful)
 				summary.AverageSpeed = totalSpeed / float64(successful)
 			}
+
+			// Send ATC complete event
+			completeData := map[string]interface{}{
+				"successful": successful,
+				"failed":     failed,
+				"avg_speed":  summary.AverageSpeed,
+			}
+			if fastest != nil {
+				completeData["winner"] = fastest.Cat.Model
+				completeData["winner_time"] = fastest.DurationSec
+				completeData["winner_host"] = fastest.Host
+			}
+			sendATCEvent(atcURL, "complete", completeData)
 
 			// JSON output
 			if jsonOutput {
@@ -615,6 +678,7 @@ Examples:
 	cmd.Flags().BoolVarP(&streamOutput, "stream", "s", false, "Show live progress during generation")
 	cmd.Flags().BoolVar(&createIssue, "issue", false, "Create GitHub issue with results")
 	cmd.Flags().StringVar(&issueLabels, "labels", "", "Labels for GitHub issue (requires --issue)")
+	cmd.Flags().StringVar(&atcURL, "atc", "", "ATC dashboard URL for live events (e.g., http://localhost:8080)")
 
 	return cmd
 }
