@@ -8,12 +8,23 @@ import (
 	"github.com/dirtybirdnj/clood/internal/ollama"
 )
 
-// Host represents an Ollama endpoint
+// BackendType identifies the API format a host uses
+type BackendType string
+
+const (
+	BackendOllama BackendType = "ollama" // Default: Ollama API format
+	BackendOpenAI BackendType = "openai" // OpenAI-compatible (llama.cpp, vLLM, etc.)
+)
+
+// Host represents an LLM endpoint
 type Host struct {
-	Name     string `yaml:"name"`
-	URL      string `yaml:"url"`
-	Priority int    `yaml:"priority"` // Lower = higher priority
-	Enabled  bool   `yaml:"enabled"`
+	Name     string      `yaml:"name"`
+	URL      string      `yaml:"url"`
+	Priority int         `yaml:"priority"` // Lower = higher priority
+	Enabled  bool        `yaml:"enabled"`
+	Backend  BackendType `yaml:"backend,omitempty"` // ollama (default) or openai
+	Models   []string    `yaml:"models,omitempty"`  // Static model list (for openai backends)
+	APIKey   string      `yaml:"api_key,omitempty"` // Optional API key
 }
 
 // HostStatus contains the current status of a host
@@ -47,11 +58,22 @@ func NewManager() *Manager {
 // DefaultHosts returns the default host configuration
 func DefaultHosts() []*Host {
 	return []*Host{
-		{Name: "local-gpu", URL: "http://localhost:11434", Priority: 1, Enabled: true},
-		{Name: "local-cpu", URL: "http://localhost:11435", Priority: 2, Enabled: true},
-		{Name: "ubuntu25", URL: "http://192.168.4.64:11434", Priority: 1, Enabled: true},
-		{Name: "mac-mini", URL: "http://192.168.4.41:11434", Priority: 2, Enabled: true},
+		// Ollama backends (auto-discover models)
+		{Name: "local-gpu", URL: "http://localhost:11434", Priority: 1, Enabled: true, Backend: BackendOllama},
+		{Name: "local-cpu", URL: "http://localhost:11435", Priority: 2, Enabled: true, Backend: BackendOllama},
+		{Name: "ubuntu25", URL: "http://192.168.4.64:11434", Priority: 1, Enabled: true, Backend: BackendOllama},
+		{Name: "mac-mini", URL: "http://192.168.4.41:11434", Priority: 2, Enabled: true, Backend: BackendOllama},
+		// Example llama.cpp backend (static model list required)
+		// {Name: "ubuntu25-llamacpp", URL: "http://192.168.4.64:8080", Priority: 0, Enabled: true, Backend: BackendOpenAI, Models: []string{"qwen2.5-coder-7b"}},
 	}
+}
+
+// GetBackend returns the backend type, defaulting to Ollama
+func (h *Host) GetBackend() BackendType {
+	if h.Backend == "" {
+		return BackendOllama
+	}
+	return h.Backend
 }
 
 // AddHost adds a host to the manager
