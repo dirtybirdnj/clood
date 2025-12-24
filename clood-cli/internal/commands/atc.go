@@ -726,7 +726,7 @@ var atcActiveHTML = `<!DOCTYPE html>
             font-family: 'Courier New', monospace;
             min-height: 100vh;
         }
-        .container { max-width: 1600px; margin: 0 auto; padding: 20px; }
+        .container { max-width: 1900px; margin: 0 auto; padding: 20px; }
         .header {
             display: flex;
             justify-content: space-between;
@@ -743,18 +743,31 @@ var atcActiveHTML = `<!DOCTYPE html>
         .poll-btn { background: #2a4a2a; border: 1px solid #3a5a3a; color: #888; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
         .poll-btn:hover { background: #3a5a3a; color: #fff; }
         .poll-btn.active { background: #00ff88; color: #000; }
-        .main-grid { display: grid; grid-template-columns: 1fr 400px; gap: 20px; }
-        .hosts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 15px; }
+
+        /* Three column layout for hosts */
+        .hosts-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
         .host {
             background: rgba(22, 62, 33, 0.8);
             border-radius: 12px;
             padding: 15px;
-            border: 2px solid #2a4a2a;
+            border: 3px solid #2a4a2a;
             transition: all 0.3s ease;
         }
-        .host.offline { opacity: 0.5; border-color: #4a2a2a; background: rgba(62, 22, 22, 0.5); }
+        /* Host color coding */
+        .host[data-host="local-gpu"] { border-color: #4488ff; }
+        .host[data-host="local-gpu"] .host-name { color: #4488ff; }
+        .host[data-host="local-gpu"] .host-color { background: #4488ff; }
+        .host[data-host="ubuntu25"] { border-color: #ff8844; }
+        .host[data-host="ubuntu25"] .host-name { color: #ff8844; }
+        .host[data-host="ubuntu25"] .host-color { background: #ff8844; }
+        .host[data-host="mac-mini"] { border-color: #44ff88; }
+        .host[data-host="mac-mini"] .host-name { color: #44ff88; }
+        .host[data-host="mac-mini"] .host-color { background: #44ff88; }
+
+        .host.offline { opacity: 0.5; border-color: #4a2a2a !important; background: rgba(62, 22, 22, 0.5); }
         .host-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .host-name { font-size: 18px; font-weight: bold; color: #00ff88; }
+        .host-name { font-size: 20px; font-weight: bold; display: flex; align-items: center; gap: 8px; }
+        .host-color { width: 12px; height: 12px; border-radius: 50%; }
         .host-status { padding: 3px 10px; border-radius: 20px; font-size: 11px; text-transform: uppercase; }
         .host-status.online { background: #1a4a1a; color: #00ff88; }
         .host-status.offline { background: #4a1a1a; color: #ff4444; }
@@ -772,24 +785,53 @@ var atcActiveHTML = `<!DOCTYPE html>
         .stat-value.bad { color: #ff4444; }
         .models { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px; }
         .models h4 { font-size: 10px; color: #666; text-transform: uppercase; margin-bottom: 8px; }
-        .model-list { display: flex; flex-wrap: wrap; gap: 4px; max-height: 80px; overflow-y: auto; }
+        .model-list { display: flex; flex-wrap: wrap; gap: 4px; max-height: 60px; overflow-y: auto; }
         .model-tag { background: #333; padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #aaa; }
-        .events-panel {
+
+        /* Full width events section */
+        .events-section {
             background: rgba(0, 0, 0, 0.6);
             border-radius: 12px;
-            padding: 15px;
+            padding: 20px;
             border: 2px solid #2a4a2a;
         }
-        .events-panel h2 { color: #ffaa00; font-size: 16px; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 2px; }
-        .events-list { max-height: 500px; overflow-y: auto; }
-        .event-item { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px; margin-bottom: 8px; border-left: 3px solid #00ff88; }
-        .event-item.start { border-left-color: #ffaa00; }
-        .event-item.complete { border-left-color: #00ff88; }
-        .event-item.progress { border-left-color: #4488ff; }
-        .event-time { font-size: 10px; color: #666; margin-bottom: 5px; }
-        .event-type { font-size: 11px; color: #ffaa00; text-transform: uppercase; margin-bottom: 5px; }
-        .event-content { font-size: 12px; color: #ccc; }
-        .no-events { color: #666; font-size: 12px; text-align: center; padding: 30px; }
+        .events-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .events-header h2 { color: #ffaa00; font-size: 18px; text-transform: uppercase; letter-spacing: 2px; }
+        .battle-stats { display: flex; gap: 30px; }
+        .battle-stat { text-align: center; }
+        .battle-stat-value { font-size: 24px; font-weight: bold; color: #fff; }
+        .battle-stat-label { font-size: 10px; color: #666; text-transform: uppercase; }
+        .events-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 10px; max-height: 300px; overflow-y: auto; }
+        .event-item {
+            background: rgba(0,0,0,0.4);
+            border-radius: 8px;
+            padding: 12px;
+            border-left: 4px solid #00ff88;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .event-item.start { border-left-color: #ffaa00; background: rgba(255,170,0,0.1); }
+        .event-item.complete { border-left-color: #00ff88; background: rgba(0,255,136,0.1); }
+        .event-item.progress { border-left-color: #888; }
+        /* Host-colored events */
+        .event-item.host-local-gpu { border-left-color: #4488ff; }
+        .event-item.host-ubuntu25 { border-left-color: #ff8844; }
+        .event-item.host-mac-mini { border-left-color: #44ff88; }
+        .event-header { display: flex; justify-content: space-between; align-items: center; }
+        .event-type { font-size: 11px; font-weight: bold; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; background: #333; }
+        .event-type.start { background: #ffaa00; color: #000; }
+        .event-type.complete { background: #00ff88; color: #000; }
+        .event-time { font-size: 10px; color: #666; }
+        .event-content { font-size: 13px; color: #ccc; }
+        .event-stats { display: flex; gap: 15px; font-size: 11px; color: #888; }
+        .event-stats span { display: flex; align-items: center; gap: 4px; }
+        .event-host { font-size: 10px; padding: 2px 6px; border-radius: 3px; font-weight: bold; }
+        .event-host.local-gpu { background: rgba(68,136,255,0.3); color: #4488ff; }
+        .event-host.ubuntu25 { background: rgba(255,136,68,0.3); color: #ff8844; }
+        .event-host.mac-mini { background: rgba(68,255,136,0.3); color: #44ff88; }
+        .no-events { color: #666; font-size: 14px; text-align: center; padding: 40px; grid-column: 1 / -1; }
+
         .footer {
             margin-top: 20px;
             padding-top: 15px;
@@ -818,24 +860,56 @@ var atcActiveHTML = `<!DOCTYPE html>
                 <span id="last-update">--</span>
             </div>
         </div>
-        <div class="main-grid">
-            <div class="hosts" id="hosts">
-                <p style="padding:40px;color:#666;text-align:center">Scanning hosts...</p>
-            </div>
-            <div class="events-panel">
-                <h2>🏟️ Catfight Events</h2>
-                <div class="events-list" id="events">
-                    <div class="no-events">No catfight events yet.<br><br>Run: clood catfight "prompt"</div>
+
+        <!-- Hosts in 3 columns -->
+        <div class="hosts-row" id="hosts">
+            <p style="padding:40px;color:#666;text-align:center;grid-column:1/-1">Scanning hosts...</p>
+        </div>
+
+        <!-- Full width events section -->
+        <div class="events-section">
+            <div class="events-header">
+                <h2>🏟️ Catfight Arena</h2>
+                <div class="battle-stats">
+                    <div class="battle-stat">
+                        <div class="battle-stat-value" id="stat-battles">0</div>
+                        <div class="battle-stat-label">Battles</div>
+                    </div>
+                    <div class="battle-stat">
+                        <div class="battle-stat-value" id="stat-models">0</div>
+                        <div class="battle-stat-label">Models Run</div>
+                    </div>
+                    <div class="battle-stat">
+                        <div class="battle-stat-value" id="stat-tokens">0</div>
+                        <div class="battle-stat-label">Total Tokens</div>
+                    </div>
+                    <div class="battle-stat">
+                        <div class="battle-stat-value" id="stat-avgspeed">--</div>
+                        <div class="battle-stat-label">Avg tok/s</div>
+                    </div>
                 </div>
             </div>
+            <div class="events-grid" id="events">
+                <div class="no-events">No catfight events yet.<br><br>Run: <code>clood catfight --atc http://localhost:8080 --all-hosts "prompt"</code></div>
+            </div>
         </div>
+
         <div class="footer">
-            <span>clood atc --mode active</span>
+            <span>clood atc --mode active | Host colors: <span style="color:#4488ff">●</span> local-gpu <span style="color:#ff8844">●</span> ubuntu25 <span style="color:#44ff88">●</span> mac-mini</span>
             <span id="connection-status">Connecting...</span>
         </div>
     </div>
     <script>
         let currentPoll = 10;
+        let battleStats = { battles: 0, models: 0, tokens: 0, speeds: [] };
+
+        const hostColors = {
+            'local-gpu': '#4488ff',
+            'localhost': '#4488ff',
+            'ubuntu25': '#ff8844',
+            'mac-mini': '#44ff88'
+        };
+
         function setPoll(seconds) {
             fetch('/poll?seconds=' + seconds, {method: 'POST'})
                 .then(() => {
@@ -876,11 +950,11 @@ var atcActiveHTML = `<!DOCTYPE html>
                 const statusClass = host.online ? 'online' : 'offline';
                 const hostClass = host.online ? '' : 'offline';
                 const latencyClass = host.latency_ms < 50 ? 'good' : host.latency_ms < 200 ? 'warn' : 'bad';
-                const models = (host.models || []).slice(0, 8).map(m => '<span class="model-tag">' + m + '</span>').join('');
-                const moreModels = (host.models || []).length > 8 ? '<span class="model-tag">+' + ((host.models || []).length - 8) + ' more</span>' : '';
+                const models = (host.models || []).slice(0, 6).map(m => '<span class="model-tag">' + m + '</span>').join('');
+                const moreModels = (host.models || []).length > 6 ? '<span class="model-tag">+' + ((host.models || []).length - 6) + ' more</span>' : '';
                 const hw = host.hardware || {};
-                return '<div class="host ' + hostClass + '">' +
-                    '<div class="host-header"><span class="host-name">' + host.name + '</span>' +
+                return '<div class="host ' + hostClass + '" data-host="' + host.name + '">' +
+                    '<div class="host-header"><span class="host-name"><span class="host-color"></span>' + host.name + '</span>' +
                     '<span class="host-status ' + statusClass + '">' + statusClass + '</span></div>' +
                     '<div class="host-specs">' +
                     '<div class="spec-row"><span class="spec-label">CPU</span><span class="spec-value">' + (hw.cpu || '--') + '</span></div>' +
@@ -904,24 +978,62 @@ var atcActiveHTML = `<!DOCTYPE html>
             }
             const time = event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
             const typeClass = event.type || 'progress';
-            const html = '<div class="event-item ' + typeClass + '">' +
-                '<div class="event-time">' + time + '</div>' +
-                '<div class="event-type">' + (event.type || 'event') + '</div>' +
+            const hostName = event.data?.host || 'localhost';
+            const hostClass = 'host-' + hostName.replace(/[^a-z0-9]/gi, '-');
+
+            // Update stats
+            if (event.type === 'start') {
+                battleStats.battles++;
+            }
+            if (event.type === 'progress' && event.data?.tokens) {
+                battleStats.models++;
+                battleStats.tokens += event.data.tokens || 0;
+                if (event.data.tokens_sec) battleStats.speeds.push(event.data.tokens_sec);
+            }
+            updateStats();
+
+            const html = '<div class="event-item ' + typeClass + ' ' + hostClass + '">' +
+                '<div class="event-header">' +
+                '<span class="event-type ' + typeClass + '">' + (event.type || 'event') + '</span>' +
+                '<span class="event-time">' + time + '</span>' +
+                '</div>' +
                 '<div class="event-content">' + formatEventData(event.data) + '</div>' +
+                (event.data?.host ? '<div class="event-stats"><span class="event-host ' + hostName + '">' + hostName + '</span></div>' : '') +
                 '</div>';
             container.insertAdjacentHTML('afterbegin', html);
-            // Keep only last 20 events in DOM
-            while (container.children.length > 20) {
+            // Keep only last 30 events in DOM
+            while (container.children.length > 30) {
                 container.removeChild(container.lastChild);
+            }
+        }
+        function updateStats() {
+            document.getElementById('stat-battles').textContent = battleStats.battles;
+            document.getElementById('stat-models').textContent = battleStats.models;
+            document.getElementById('stat-tokens').textContent = battleStats.tokens.toLocaleString();
+            if (battleStats.speeds.length > 0) {
+                const avg = battleStats.speeds.reduce((a,b) => a+b, 0) / battleStats.speeds.length;
+                document.getElementById('stat-avgspeed').textContent = avg.toFixed(1);
             }
         }
         function formatEventData(data) {
             if (!data) return '';
             if (typeof data === 'string') return data;
-            if (data.model) return '<strong>' + data.model + '</strong>: ' + (data.message || JSON.stringify(data));
-            if (data.prompt) return 'Prompt: ' + data.prompt.substring(0, 100) + '...';
-            if (data.winner) return '🏆 Winner: <strong>' + data.winner + '</strong>';
-            return JSON.stringify(data).substring(0, 200);
+            if (data.status === 'complete' && data.model) {
+                return '<strong>' + data.model + '</strong> completed in ' + (data.time_sec?.toFixed(1) || '?') + 's — ' +
+                    (data.tokens || 0) + ' tokens @ ' + (data.tokens_sec?.toFixed(1) || '?') + ' tok/s';
+            }
+            if (data.status === 'error') {
+                return '❌ <strong>' + data.model + '</strong>: ' + data.message;
+            }
+            if (data.prompt) {
+                const models = data.models ? ' (' + data.models.length + ' models)' : '';
+                const hosts = data.hosts ? ' on ' + data.hosts.join(', ') : '';
+                return '🎯 ' + data.prompt.substring(0, 80) + (data.prompt.length > 80 ? '...' : '') + models + hosts;
+            }
+            if (data.winner) {
+                return '🏆 <strong>' + data.winner + '</strong> wins! (' + (data.winner_time?.toFixed(1) || '?') + 's on ' + (data.winner_host || 'localhost') + ')';
+            }
+            return JSON.stringify(data).substring(0, 150);
         }
         connect();
     </script>
