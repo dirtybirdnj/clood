@@ -58,6 +58,65 @@ type CatfightEvent struct {
 	Data      interface{} `json:"data"`
 }
 
+// === Hierarchical Event Types for Experiments ===
+
+// ExperimentSession tracks the overall experiment state
+type ExperimentSession struct {
+	ID          string                 `json:"id"`
+	Name        string                 `json:"name"`
+	StartTime   string                 `json:"start_time"`
+	Status      string                 `json:"status"` // "running", "completed", "failed"
+	CurrentStep int                    `json:"current_step"`
+	TotalSteps  int                    `json:"total_steps"`
+	Steps       []ExperimentStep       `json:"steps"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// ExperimentStep represents a step within a session
+type ExperimentStep struct {
+	ID         string                `json:"id"`
+	Name       string                `json:"name"`
+	Number     int                   `json:"number"`
+	Status     string                `json:"status"` // "pending", "running", "completed", "failed"
+	StartTime  string                `json:"start_time,omitempty"`
+	EndTime    string                `json:"end_time,omitempty"`
+	Iterations []ExperimentIteration `json:"iterations"`
+	Validation *ValidationResult     `json:"validation,omitempty"`
+}
+
+// ExperimentIteration represents a single LLM attempt within a step
+type ExperimentIteration struct {
+	Number      int     `json:"number"`
+	Model       string  `json:"model"`
+	Host        string  `json:"host"`
+	Status      string  `json:"status"` // "running", "completed", "failed"
+	StartTime   string  `json:"start_time"`
+	EndTime     string  `json:"end_time,omitempty"`
+	DurationSec float64 `json:"duration_sec,omitempty"`
+	Tokens      int     `json:"tokens,omitempty"`
+	TokensSec   float64 `json:"tokens_sec,omitempty"`
+	ContextSize int     `json:"context_size,omitempty"`
+	Error       string  `json:"error,omitempty"`
+}
+
+// ValidationResult represents the outcome of a validation check
+type ValidationResult struct {
+	Command  string   `json:"command"`
+	Status   string   `json:"status"` // "pass", "fail", "skip"
+	Output   string   `json:"output,omitempty"`
+	Errors   []string `json:"errors,omitempty"`
+	Duration float64  `json:"duration_sec,omitempty"`
+}
+
+// ExperimentEvent is the unified event type for experiment tracking
+type ExperimentEvent struct {
+	Type      string      `json:"type"` // "session_start", "session_complete", "step_start", "step_complete", "iteration_start", "iteration_complete", "validation"
+	Timestamp string      `json:"timestamp"`
+	SessionID string      `json:"session_id"`
+	StepID    string      `json:"step_id,omitempty"`
+	Data      interface{} `json:"data"`
+}
+
 // Static hardware specs for known hosts
 var hostHardware = map[string]HardwareSpec{
 	"local-gpu": {CPU: "Apple M4", GPU: "M4 10-core", Memory: "32GB"},
@@ -86,6 +145,12 @@ type Hub struct {
 	eventsMu     sync.RWMutex
 	pollInterval time.Duration
 	pollMu       sync.RWMutex
+
+	// Experiment tracking
+	sessions   map[string]*ExperimentSession // Active experiment sessions
+	sessionsMu sync.RWMutex
+	expEvents  []ExperimentEvent // Recent experiment events
+	expEventsMu sync.RWMutex
 }
 
 func newHub() *Hub {
@@ -96,7 +161,50 @@ func newHub() *Hub {
 		unregister:   make(chan *websocket.Conn),
 		events:       make([]CatfightEvent, 0),
 		pollInterval: 10 * time.Second,
+		sessions:     make(map[string]*ExperimentSession),
+		expEvents:    make([]ExperimentEvent, 0),
 	}
+}
+
+// Session management methods
+func (h *Hub) getSession(id string) *ExperimentSession {
+	h.sessionsMu.RLock()
+	defer h.sessionsMu.RUnlock()
+	return h.sessions[id]
+}
+
+func (h *Hub) setSession(session *ExperimentSession) {
+	h.sessionsMu.Lock()
+	h.sessions[session.ID] = session
+	h.sessionsMu.Unlock()
+}
+
+func (h *Hub) getAllSessions() []*ExperimentSession {
+	h.sessionsMu.RLock()
+	defer h.sessionsMu.RUnlock()
+	result := make([]*ExperimentSession, 0, len(h.sessions))
+	for _, s := range h.sessions {
+		result = append(result, s)
+	}
+	return result
+}
+
+func (h *Hub) addExpEvent(event ExperimentEvent) {
+	h.expEventsMu.Lock()
+	h.expEvents = append(h.expEvents, event)
+	// Keep only last 100 experiment events
+	if len(h.expEvents) > 100 {
+		h.expEvents = h.expEvents[len(h.expEvents)-100:]
+	}
+	h.expEventsMu.Unlock()
+}
+
+func (h *Hub) getExpEvents() []ExperimentEvent {
+	h.expEventsMu.RLock()
+	defer h.expEventsMu.RUnlock()
+	result := make([]ExperimentEvent, len(h.expEvents))
+	copy(result, h.expEvents)
+	return result
 }
 
 func (h *Hub) setLastData(msg ATCMessage) {
@@ -327,6 +435,37 @@ func truncateStr(s string, max int) string {
 	return s[:max] + "..."
 }
 
+// Helper functions for parsing event data
+func getString(data map[string]interface{}, key string) string {
+	if v, ok := data[key]; ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
+func getInt(data map[string]interface{}, key string) int {
+	if v, ok := data[key]; ok {
+		switch n := v.(type) {
+		case float64:
+			return int(n)
+		case int:
+			return n
+		}
+	}
+	return 0
+}
+
+func getFloat(data map[string]interface{}, key string) float64 {
+	if v, ok := data[key]; ok {
+		if f, ok := v.(float64); ok {
+			return f
+		}
+	}
+	return 0
+}
+
 func ATCCmd() *cobra.Command {
 	var port int
 	var mode string
@@ -352,9 +491,12 @@ Examples:
 
 			// Select HTML based on mode
 			var htmlContent string
-			if mode == "active" {
+			switch mode {
+			case "active":
 				htmlContent = atcActiveHTML
-			} else {
+			case "experiment":
+				htmlContent = atcExperimentHTML
+			default:
 				htmlContent = atcPlanningHTML
 			}
 
@@ -362,7 +504,8 @@ Examples:
 			go func() {
 				fetchAndBroadcast := func() {
 					var msg ATCMessage
-					if mode == "active" {
+					switch mode {
+					case "active":
 						hostsData := atcFetchHostStatus()
 						msg = ATCMessage{
 							Type: "hosts",
@@ -370,7 +513,20 @@ Examples:
 							Mode: mode,
 							Time: time.Now().Format(time.RFC3339),
 						}
-					} else {
+					case "experiment":
+						// For experiment mode, send session state
+						sessions := hub.getAllSessions()
+						hostsData := atcFetchHostStatus()
+						msg = ATCMessage{
+							Type: "experiment_state",
+							Data: map[string]interface{}{
+								"sessions": sessions,
+								"hosts":    hostsData,
+							},
+							Mode: mode,
+							Time: time.Now().Format(time.RFC3339),
+						}
+					default:
 						issues := atcFetchIssues(owner, repo)
 						msg = ATCMessage{
 							Type: "issues",
@@ -430,6 +586,163 @@ Examples:
 				}
 				w.WriteHeader(http.StatusOK)
 				fmt.Fprintf(w, `{"status":"ok"}`)
+			})
+
+			// Experiment events endpoint for hierarchical session/step/iteration tracking
+			http.HandleFunc("/experiment", func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost {
+					http.Error(w, "POST only", http.StatusMethodNotAllowed)
+					return
+				}
+				body, err := io.ReadAll(r.Body)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					return
+				}
+				var event ExperimentEvent
+				if err := json.Unmarshal(body, &event); err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					return
+				}
+				event.Timestamp = time.Now().Format(time.RFC3339)
+
+				// Handle session state updates based on event type
+				switch event.Type {
+				case "session_start":
+					if data, ok := event.Data.(map[string]interface{}); ok {
+						session := &ExperimentSession{
+							ID:        event.SessionID,
+							Name:      getString(data, "name"),
+							StartTime: event.Timestamp,
+							Status:    "running",
+							TotalSteps: getInt(data, "total_steps"),
+							Steps:     make([]ExperimentStep, 0),
+						}
+						hub.setSession(session)
+					}
+				case "session_complete", "session_fail":
+					if session := hub.getSession(event.SessionID); session != nil {
+						if event.Type == "session_complete" {
+							session.Status = "completed"
+						} else {
+							session.Status = "failed"
+						}
+						hub.setSession(session)
+					}
+				case "step_start":
+					if session := hub.getSession(event.SessionID); session != nil {
+						if data, ok := event.Data.(map[string]interface{}); ok {
+							step := ExperimentStep{
+								ID:        event.StepID,
+								Name:      getString(data, "name"),
+								Number:    getInt(data, "number"),
+								Status:    "running",
+								StartTime: event.Timestamp,
+								Iterations: make([]ExperimentIteration, 0),
+							}
+							session.Steps = append(session.Steps, step)
+							session.CurrentStep = step.Number
+							hub.setSession(session)
+						}
+					}
+				case "step_complete", "step_fail":
+					if session := hub.getSession(event.SessionID); session != nil {
+						for i := range session.Steps {
+							if session.Steps[i].ID == event.StepID {
+								if event.Type == "step_complete" {
+									session.Steps[i].Status = "completed"
+								} else {
+									session.Steps[i].Status = "failed"
+								}
+								session.Steps[i].EndTime = event.Timestamp
+								break
+							}
+						}
+						hub.setSession(session)
+					}
+				case "iteration_start", "iteration_complete", "iteration_fail":
+					if session := hub.getSession(event.SessionID); session != nil {
+						for i := range session.Steps {
+							if session.Steps[i].ID == event.StepID {
+								if event.Type == "iteration_start" {
+									if data, ok := event.Data.(map[string]interface{}); ok {
+										iter := ExperimentIteration{
+											Number:    getInt(data, "number"),
+											Model:     getString(data, "model"),
+											Host:      getString(data, "host"),
+											Status:    "running",
+											StartTime: event.Timestamp,
+										}
+										session.Steps[i].Iterations = append(session.Steps[i].Iterations, iter)
+									}
+								} else {
+									// Update last iteration
+									iters := &session.Steps[i].Iterations
+									if len(*iters) > 0 {
+										last := &(*iters)[len(*iters)-1]
+										if event.Type == "iteration_complete" {
+											last.Status = "completed"
+										} else {
+											last.Status = "failed"
+										}
+										last.EndTime = event.Timestamp
+										if data, ok := event.Data.(map[string]interface{}); ok {
+											last.DurationSec = getFloat(data, "duration_sec")
+											last.Tokens = getInt(data, "tokens")
+											last.TokensSec = getFloat(data, "tokens_sec")
+											last.Error = getString(data, "error")
+										}
+									}
+								}
+								break
+							}
+						}
+						hub.setSession(session)
+					}
+				case "validation":
+					if session := hub.getSession(event.SessionID); session != nil {
+						for i := range session.Steps {
+							if session.Steps[i].ID == event.StepID {
+								if data, ok := event.Data.(map[string]interface{}); ok {
+									session.Steps[i].Validation = &ValidationResult{
+										Command:  getString(data, "command"),
+										Status:   getString(data, "status"),
+										Output:   getString(data, "output"),
+										Duration: getFloat(data, "duration_sec"),
+									}
+									if errors, ok := data["errors"].([]interface{}); ok {
+										for _, e := range errors {
+											if s, ok := e.(string); ok {
+												session.Steps[i].Validation.Errors = append(session.Steps[i].Validation.Errors, s)
+											}
+										}
+									}
+								}
+								break
+							}
+						}
+						hub.setSession(session)
+					}
+				}
+
+				hub.addExpEvent(event)
+
+				// Broadcast event to all clients
+				hub.broadcast <- ATCMessage{
+					Type: "experiment",
+					Data: event,
+					Mode: mode,
+					Time: event.Timestamp,
+				}
+				w.WriteHeader(http.StatusOK)
+				fmt.Fprintf(w, `{"status":"ok"}`)
+			})
+
+			// Sessions endpoint to get current experiment state
+			http.HandleFunc("/sessions", func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				sessions := hub.getAllSessions()
+				json.NewEncoder(w).Encode(sessions)
 			})
 
 			// Poll interval control
@@ -1177,6 +1490,575 @@ var atcActiveHTML = `<!DOCTYPE html>
             }
             return { content: JSON.stringify(data).substring(0, 150), stats: '' };
         }
+        connect();
+    </script>
+</body>
+</html>`
+
+// atcExperimentHTML is the dashboard for tracking multi-step experiments
+const atcExperimentHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>clood ATC - Experiment Mode</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #2a2a4a;
+        }
+        .header h1 {
+            font-size: 1.5rem;
+            background: linear-gradient(90deg, #00ff88, #00ccff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .status-running { background: #1a4a1a; color: #00ff88; }
+        .status-completed { background: #1a3a5a; color: #00ccff; }
+        .status-failed { background: #4a1a1a; color: #ff6b6b; }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+        }
+
+        .session-panel {
+            background: #12121a;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #2a2a4a;
+        }
+
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .session-name {
+            font-size: 1.3rem;
+            color: #00ff88;
+        }
+        .session-progress {
+            color: #888;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #1a1a2e;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff88, #00ccff);
+            transition: width 0.5s ease;
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #2a2a4a;
+        }
+
+        .step {
+            position: relative;
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #1a1a2e;
+            border-radius: 8px;
+            border: 1px solid #2a2a4a;
+        }
+        .step.active {
+            border-color: #00ff88;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.1);
+        }
+        .step.completed {
+            border-color: #00ccff;
+            opacity: 0.8;
+        }
+        .step.failed {
+            border-color: #ff6b6b;
+        }
+
+        .step::before {
+            content: '';
+            position: absolute;
+            left: -26px;
+            top: 20px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #2a2a4a;
+            border: 2px solid #0a0a0f;
+        }
+        .step.active::before { background: #00ff88; }
+        .step.completed::before { background: #00ccff; }
+        .step.failed::before { background: #ff6b6b; }
+
+        .step-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .step-name {
+            font-weight: 600;
+            color: #fff;
+        }
+        .step-status {
+            font-size: 0.8rem;
+            padding: 3px 10px;
+            border-radius: 12px;
+        }
+        .step-status.running { background: #1a4a1a; color: #00ff88; }
+        .step-status.completed { background: #1a3a5a; color: #00ccff; }
+        .step-status.failed { background: #4a1a1a; color: #ff6b6b; }
+        .step-status.pending { background: #2a2a3a; color: #888; }
+
+        .iterations {
+            margin-top: 10px;
+        }
+        .iteration {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 8px 12px;
+            background: #0a0a0f;
+            border-radius: 6px;
+            margin-top: 8px;
+            font-size: 0.85rem;
+        }
+        .iteration-num {
+            color: #666;
+            min-width: 25px;
+        }
+        .iteration-model {
+            color: #00ccff;
+            min-width: 150px;
+        }
+        .iteration-host {
+            color: #888;
+            min-width: 100px;
+        }
+        .iteration-stats {
+            color: #00ff88;
+            margin-left: auto;
+        }
+        .iteration.running {
+            border: 1px solid #00ff88;
+            animation: pulse 2s infinite;
+        }
+        .iteration.failed {
+            border: 1px solid #ff6b6b;
+            background: #1a0a0a;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .validation {
+            margin-top: 15px;
+            padding: 12px;
+            background: #0a0a0f;
+            border-radius: 6px;
+            border-left: 3px solid #888;
+        }
+        .validation.pass { border-left-color: #00ff88; }
+        .validation.fail { border-left-color: #ff6b6b; }
+        .validation-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .validation-cmd {
+            font-family: monospace;
+            color: #888;
+        }
+        .validation-output {
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #aaa;
+            white-space: pre-wrap;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+        .validation-errors {
+            color: #ff6b6b;
+            font-size: 0.8rem;
+            margin-top: 8px;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .hosts-panel {
+            background: #12121a;
+            border-radius: 12px;
+            padding: 15px;
+            border: 1px solid #2a2a4a;
+        }
+        .hosts-panel h3 {
+            color: #888;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .host-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: #1a1a2e;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        .host-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        .host-status.online { background: #00ff88; }
+        .host-status.offline { background: #ff6b6b; }
+        .host-status.busy { background: #ffaa00; animation: pulse 1s infinite; }
+        .host-name { flex: 1; }
+        .host-model {
+            font-size: 0.8rem;
+            color: #00ccff;
+        }
+
+        .events-panel {
+            background: #12121a;
+            border-radius: 12px;
+            padding: 15px;
+            border: 1px solid #2a2a4a;
+            flex: 1;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+        }
+        .events-panel h3 {
+            color: #888;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .events-feed {
+            flex: 1;
+            overflow-y: auto;
+            font-size: 0.8rem;
+        }
+        .event-item {
+            padding: 8px;
+            border-bottom: 1px solid #1a1a2e;
+        }
+        .event-time {
+            color: #666;
+            margin-right: 10px;
+        }
+        .event-type {
+            color: #00ccff;
+            margin-right: 10px;
+        }
+        .event-msg {
+            color: #aaa;
+        }
+
+        .no-session {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        .no-session h2 {
+            color: #888;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>clood ATC - Experiment Mode</h1>
+        <div id="connection-status" class="status-badge status-running">Connecting...</div>
+    </div>
+
+    <div class="main-grid">
+        <div class="session-panel" id="session-panel">
+            <div class="no-session" id="no-session">
+                <h2>No Active Experiment</h2>
+                <p>Waiting for experiment events...</p>
+                <p style="margin-top: 20px; font-size: 0.9rem;">
+                    Start an experiment with:<br>
+                    <code style="color: #00ff88;">clood chimborazo --session "Session Name"</code>
+                </p>
+            </div>
+            <div id="session-content" style="display: none;">
+                <div class="session-header">
+                    <span class="session-name" id="session-name">-</span>
+                    <span class="session-progress" id="session-progress">Step 0/0</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                </div>
+                <div class="timeline" id="timeline"></div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="hosts-panel">
+                <h3>Hosts</h3>
+                <div id="hosts-list">
+                    <div class="host-item">
+                        <div class="host-status offline"></div>
+                        <span class="host-name">Loading...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="events-panel">
+                <h3>Event Feed</h3>
+                <div class="events-feed" id="events-feed"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws;
+        let currentSession = null;
+        let events = [];
+
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(protocol + '//' + window.location.host + '/ws');
+
+            ws.onopen = () => {
+                document.getElementById('connection-status').textContent = 'Connected';
+                document.getElementById('connection-status').className = 'status-badge status-completed';
+            };
+
+            ws.onclose = () => {
+                document.getElementById('connection-status').textContent = 'Disconnected';
+                document.getElementById('connection-status').className = 'status-badge status-failed';
+                setTimeout(connect, 2000);
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleEvent(data);
+            };
+        }
+
+        function handleEvent(event) {
+            // Add to event feed
+            addEventToFeed(event);
+
+            // Handle different event types
+            switch(event.type) {
+                case 'session_start':
+                    startSession(event.data);
+                    break;
+                case 'session_end':
+                    endSession(event.data);
+                    break;
+                case 'step_start':
+                    startStep(event.data);
+                    break;
+                case 'step_end':
+                    endStep(event.data);
+                    break;
+                case 'iteration_start':
+                    startIteration(event.data);
+                    break;
+                case 'iteration_end':
+                    endIteration(event.data);
+                    break;
+                case 'validation':
+                    addValidation(event.data);
+                    break;
+                case 'hosts':
+                    updateHosts(event.data);
+                    break;
+            }
+        }
+
+        function addEventToFeed(event) {
+            const feed = document.getElementById('events-feed');
+            const time = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = 'event-item';
+            div.innerHTML = '<span class="event-time">' + time + '</span>' +
+                           '<span class="event-type">' + event.type + '</span>' +
+                           '<span class="event-msg">' + (event.data?.name || event.data?.model || JSON.stringify(event.data).substring(0,50)) + '</span>';
+            feed.insertBefore(div, feed.firstChild);
+
+            // Keep only last 50 events
+            while (feed.children.length > 50) {
+                feed.removeChild(feed.lastChild);
+            }
+        }
+
+        function startSession(data) {
+            currentSession = {
+                id: data.id,
+                name: data.name,
+                totalSteps: data.total_steps || 0,
+                currentStep: 0,
+                steps: []
+            };
+
+            document.getElementById('no-session').style.display = 'none';
+            document.getElementById('session-content').style.display = 'block';
+            document.getElementById('session-name').textContent = data.name;
+            document.getElementById('session-progress').textContent = 'Step 0/' + currentSession.totalSteps;
+            document.getElementById('progress-fill').style.width = '0%';
+            document.getElementById('timeline').innerHTML = '';
+        }
+
+        function endSession(data) {
+            if (currentSession) {
+                document.getElementById('session-progress').textContent =
+                    data.status === 'completed' ? 'Completed' : data.status;
+            }
+        }
+
+        function startStep(data) {
+            if (!currentSession) return;
+
+            currentSession.currentStep = data.number;
+            document.getElementById('session-progress').textContent =
+                'Step ' + data.number + '/' + currentSession.totalSteps;
+
+            const progress = (data.number / currentSession.totalSteps) * 100;
+            document.getElementById('progress-fill').style.width = progress + '%';
+
+            const timeline = document.getElementById('timeline');
+            const stepDiv = document.createElement('div');
+            stepDiv.className = 'step active';
+            stepDiv.id = 'step-' + data.number;
+            stepDiv.innerHTML =
+                '<div class="step-header">' +
+                    '<span class="step-name">' + data.number + '. ' + data.name + '</span>' +
+                    '<span class="step-status running">Running</span>' +
+                '</div>' +
+                '<div class="iterations" id="iterations-' + data.number + '"></div>';
+            timeline.appendChild(stepDiv);
+
+            // Mark previous steps as completed
+            for (let i = 1; i < data.number; i++) {
+                const prevStep = document.getElementById('step-' + i);
+                if (prevStep) {
+                    prevStep.className = 'step completed';
+                    prevStep.querySelector('.step-status').className = 'step-status completed';
+                    prevStep.querySelector('.step-status').textContent = 'Completed';
+                }
+            }
+        }
+
+        function endStep(data) {
+            const stepDiv = document.getElementById('step-' + data.number);
+            if (stepDiv) {
+                stepDiv.className = 'step ' + data.status;
+                const statusEl = stepDiv.querySelector('.step-status');
+                statusEl.className = 'step-status ' + data.status;
+                statusEl.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+            }
+        }
+
+        function startIteration(data) {
+            const container = document.getElementById('iterations-' + data.step);
+            if (!container) return;
+
+            const iterDiv = document.createElement('div');
+            iterDiv.className = 'iteration running';
+            iterDiv.id = 'iter-' + data.step + '-' + data.number;
+            iterDiv.innerHTML =
+                '<span class="iteration-num">#' + data.number + '</span>' +
+                '<span class="iteration-model">' + data.model + '</span>' +
+                '<span class="iteration-host">' + data.host + '</span>' +
+                '<span class="iteration-stats">Running...</span>';
+            container.appendChild(iterDiv);
+        }
+
+        function endIteration(data) {
+            const iterDiv = document.getElementById('iter-' + data.step + '-' + data.number);
+            if (iterDiv) {
+                iterDiv.className = 'iteration ' + data.status;
+                const stats = data.duration ? data.duration.toFixed(1) + 's' : '';
+                const tokens = data.tokens ? ' | ' + data.tokens + ' tok' : '';
+                const tps = data.tokens_sec ? ' | ' + data.tokens_sec.toFixed(1) + ' t/s' : '';
+                iterDiv.querySelector('.iteration-stats').textContent = stats + tokens + tps;
+            }
+        }
+
+        function addValidation(data) {
+            const stepDiv = document.getElementById('step-' + data.step);
+            if (!stepDiv) return;
+
+            const validDiv = document.createElement('div');
+            validDiv.className = 'validation ' + data.status;
+            validDiv.innerHTML =
+                '<div class="validation-header">' +
+                    '<span class="validation-cmd">$ ' + data.command + '</span>' +
+                    '<span class="step-status ' + data.status + '">' + data.status.toUpperCase() + '</span>' +
+                '</div>' +
+                (data.output ? '<div class="validation-output">' + escapeHtml(data.output) + '</div>' : '') +
+                (data.errors && data.errors.length ? '<div class="validation-errors">' + data.errors.join('<br>') + '</div>' : '');
+            stepDiv.appendChild(validDiv);
+        }
+
+        function updateHosts(hosts) {
+            const container = document.getElementById('hosts-list');
+            container.innerHTML = hosts.map(h =>
+                '<div class="host-item">' +
+                    '<div class="host-status ' + (h.online ? (h.busy ? 'busy' : 'online') : 'offline') + '"></div>' +
+                    '<span class="host-name">' + h.name + '</span>' +
+                    (h.model ? '<span class="host-model">' + h.model + '</span>' : '') +
+                '</div>'
+            ).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         connect();
     </script>
 </body>

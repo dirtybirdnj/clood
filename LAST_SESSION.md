@@ -1,137 +1,162 @@
-# Last Session: clood proxy & Issue #190
+# Last Session: ATC Experiment Mode
 
-**Date:** 2025-12-24
-**Previous:** ATC Dashboard row layout, model highlighting
+**Date:** 2025-12-25 (Christmas!)
+**Previous:** clood proxy & Issue #190
 
 ---
 
 ## WHAT WE BUILT
 
-### clood proxy Command (commit 08141fe)
+### ATC Experiment Mode (for tracking multi-step agent challenges)
 
-OpenAI-compatible API server for multi-host routing:
+New dashboard mode for tracking iterative coding experiments like Chimborazo rebuild and Bonsai Garden Doom.
 
 ```bash
-clood proxy --port 8000 --atc http://localhost:8080
+clood atc --mode experiment --port 8080
 ```
 
-**Endpoints:**
-- `POST /v1/chat/completions` - Routes to best available host
-- `GET /v1/models` - Aggregates models from all hosts
-- `GET /status` - Returns proxy statistics
+**Hierarchical Event Structure:**
+```
+Session (e.g., "Chimborazo Rebuild Session 1")
+  └── Step 1: "Analyze Strata thoreau module"
+        ├── Iteration 1: qwen2.5-coder:3b @ mac-laptop
+        ├── Iteration 2: qwen2.5-coder:7b @ mac-mini
+        └── Validation: go build ./... [PASS]
+  └── Step 2: "Implement HTTP fetcher"
+        └── ...
+```
 
-**Features:**
-- Host selection by lowest latency
-- Model availability checking
-- ATC event streaming (request_start, request_complete, request_error)
-- Graceful shutdown
+**New Endpoints:**
+- `POST /experiment` - Receive hierarchical events
+- `GET /sessions` - Get current session state
 
-### GitHub Issue #190 Created
+**Event Types:**
+- `session_start` / `session_end`
+- `step_start` / `step_end`
+- `iteration_start` / `iteration_end`
+- `validation` (with pass/fail/skip status)
 
-"Chat UI as command interface with ATC monitoring"
+### GitHub Issues Created
 
-**Vision:**
-- Chat UI = "radio communications" (talk to models)
-- ATC = "control tower" (observe what's happening)
+- **#191** - Chimborazo Rebuild via Agent Swarm
+  - Clean-room rebuild of geospatial toolkit
+  - Agents analyze Strata Python, rebuild in Go from scratch
+  - No peeking at existing chimborazo code
+  - Success = SVG output matches Strata
 
-**Testing Plan (in issue):**
-1. Start ATC dashboard
-2. Start clood proxy
-3. Run Open WebUI Docker container
-4. Send message and verify events flow
+- **#192** - Bonsai Garden Doom Demo
+  - Silver tier: 3 rooms, 12 bonsai, 3 textures
+  - Canvas 2D raycasting, billboard sprites
+  - Uses `clood bonsai -f svg` for trees
+  - Uses `rat-king fill` for wall textures
 
 ---
 
 ## FILES CHANGED
 
-**New:**
-- `internal/commands/proxy.go` - OpenAI-compatible proxy server
-
 **Modified:**
-- `cmd/clood/main.go` - Added ProxyCmd to Infra group
-- `internal/commands/atc.go` - Analysis panel WIP (not yet working)
+- `internal/commands/atc.go`
+  - Added `ExperimentSession`, `ExperimentStep`, `ExperimentIteration`, `ValidationResult`, `ExperimentEvent` structs
+  - Added session tracking to Hub (`sessions` map, mutex protection)
+  - Added `/experiment` endpoint for hierarchical events
+  - Added `/sessions` endpoint for session state
+  - Added `atcExperimentHTML` - full dashboard with timeline, progress bar, iterations display
+  - Added helper functions: `getString`, `getInt`, `getFloat`
 
 ---
 
-## COMMITS PUSHED
+## DASHBOARD FEATURES
 
-```
-74e182f wip: ATC analysis panel (not yet working)
-08141fe feat: Add clood proxy - OpenAI-compatible API server for multi-host routing
-```
+The experiment mode HTML includes:
+- **Header** with connection status
+- **Session panel** with:
+  - Session name and progress (Step X/Y)
+  - Progress bar
+  - Timeline with step cards
+  - Iteration rows (model, host, stats)
+  - Validation results (command, output, errors)
+- **Sidebar** with:
+  - Hosts panel (online/offline/busy status)
+  - Event feed (last 50 events)
+
+Visual states:
+- Running: green border, pulse animation
+- Completed: blue border
+- Failed: red border
+- Pending: gray
 
 ---
 
-## WHAT'S NOT WORKING
-
-### Analysis Panel Still Not Appearing
-
-The analysis event is sent from catfight but not showing in ATC UI.
-Code is in place but needs debugging (see previous session notes).
-
----
-
-## TESTING PLAN FOR TOMORROW
+## TESTING
 
 ```bash
-# Terminal 1: Start ATC dashboard
-clood atc --mode active --port 8080
+# Start ATC in experiment mode
+clood atc --mode experiment --port 8080
 
-# Terminal 2: Start proxy
-clood proxy --port 8000 --atc http://localhost:8080
-
-# Terminal 3: Start Open WebUI
-docker run -d -p 3000:8080 \
-  -e OPENAI_API_BASE_URL=http://host.docker.internal:8000/v1 \
-  -e OPENAI_API_KEY=not-needed \
-  --name open-webui \
-  ghcr.io/open-webui/open-webui:main
-
-# Browser: Open http://localhost:3000
-# Send a message, watch ATC dashboard for events
-```
-
-**Expected Flow:**
-1. User sends message in Open WebUI
-2. Open WebUI calls clood proxy
-3. Proxy routes to best Ollama host
-4. Events stream to ATC dashboard
-
----
-
-## exo RESEARCH
-
-Found exo-explore/exo - distributed AI cluster that splits large models across devices.
-
-**Comparison:**
-| Feature | clood | exo |
-|---------|-------|-----|
-| Splits models across GPUs | No | Yes |
-| Compares models head-to-head | Yes | No |
-| OpenAI-compatible API | Yes | Yes |
-| Multi-host orchestration | Yes | Yes |
-
-**Verdict:** Complementary tools. exo for running huge models, clood for comparing and routing.
-
----
-
-## QUICK REFERENCE
-
-```bash
-# Test proxy directly
-curl http://localhost:8000/v1/models
-curl http://localhost:8000/v1/chat/completions \
+# Send session start
+curl -X POST http://localhost:8080/experiment \
   -H "Content-Type: application/json" \
-  -d '{"model":"qwen2.5-coder:3b","messages":[{"role":"user","content":"hi"}]}'
+  -d '{
+    "type": "session_start",
+    "session_id": "chimborazo-001",
+    "data": {"name": "Chimborazo Rebuild", "total_steps": 5}
+  }'
 
-# Check proxy status
-curl http://localhost:8000/status
+# Send step start
+curl -X POST http://localhost:8080/experiment \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "step_start",
+    "session_id": "chimborazo-001",
+    "step_id": "step-1",
+    "data": {"number": 1, "name": "Analyze Strata thoreau module"}
+  }'
+
+# Send iteration start
+curl -X POST http://localhost:8080/experiment \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "iteration_start",
+    "session_id": "chimborazo-001",
+    "step_id": "step-1",
+    "data": {"number": 1, "step": 1, "model": "qwen2.5-coder:3b", "host": "mac-laptop"}
+  }'
+
+# Check session state
+curl http://localhost:8080/sessions | python3 -m json.tool
 ```
 
 ---
 
+## EXPERIMENT PLANS
+
+### Chimborazo Rebuild (#191)
+- **Goal:** Agents rebuild geospatial toolkit from Strata Python analysis
+- **Strategy:** Options B+C (steer agents, don't skip hard problems)
+- **Model escalation:** qwen:3b -> qwen:7b -> deepseek-r1:8b -> Opus 4.5
+- **Validation:** SVG output comparison with Strata reference
+
+### Bonsai Garden Doom (#192)
+- **Goal:** First-person 3D bonsai garden exploration
+- **Target:** Silver tier (3 rooms, 12 bonsai, 3 textures)
+- **Approach:** Billboard sprites, Canvas 2D raycasting, MVP focus
+- **Assets:** `clood bonsai -f svg`, `rat-king fill`
+
+Both experiments can span multiple sessions with clear instructions and end states.
+
+---
+
+## NEXT STEPS
+
+1. Run experiments on Christmas morning
+2. Watch ATC dashboard for real-time progress
+3. Compare Chimborazo rebuild to existing feature branches
+4. Iterate on Bonsai Garden until playable
+
+---
+
 ```
-Proxy routes the way,
-Chat UI meets control tower—
-Models await calls.
+Snow falls on the tower,
+Agents rebuild through the night—
+Christmas code awakes.
 ```
