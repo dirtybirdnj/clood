@@ -837,6 +837,30 @@ var atcActiveHTML = `<!DOCTYPE html>
         .event-stats .stat-value { color: #fff; font-weight: bold; }
         .no-events { color: #666; font-size: 14px; text-align: center; padding: 40px; }
 
+        /* Analysis Panel */
+        .analysis-section {
+            background: linear-gradient(135deg, rgba(170,136,255,0.15) 0%, rgba(100,80,180,0.1) 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 2px solid #aa88ff;
+        }
+        .analysis-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .analysis-header h2 { color: #aa88ff; font-size: 18px; text-transform: uppercase; letter-spacing: 2px; margin: 0; }
+        .analysis-time { color: #666; font-size: 12px; }
+        .analysis-content { display: flex; flex-direction: column; gap: 12px; }
+        .analysis-summary { font-size: 16px; color: #fff; line-height: 1.6; }
+        .analysis-summary strong { color: #aa88ff; }
+        .analysis-rankings {
+            background: rgba(0,0,0,0.3);
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #aaa;
+            font-family: monospace;
+        }
+        .analysis-rankings .rank { color: #ffaa00; font-weight: bold; }
+
         .footer {
             margin-top: 20px;
             padding-top: 15px;
@@ -899,6 +923,18 @@ var atcActiveHTML = `<!DOCTYPE html>
             </div>
         </div>
 
+        <!-- Analysis Panel -->
+        <div class="analysis-section" id="analysis-section" style="display:none;">
+            <div class="analysis-header">
+                <h2>🔬 Battle Analysis</h2>
+                <span class="analysis-time" id="analysis-time"></span>
+            </div>
+            <div class="analysis-content">
+                <div class="analysis-summary" id="analysis-summary"></div>
+                <div class="analysis-rankings" id="analysis-rankings"></div>
+            </div>
+        </div>
+
         <div class="footer">
             <span>clood atc --mode active | Host colors: <span style="color:#4488ff">●</span> local-gpu <span style="color:#ff8844">●</span> ubuntu25 <span style="color:#44ff88">●</span> mac-mini</span>
             <span id="connection-status">Connecting...</span>
@@ -946,9 +982,15 @@ var atcActiveHTML = `<!DOCTYPE html>
                 if (msg.type === 'event') {
                     addEvent(msg.data);
                     highlightActiveModel(msg.data);
+                    if (msg.data.type === 'analysis') {
+                        showAnalysis(msg.data);
+                    }
                 }
                 if (msg.type === 'events') {
-                    msg.data.forEach(e => addEvent(e));
+                    msg.data.forEach(e => {
+                        addEvent(e);
+                        if (e.type === 'analysis') showAnalysis(e);
+                    });
                 }
             };
         }
@@ -1021,6 +1063,38 @@ var atcActiveHTML = `<!DOCTYPE html>
             if (battleStats.speeds.length > 0) {
                 const avg = battleStats.speeds.reduce((a,b) => a+b, 0) / battleStats.speeds.length;
                 document.getElementById('stat-avgspeed').textContent = avg.toFixed(1);
+            }
+        }
+        function showAnalysis(event) {
+            const section = document.getElementById('analysis-section');
+            const summary = document.getElementById('analysis-summary');
+            const rankings = document.getElementById('analysis-rankings');
+            const timeEl = document.getElementById('analysis-time');
+
+            if (!event.data) return;
+
+            // Show the section
+            section.style.display = 'block';
+
+            // Set timestamp
+            const time = event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+            timeEl.textContent = time;
+
+            // Set summary with highlighted winner
+            let summaryText = event.data.analysis || '';
+            // Highlight model names
+            summaryText = summaryText.replace(/(qwen[^\s]+|llama[^\s]+|mistral[^\s]+|codestral[^\s]+|deepseek[^\s]+)/gi, '<strong>$1</strong>');
+            summary.innerHTML = summaryText;
+
+            // Set rankings with numbered highlights
+            if (event.data.rankings) {
+                let rankingsText = event.data.rankings;
+                // Highlight rank numbers
+                rankingsText = rankingsText.replace(/(\d+)\./g, '<span class="rank">$1.</span>');
+                rankings.innerHTML = rankingsText;
+                rankings.style.display = 'block';
+            } else {
+                rankings.style.display = 'none';
             }
         }
         function highlightActiveModel(event) {
