@@ -43,6 +43,7 @@ type HardwareSpec struct {
 // HostStatus represents a host's current state for active mode
 type HostStatus struct {
 	Name      string       `json:"name"`
+	URL       string       `json:"url"`
 	Online    bool         `json:"online"`
 	Latency   int64        `json:"latency_ms"`
 	Models    []string     `json:"models"`
@@ -119,9 +120,9 @@ type ExperimentEvent struct {
 
 // Static hardware specs for known hosts
 var hostHardware = map[string]HardwareSpec{
-	"local-gpu": {CPU: "Apple M4", GPU: "M4 10-core", Memory: "32GB"},
-	"mac-mini":  {CPU: "Apple M4", GPU: "M4 10-core", Memory: "16GB"},
-	"ubuntu25":  {CPU: "i7-8700", GPU: "RX 590 8GB", Memory: "64GB"},
+	"mac-laptop": {CPU: "Apple M4 Max", GPU: "M4 Max 40-core", Memory: "128GB"},
+	"mac-mini":   {CPU: "Apple M4", GPU: "M4 10-core", Memory: "24GB"},
+	"ubuntu25":   {CPU: "i7-8700", GPU: "RX 590 8GB", Memory: "64GB"},
 }
 
 // ATCMessage is the WebSocket message format
@@ -409,6 +410,7 @@ func atcFetchHostStatus() []HostStatus {
 	for _, hs := range hostStatuses {
 		status := HostStatus{
 			Name:     hs.Host.Name,
+			URL:      hs.Host.URL,
 			Online:   hs.Online,
 			Latency:  hs.Latency.Milliseconds(),
 			LastSeen: time.Now().Format(time.RFC3339),
@@ -1504,17 +1506,23 @@ const atcExperimentHTML = `<!DOCTYPE html>
     <title>clood ATC - Experiment Mode</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            height: 100vh;
+            overflow: hidden;
+        }
         body {
             font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
             background: #0a0a0f;
             color: #e0e0e0;
-            min-height: 100vh;
             padding: 20px;
+            display: flex;
+            flex-direction: column;
         }
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-shrink: 0;
             padding: 15px 20px;
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             border-radius: 12px;
@@ -1539,8 +1547,11 @@ const atcExperimentHTML = `<!DOCTYPE html>
 
         .main-grid {
             display: grid;
-            grid-template-columns: 1fr 300px;
+            grid-template-columns: 1fr 350px;
             gap: 20px;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
         }
 
         .session-panel {
@@ -1548,6 +1559,8 @@ const atcExperimentHTML = `<!DOCTYPE html>
             border-radius: 12px;
             padding: 20px;
             border: 1px solid #2a2a4a;
+            overflow-y: auto;
+            min-height: 0;
         }
 
         .session-header {
@@ -1652,12 +1665,13 @@ const atcExperimentHTML = `<!DOCTYPE html>
         .iteration {
             display: flex;
             align-items: center;
-            gap: 15px;
+            flex-wrap: wrap;
+            gap: 8px;
             padding: 8px 12px;
             background: #0a0a0f;
             border-radius: 6px;
             margin-top: 8px;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
         }
         .iteration-num {
             color: #666;
@@ -1665,12 +1679,62 @@ const atcExperimentHTML = `<!DOCTYPE html>
         }
         .iteration-model {
             color: #00ccff;
-            min-width: 150px;
+            min-width: 140px;
         }
         .iteration-host {
             color: #888;
-            min-width: 100px;
+            min-width: 80px;
         }
+        .iteration-time {
+            color: #666;
+            font-size: 0.7rem;
+            font-family: monospace;
+        }
+        .iteration-time.start { color: #888; }
+        .iteration-time.end { color: #00ff88; }
+
+        .iteration-details {
+            width: 100%;
+            margin-top: 8px;
+            font-size: 0.75rem;
+        }
+        .iteration-prompt {
+            background: #1a1a2e;
+            padding: 8px;
+            border-radius: 4px;
+            color: #888;
+            font-style: italic;
+            margin-bottom: 6px;
+            border-left: 2px solid #00ccff;
+        }
+        .iteration-output {
+            background: #0f0f15;
+            padding: 8px;
+            border-radius: 4px;
+            color: #aaa;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 150px;
+            overflow-y: auto;
+            border-left: 2px solid #00ff88;
+        }
+        .iteration-output.collapsed {
+            max-height: 80px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .iteration-output.collapsed::after {
+            content: ' [click to expand]';
+            color: #666;
+            font-style: italic;
+        }
+        .iteration-toggle {
+            color: #666;
+            font-size: 0.7rem;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        .iteration-toggle:hover { color: #00ccff; }
         .iteration-stats {
             color: #00ff88;
             margin-left: auto;
@@ -1725,6 +1789,8 @@ const atcExperimentHTML = `<!DOCTYPE html>
             display: flex;
             flex-direction: column;
             gap: 20px;
+            min-height: 0;
+            overflow: hidden;
         }
 
         .hosts-panel {
@@ -1732,6 +1798,9 @@ const atcExperimentHTML = `<!DOCTYPE html>
             border-radius: 12px;
             padding: 15px;
             border: 1px solid #2a2a4a;
+            flex-shrink: 0;
+            max-height: 45%;
+            overflow-y: auto;
         }
         .hosts-panel h3 {
             color: #888;
@@ -1742,26 +1811,63 @@ const atcExperimentHTML = `<!DOCTYPE html>
         }
         .host-item {
             display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px;
+            flex-direction: column;
+            gap: 4px;
+            padding: 12px;
             background: #1a1a2e;
             border-radius: 6px;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #2a2a4a;
+        }
+        .host-item.offline {
+            opacity: 0.5;
+        }
+        .host-item.local {
+            border-color: #00ff88;
+            background: linear-gradient(135deg, #1a2e1a 0%, #1a1a2e 100%);
+        }
+        .host-item.local .host-name {
+            color: #00ff88;
+        }
+        .host-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         .host-status {
             width: 8px;
             height: 8px;
             border-radius: 50%;
+            flex-shrink: 0;
         }
         .host-status.online { background: #00ff88; }
         .host-status.offline { background: #ff6b6b; }
-        .host-status.busy { background: #ffaa00; animation: pulse 1s infinite; }
-        .host-name { flex: 1; }
-        .host-model {
-            font-size: 0.8rem;
+        .host-name {
+            font-weight: 600;
+            flex: 1;
+        }
+        .host-latency {
+            font-size: 0.75rem;
+            color: #00ff88;
+        }
+        .host-url {
+            font-size: 0.7rem;
+            color: #666;
+            font-family: monospace;
+            margin-left: 16px;
+        }
+        .host-hw {
+            font-size: 0.75rem;
+            color: #888;
+            margin-left: 16px;
+        }
+        .hw-gpu {
             color: #00ccff;
         }
+        .hw-mem {
+            color: #888;
+        }
+        .host-status.busy { background: #ffaa00; animation: pulse 1s infinite; }
 
         .events-panel {
             background: #12121a;
@@ -1769,9 +1875,10 @@ const atcExperimentHTML = `<!DOCTYPE html>
             padding: 15px;
             border: 1px solid #2a2a4a;
             flex: 1;
-            min-height: 300px;
+            min-height: 0;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
         .events-panel h3 {
             color: #888;
@@ -1782,24 +1889,42 @@ const atcExperimentHTML = `<!DOCTYPE html>
         }
         .events-feed {
             flex: 1;
+            min-height: 0;
             overflow-y: auto;
-            font-size: 0.8rem;
+            font-size: 0.65rem;
+            font-family: 'SF Mono', 'Monaco', monospace;
         }
         .event-item {
-            padding: 8px;
+            padding: 4px 6px;
             border-bottom: 1px solid #1a1a2e;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
         }
         .event-time {
             color: #666;
-            margin-right: 10px;
+            min-width: 70px;
+            flex-shrink: 0;
         }
         .event-type {
             color: #00ccff;
-            margin-right: 10px;
+            min-width: 90px;
+            flex-shrink: 0;
+            font-weight: 600;
         }
         .event-msg {
             color: #aaa;
+            flex: 1;
+            word-break: break-word;
         }
+        .event-duration {
+            color: #00ff88;
+            margin-left: auto;
+            font-weight: 600;
+        }
+        .event-item.step { background: #1a1a2e; }
+        .event-item.iteration { background: #12121a; }
+        .event-item.error { background: #2a1a1a; border-left: 2px solid #ff6b6b; }
 
         .no-session {
             text-align: center;
@@ -1831,7 +1956,10 @@ const atcExperimentHTML = `<!DOCTYPE html>
             <div id="session-content" style="display: none;">
                 <div class="session-header">
                     <span class="session-name" id="session-name">-</span>
-                    <span class="session-progress" id="session-progress">Step 0/0</span>
+                    <div style="display: flex; gap: 20px; align-items: center;">
+                        <span class="session-timer" id="session-timer" style="font-family: monospace; color: #00ff88; font-size: 1.1rem;">00:00</span>
+                        <span class="session-progress" id="session-progress">Step 0/0</span>
+                    </div>
                 </div>
                 <div class="progress-bar">
                     <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
@@ -1885,53 +2013,103 @@ const atcExperimentHTML = `<!DOCTYPE html>
         }
 
         function handleEvent(event) {
+            // Handle wrapper messages from server broadcasts
+            // Server sends: {type: "experiment", data: {type: "session_start", ...}}
+            if (event.type === 'experiment' && event.data && event.data.type) {
+                // Unwrap the experiment event and handle the inner event
+                const innerEvent = event.data;
+                addEventToFeed({type: innerEvent.type, data: innerEvent.data || innerEvent});
+                handleInnerEvent(innerEvent.type, innerEvent.data || innerEvent);
+                return;
+            }
+
             // Add to event feed
             addEventToFeed(event);
 
             // Handle different event types
-            switch(event.type) {
+            handleInnerEvent(event.type, event.data);
+        }
+
+        function handleInnerEvent(type, data) {
+            switch(type) {
                 case 'session_start':
-                    startSession(event.data);
+                    startSession(data);
                     break;
                 case 'session_end':
-                    endSession(event.data);
+                case 'session_complete':
+                case 'session_fail':
+                    endSession(data);
                     break;
                 case 'step_start':
-                    startStep(event.data);
+                    startStep(data);
                     break;
                 case 'step_end':
-                    endStep(event.data);
+                case 'step_complete':
+                case 'step_fail':
+                    endStep(data);
                     break;
                 case 'iteration_start':
-                    startIteration(event.data);
+                    startIteration(data);
                     break;
                 case 'iteration_end':
-                    endIteration(event.data);
+                case 'iteration_complete':
+                case 'iteration_fail':
+                    endIteration(data);
                     break;
                 case 'validation':
-                    addValidation(event.data);
+                    addValidation(data);
                     break;
                 case 'hosts':
-                    updateHosts(event.data);
+                    updateHosts(data);
+                    break;
+                case 'experiment_state':
+                    // Poller sends combined state - extract hosts
+                    if (data && data.hosts) {
+                        updateHosts(data.hosts);
+                    }
                     break;
             }
         }
 
         function addEventToFeed(event) {
             const feed = document.getElementById('events-feed');
-            const time = new Date().toLocaleTimeString();
+            const time = new Date().toLocaleTimeString('en-US', {hour12: false});
             const div = document.createElement('div');
-            div.className = 'event-item';
+
+            // Classify event for styling
+            let eventClass = 'event-item';
+            if (event.type.includes('step')) eventClass += ' step';
+            if (event.type.includes('iteration')) eventClass += ' iteration';
+            if (event.type.includes('fail') || event.type.includes('error')) eventClass += ' error';
+            div.className = eventClass;
+
+            // Build message with more detail
+            let msg = '';
+            let duration = '';
+            const d = event.data || {};
+
+            if (d.name) msg = d.name;
+            else if (d.model) msg = d.model + (d.host ? ' @ ' + d.host : '');
+            else if (d.error) msg = 'ERROR: ' + d.error;
+            else msg = JSON.stringify(d).substring(0, 120);
+
+            // Show duration if available
+            if (d.duration_sec) duration = d.duration_sec.toFixed(1) + 's';
+            else if (d.duration) duration = d.duration.toFixed(1) + 's';
+
             div.innerHTML = '<span class="event-time">' + time + '</span>' +
                            '<span class="event-type">' + event.type + '</span>' +
-                           '<span class="event-msg">' + (event.data?.name || event.data?.model || JSON.stringify(event.data).substring(0,50)) + '</span>';
+                           '<span class="event-msg">' + msg + '</span>' +
+                           (duration ? '<span class="event-duration">' + duration + '</span>' : '');
             feed.insertBefore(div, feed.firstChild);
 
-            // Keep only last 50 events
-            while (feed.children.length > 50) {
+            // Keep only last 100 events
+            while (feed.children.length > 100) {
                 feed.removeChild(feed.lastChild);
             }
         }
+
+        let sessionTimer = null;
 
         function startSession(data) {
             currentSession = {
@@ -1939,7 +2117,8 @@ const atcExperimentHTML = `<!DOCTYPE html>
                 name: data.name,
                 totalSteps: data.total_steps || 0,
                 currentStep: 0,
-                steps: []
+                steps: [],
+                startTime: Date.now()
             };
 
             document.getElementById('no-session').style.display = 'none';
@@ -1948,10 +2127,38 @@ const atcExperimentHTML = `<!DOCTYPE html>
             document.getElementById('session-progress').textContent = 'Step 0/' + currentSession.totalSteps;
             document.getElementById('progress-fill').style.width = '0%';
             document.getElementById('timeline').innerHTML = '';
+
+            // Start session timer
+            if (sessionTimer) clearInterval(sessionTimer);
+            updateSessionTimer();
+            sessionTimer = setInterval(updateSessionTimer, 1000);
+        }
+
+        function updateSessionTimer() {
+            if (!currentSession || !currentSession.startTime) return;
+            const elapsed = Math.floor((Date.now() - currentSession.startTime) / 1000);
+            const mins = Math.floor(elapsed / 60);
+            const secs = elapsed % 60;
+            document.getElementById('session-timer').textContent =
+                String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
         }
 
         function endSession(data) {
             if (currentSession) {
+                // Stop timer
+                if (sessionTimer) {
+                    clearInterval(sessionTimer);
+                    sessionTimer = null;
+                }
+
+                // Show final time and status
+                const elapsed = Math.floor((Date.now() - currentSession.startTime) / 1000);
+                const mins = Math.floor(elapsed / 60);
+                const secs = elapsed % 60;
+                const finalTime = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+
+                document.getElementById('session-timer').textContent = finalTime + ' ✓';
+                document.getElementById('session-timer').style.color = data.status === 'completed' ? '#00ccff' : '#ff6b6b';
                 document.getElementById('session-progress').textContent =
                     data.status === 'completed' ? 'Completed' : data.status;
             }
@@ -1960,7 +2167,22 @@ const atcExperimentHTML = `<!DOCTYPE html>
         function startStep(data) {
             if (!currentSession) return;
 
+            const stepStartTime = Date.now();
+            const stepStartTimeStr = new Date().toLocaleTimeString('en-US', {hour12: false});
+
+            // Calculate gap from previous step
+            let gapStr = '';
+            if (currentSession.lastStepEndTime) {
+                const gap = (stepStartTime - currentSession.lastStepEndTime) / 1000;
+                if (gap > 0.5) {
+                    gapStr = '<span style="color: #ff9900; font-size: 0.7rem; margin-left: 10px;">+' + gap.toFixed(1) + 's gap</span>';
+                }
+            }
+
             currentSession.currentStep = data.number;
+            currentSession.stepStartTimes = currentSession.stepStartTimes || {};
+            currentSession.stepStartTimes[data.number] = stepStartTime;
+
             document.getElementById('session-progress').textContent =
                 'Step ' + data.number + '/' + currentSession.totalSteps;
 
@@ -1974,7 +2196,11 @@ const atcExperimentHTML = `<!DOCTYPE html>
             stepDiv.innerHTML =
                 '<div class="step-header">' +
                     '<span class="step-name">' + data.number + '. ' + data.name + '</span>' +
-                    '<span class="step-status running">Running</span>' +
+                    '<div style="display: flex; align-items: center; gap: 8px;">' +
+                        '<span style="color: #666; font-size: 0.7rem; font-family: monospace;">▶ ' + stepStartTimeStr + '</span>' +
+                        gapStr +
+                        '<span class="step-status running">Running</span>' +
+                    '</div>' +
                 '</div>' +
                 '<div class="iterations" id="iterations-' + data.number + '"></div>';
             timeline.appendChild(stepDiv);
@@ -1982,7 +2208,7 @@ const atcExperimentHTML = `<!DOCTYPE html>
             // Mark previous steps as completed
             for (let i = 1; i < data.number; i++) {
                 const prevStep = document.getElementById('step-' + i);
-                if (prevStep) {
+                if (prevStep && !prevStep.classList.contains('completed')) {
                     prevStep.className = 'step completed';
                     prevStep.querySelector('.step-status').className = 'step-status completed';
                     prevStep.querySelector('.step-status').textContent = 'Completed';
@@ -1993,6 +2219,26 @@ const atcExperimentHTML = `<!DOCTYPE html>
         function endStep(data) {
             const stepDiv = document.getElementById('step-' + data.number);
             if (stepDiv) {
+                // Store end time for gap calculation
+                if (currentSession) {
+                    currentSession.lastStepEndTime = Date.now();
+
+                    // Calculate step duration
+                    if (currentSession.stepStartTimes && currentSession.stepStartTimes[data.number]) {
+                        const stepDuration = (currentSession.lastStepEndTime - currentSession.stepStartTimes[data.number]) / 1000;
+                        const durationStr = stepDuration.toFixed(1) + 's';
+
+                        // Add duration to step header
+                        const header = stepDiv.querySelector('.step-header > div');
+                        if (header) {
+                            const durationSpan = document.createElement('span');
+                            durationSpan.style.cssText = 'color: #00ff88; font-size: 0.75rem; font-weight: 600;';
+                            durationSpan.textContent = durationStr;
+                            header.insertBefore(durationSpan, header.querySelector('.step-status'));
+                        }
+                    }
+                }
+
                 stepDiv.className = 'step ' + data.status;
                 const statusEl = stepDiv.querySelector('.step-status');
                 statusEl.className = 'step-status ' + data.status;
@@ -2004,25 +2250,91 @@ const atcExperimentHTML = `<!DOCTYPE html>
             const container = document.getElementById('iterations-' + data.step);
             if (!container) return;
 
+            const startTime = new Date().toLocaleTimeString('en-US', {hour12: false});
             const iterDiv = document.createElement('div');
             iterDiv.className = 'iteration running';
             iterDiv.id = 'iter-' + data.step + '-' + data.number;
+            iterDiv.dataset.startTime = Date.now(); // Store for duration calc
+
+            // Build prompt preview if available
+            let promptHtml = '';
+            if (data.prompt) {
+                const promptPreview = data.prompt.substring(0, 200) + (data.prompt.length > 200 ? '...' : '');
+                promptHtml = '<div class="iteration-details"><div class="iteration-prompt">' + escapeHtml(promptPreview) + '</div></div>';
+            }
+
             iterDiv.innerHTML =
                 '<span class="iteration-num">#' + data.number + '</span>' +
                 '<span class="iteration-model">' + data.model + '</span>' +
                 '<span class="iteration-host">' + data.host + '</span>' +
-                '<span class="iteration-stats">Running...</span>';
+                '<span class="iteration-time start">▶ ' + startTime + '</span>' +
+                '<span class="iteration-stats">Running...</span>' +
+                promptHtml;
             container.appendChild(iterDiv);
+            scrollToBottom();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function scrollToBottom() {
+            const panel = document.getElementById('session-panel');
+            if (panel) {
+                setTimeout(() => {
+                    panel.scrollTop = panel.scrollHeight;
+                }, 100);
+            }
         }
 
         function endIteration(data) {
             const iterDiv = document.getElementById('iter-' + data.step + '-' + data.number);
             if (iterDiv) {
                 iterDiv.className = 'iteration ' + data.status;
-                const stats = data.duration ? data.duration.toFixed(1) + 's' : '';
-                const tokens = data.tokens ? ' | ' + data.tokens + ' tok' : '';
-                const tps = data.tokens_sec ? ' | ' + data.tokens_sec.toFixed(1) + ' t/s' : '';
-                iterDiv.querySelector('.iteration-stats').textContent = stats + tokens + tps;
+                const endTime = new Date().toLocaleTimeString('en-US', {hour12: false});
+
+                // Calculate actual duration if we have start time
+                let duration = data.duration_sec || data.duration || 0;
+                if (iterDiv.dataset.startTime && !duration) {
+                    duration = (Date.now() - parseInt(iterDiv.dataset.startTime)) / 1000;
+                }
+
+                const durationStr = duration ? duration.toFixed(1) + 's' : '';
+                const tokens = data.tokens ? ' ' + data.tokens + ' tok' : '';
+                const tps = data.tokens_sec ? ' ' + data.tokens_sec.toFixed(1) + ' t/s' : '';
+
+                // Update with end time
+                const timeSpan = iterDiv.querySelector('.iteration-time');
+                if (timeSpan) {
+                    const startTime = timeSpan.textContent.replace('▶ ', '');
+                    timeSpan.outerHTML = '<span class="iteration-time start">' + startTime + '</span>' +
+                                        '<span class="iteration-time end">→ ' + endTime + '</span>';
+                }
+
+                iterDiv.querySelector('.iteration-stats').textContent = durationStr + tokens + tps;
+
+                // Add output snippet if available
+                if (data.output) {
+                    let detailsDiv = iterDiv.querySelector('.iteration-details');
+                    if (!detailsDiv) {
+                        detailsDiv = document.createElement('div');
+                        detailsDiv.className = 'iteration-details';
+                        iterDiv.appendChild(detailsDiv);
+                    }
+
+                    const outputDiv = document.createElement('div');
+                    outputDiv.className = 'iteration-output'; // Expanded by default
+                    outputDiv.textContent = data.output;
+                    outputDiv.onclick = function() {
+                        this.classList.toggle('collapsed');
+                    };
+                    detailsDiv.appendChild(outputDiv);
+
+                    // Auto-scroll to show latest content
+                    scrollToBottom();
+                }
             }
         }
 
@@ -2044,13 +2356,26 @@ const atcExperimentHTML = `<!DOCTYPE html>
 
         function updateHosts(hosts) {
             const container = document.getElementById('hosts-list');
-            container.innerHTML = hosts.map(h =>
-                '<div class="host-item">' +
-                    '<div class="host-status ' + (h.online ? (h.busy ? 'busy' : 'online') : 'offline') + '"></div>' +
-                    '<span class="host-name">' + h.name + '</span>' +
-                    (h.model ? '<span class="host-model">' + h.model + '</span>' : '') +
-                '</div>'
-            ).join('');
+            container.innerHTML = hosts.map(h => {
+                const hw = h.hardware || {};
+                const isLocal = h.url && h.url.includes('localhost');
+                // Show full URL but clean up protocol
+                let url = h.url ? h.url.replace('http://', '') : '';
+                // For localhost, show the actual machine IP
+                if (isLocal) {
+                    url = '127.0.0.1:11434 (local)';
+                }
+                return '<div class="host-item' + (h.online ? '' : ' offline') + (isLocal ? ' local' : '') + '">' +
+                    '<div class="host-header">' +
+                        '<div class="host-status ' + (h.online ? 'online' : 'offline') + '"></div>' +
+                        '<span class="host-name">' + h.name + '</span>' +
+                        '<span class="host-latency">' + (h.online ? h.latency_ms + 'ms' : 'offline') + '</span>' +
+                    '</div>' +
+                    '<div class="host-url">' + url + '</div>' +
+                    (hw.gpu ? '<div class="host-hw"><span class="hw-gpu">' + hw.gpu + '</span></div>' : '') +
+                    (hw.memory ? '<div class="host-hw"><span class="hw-mem">' + hw.memory + '</span></div>' : '') +
+                '</div>';
+            }).join('');
         }
 
         function escapeHtml(text) {
