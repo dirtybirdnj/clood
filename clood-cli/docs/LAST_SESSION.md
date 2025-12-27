@@ -2,92 +2,104 @@
 
 ## Summary
 
-ATC Experiment Mode improvements for Chimborazo Session 1.
+ATC Experiment Mode testing led to refocusing on the real goal: chimborazo development.
 
-## What Was Built
+## Session Pivot
+
+Started testing ATC dashboard features but realized:
+- ATC concept needs more thought before it works as intended
+- The real goal is strata→chimborazo rename and feature parity
+- Need to get back to making maps
+
+## Artifacts Created
+
+### For Next Chimborazo Session
+
+1. **`docs/CHIMBORAZO_AGENT_SESSION.md`**
+   - Full guide for focused chimborazo agent work
+   - Module mappings (thoreau→sources, humboldt→geometry, etc.)
+   - Implementation order and validation gates
+   - Success criteria from GitHub issue #191
+
+2. **`docs/CHIMBORAZO_LESSONS.md`**
+   - Lessons from ATC experiment
+   - What works with local LLMs
+   - Effective prompt patterns
+   - Iteration limits and escalation
+
+## Key Resources
+
+### Strata (Python reference)
+- Location: `~/Code/strata`
+- LLM context: `~/Code/strata/llm-context/`
+- Output to match: `~/Code/strata/output/`
+
+### Chimborazo Rebuild Workspace
+- Location: `~/Code/chimborazo-rebuild`
+- GitHub Issue: #191 (full session structure)
+
+## What Was Built (ATC - Incomplete)
 
 ### ATC Dashboard Timing Features
-- **Session timer** - counts up in header, shows final time with ✓ on complete
-- **Step start times** - shows `▶ 15:21:34` when each step begins
-- **Step duration** - shows `15.3s` in green when step completes
-- **Gap detection** - shows `+3.0s gap` in orange if >0.5s latency between steps
-- **Iteration timestamps** - `▶ 15:21:34 → 15:21:49` start/end times
+- Session timer in header
+- Step start times with `▶ HH:MM:SS`
+- Step duration in green
+- Gap detection showing `+Xs gap` in orange
+- Iteration timestamps
 
-### Event Feed Improvements
-- Smaller font (0.65rem monospace)
-- 120 char messages instead of 50
-- Colored by event type (steps, iterations, errors)
-- Duration shown in green
-- 100 event limit (was 50)
-
-### Prompt/Output Display (Partially Working)
-- **Prompt preview** - blue left border, shows what was asked
-- **Output panel** - green left border, shows model response
+### Prompt/Output Display (Partial)
+- Prompt preview with blue border
+- Output panel with green border
 - Click to collapse/expand
-- Auto-scroll to bottom on new content
-- **BUG**: Output not auto-expanded despite code change - needs debugging
-
-## Files Changed
-
-- `/Users/mgilbert/Code/clood/clood-cli/internal/commands/atc.go`
-  - CSS: `.iteration-details`, `.iteration-prompt`, `.iteration-output`
-  - JS: `startIteration()` - shows prompt
-  - JS: `endIteration()` - shows output, should be expanded
-  - JS: `scrollToBottom()` - auto-scroll
-  - JS: `startStep()` - gap detection
-  - JS: `endStep()` - duration calc
-  - JS: `startSession()`/`endSession()` - timer
-
-## Chimborazo Workspace
-
-- Location: `/Users/mgilbert/Code/chimborazo-rebuild`
-- Branch: `experiment/session-1`
-- Status: Reset and ready for fresh Session 1 run
-
-## GitHub Issues Created This Session
-
-- #195: ATC collapsible output and rotating summary
-- #196: ATC post-experiment summary and event feed improvements
+- Auto-scroll
+- **Bug**: Output not auto-expanding (unresolved)
 
 ## Known Issues
 
-1. **Output not auto-expanded** - Code sets `className = 'iteration-output'` (no collapsed class) but still appears collapsed. May be CSS specificity or browser cache issue.
+1. **Output not auto-expanded** - CSS or browser cache issue
+2. **Duplicate escapeHtml functions** - 3 copies in atc.go
+3. **ATC needs more thought** - Dashboard shows activity but not enough detail
 
-2. **Duplicate escapeHtml functions** - There are 3 copies in atc.go (lines 1021, 2277, 2371). Should clean up.
+## Files Changed This Session
 
-## To Continue
+- `/Users/mgilbert/Code/clood/clood-cli/internal/commands/atc.go` - Timing, event feed, prompt/output
+- `/Users/mgilbert/Code/clood/clood-cli/docs/CHIMBORAZO_AGENT_SESSION.md` - New
+- `/Users/mgilbert/Code/clood/clood-cli/docs/CHIMBORAZO_LESSONS.md` - New
 
-1. Debug why output panel isn't auto-expanded
-2. Run full Chimborazo Session 1 with improved ATC visibility
-3. Complete all 6 steps with prompt/output visible
-4. Commit chimborazo-rebuild docs
-
-## ATC Event Endpoints
-
-```bash
-# Session lifecycle
-POST /experiment {"type": "session_start", "session_id": "...", "data": {"name": "...", "total_steps": 6}}
-POST /experiment {"type": "session_complete", "session_id": "...", "data": {"status": "completed"}}
-
-# Step lifecycle
-POST /experiment {"type": "step_start", "session_id": "...", "step_id": "...", "data": {"name": "...", "number": 1}}
-POST /experiment {"type": "step_complete", "session_id": "...", "step_id": "...", "data": {"number": 1, "status": "completed"}}
-
-# Iteration with prompt/output
-POST /experiment {"type": "iteration_start", ..., "data": {"model": "...", "host": "...", "prompt": "..."}}
-POST /experiment {"type": "iteration_complete", ..., "data": {"duration_sec": 18.5, "tokens": 1420, "output": "..."}}
-```
-
-## Commands to Resume
+## Commands to Start Chimborazo Work
 
 ```bash
-# Start ATC
-~/Code/clood/clood-cli/clood atc --mode experiment
+# Read the session guide
+cat ~/Code/clood/clood-cli/docs/CHIMBORAZO_AGENT_SESSION.md
 
-# Check it's running
-lsof -i :8080
+# Start in rebuild workspace
+cd ~/Code/chimborazo-rebuild
 
-# Kill and rebuild
-pkill -f "clood atc"
-cd ~/Code/clood/clood-cli && go build -o clood ./cmd/clood
+# Check strata architecture
+cat ~/Code/strata/llm-context/ARCHITECTURE.md
+
+# Check existing chimborazo code
+ls -la ~/Code/chimborazo-rebuild/
+
+# Build and test
+go build -o chimborazo ./cmd/chimborazo
+go test ./...
 ```
+
+## GitHub Issues
+
+- #191 - Chimborazo Rebuild via Agent Swarm (main tracking issue)
+- #195 - ATC collapsible output and rotating summary
+- #196 - ATC post-experiment summary and event feed improvements
+
+## Next Session Goals
+
+1. Focus on chimborazo core implementation
+2. Use strata llm-context/ for agent guidance
+3. Start with recipe parser or fetcher
+4. Validate against strata output
+5. Small commits, frequent testing
+
+## The Real Goal
+
+**Make plotter-ready maps.** Chimborazo is the tool. Get it to feature parity with strata.
