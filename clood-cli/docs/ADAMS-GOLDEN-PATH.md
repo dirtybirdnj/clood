@@ -9,8 +9,66 @@ Step-by-step guide to get clood running on your Windows workstation.
 Before starting, make sure you have:
 
 1. **Ollama installed** - Download from [ollama.ai/download](https://ollama.ai/download)
-2. **NVIDIA drivers** - Your GPU should be working (you probably already have this)
-3. **At least one AI model** - We'll do this in Step 2
+2. **Docker Desktop** - See detailed instructions below
+3. **NVIDIA drivers** - Your GPU should be working (you probably already have this)
+4. **At least one AI model** - We'll do this in Step 2
+
+---
+
+## Installing Docker Desktop (Required for Web UI)
+
+Docker runs the Open WebUI chat interface. Here's how to set it up on Windows:
+
+### Step 1: Download Docker Desktop
+
+1. Go to: https://www.docker.com/products/docker-desktop/
+2. Click **"Download for Windows"**
+3. Run the installer (`Docker Desktop Installer.exe`)
+
+### Step 2: Install with WSL 2 Backend
+
+During installation:
+1. Check **"Use WSL 2 instead of Hyper-V"** (recommended)
+2. Check **"Add shortcut to desktop"**
+3. Click **Install**
+4. **Restart your computer** when prompted
+
+### Step 3: First Run Setup
+
+1. Open **Docker Desktop** from Start menu
+2. Accept the license agreement
+3. Wait for Docker to start (whale icon in system tray will stop animating)
+4. You may see a tutorial - you can skip it
+
+### Step 4: Verify Docker Works
+
+Open PowerShell and run:
+
+```powershell
+docker --version
+docker ps
+```
+
+If both commands work without errors, Docker is ready.
+
+### Troubleshooting Docker
+
+**"WSL 2 installation is incomplete"**
+1. Open PowerShell as Administrator
+2. Run: `wsl --install`
+3. Restart your computer
+4. Try Docker Desktop again
+
+**"Virtualization must be enabled"**
+1. Restart your computer
+2. Enter BIOS (usually F2, F12, or Del during boot)
+3. Find "Virtualization" or "VT-x" setting and enable it
+4. Save and exit BIOS
+
+**Docker Desktop won't start**
+1. Make sure no other VM software is running (VirtualBox, VMware)
+2. Try running as Administrator
+3. Uninstall and reinstall Docker Desktop
 
 ---
 
@@ -103,9 +161,52 @@ If something's wrong, it tells you exactly how to fix it.
 
 ---
 
-## Step 5: Try It Out
+## Step 5: Start the Web UI (Easiest Way)
 
-Now the fun part. Run some commands:
+The easiest way to use clood is with the web interface:
+
+```powershell
+.\clood.exe ui
+```
+
+This:
+1. Starts the clood proxy (routes to your Ollama)
+2. Starts Open WebUI (chat interface in Docker)
+3. Opens your browser automatically
+
+**Requirements for `clood ui`:**
+- Docker Desktop must be running
+- Ollama must be running
+
+To stop everything:
+```powershell
+.\clood.exe ui --stop
+```
+
+### Adding Code Reader Tool (Optional)
+
+Want the AI to read and analyze your code projects? Add the Code Reader tool:
+
+1. Open http://localhost:3000 in your browser
+2. Create an account (first account becomes admin)
+3. Click your profile → **Workspace** → **Tools** → **+** (create)
+4. Paste the contents of `skills/open-webui/code-reader.py` from the clood repo
+5. Click **Save**
+
+Now you can ask things like:
+```
+Show me the tree of my-project
+Read the file my-project/README.md
+Search for "TODO" in my-project
+```
+
+**Note:** Your code directory needs to be mounted in Docker. Edit `infrastructure/docker-compose.yml` and change the volume mount to your code location.
+
+---
+
+## Step 6: Try CLI Commands
+
+For quick terminal access, run some commands:
 
 ```powershell
 # Ask a question
@@ -127,6 +228,8 @@ Now the fun part. Run some commands:
 
 | Command | What It Does |
 |---------|--------------|
+| `.\clood.exe ui` | Start web chat interface (easiest) |
+| `.\clood.exe ui --stop` | Stop web chat interface |
 | `.\clood.exe ask "question"` | Ask the AI something |
 | `.\clood.exe models` | List your downloaded models |
 | `.\clood.exe system` | Show your hardware info |
@@ -158,6 +261,13 @@ cd C:\Tools  # or wherever you put it
 1. Open a command prompt and run: `nvidia-smi`
 2. If that doesn't work, you need to install/update NVIDIA drivers
 3. After updating drivers, restart your computer
+
+### "clood ui" not working / Docker issues
+
+1. Make sure Docker Desktop is running (look for the whale icon in system tray)
+2. Open Docker Desktop and wait for it to say "Running"
+3. Try: `docker ps` - if this works, Docker is ready
+4. If Docker won't start, you may need to enable virtualization in BIOS
 
 ### Something else is broken
 

@@ -12,10 +12,17 @@ services:
       - "3000:8080"
     volumes:
       - open-webui-data:/app/backend/data
-      - ${CODE_DIR:-/home/mgilbert/Code}:/app/code:ro
+      - ~/Code:/app/code:ro
       - ${DROP_ZONE:-./drop-zone}:/app/drop-zone:ro
     environment:
+      # === CLOOD PROXY INTEGRATION ===
+      # Use clood proxy for multi-host routing (routes to mac-mini, ubuntu25, localhost)
+      # Start proxy first: clood proxy --port 4000
+      - OPENAI_API_BASE_URL=http://host.docker.internal:4000/v1
+      - OPENAI_API_KEY=sk-clood-local
+      # Fallback to direct Ollama if proxy not running
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      # Disable telemetry
       - SCARF_NO_ANALYTICS=true
       - DO_NOT_TRACK=true
       - ANONYMIZED_TELEMETRY=false
@@ -37,11 +44,11 @@ services:
     container_name: searxng
     restart: unless-stopped
     ports:
-      - "8888:8080"
+      - "8889:8080"
     volumes:
       - ./configs/searxng:/etc/searxng:rw
     environment:
-      - SEARXNG_BASE_URL=http://localhost:8888/
+      - SEARXNG_BASE_URL=http://localhost:8889/
     networks:
       - webui-net
 

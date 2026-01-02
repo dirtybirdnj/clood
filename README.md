@@ -15,23 +15,44 @@ clood is a CLI and MCP server for running local LLMs with:
 3. **MCP Integration** - Works as an MCP server for Claude Code
 4. **Local-First Tools** - grep, tree, symbols, imports - no network needed
 
-## Quick Start
+## Quick Start (Wojack-Friendly)
+
+```bash
+# 1. Start Ollama (if not running)
+ollama serve
+
+# 2. Start Docker Desktop
+
+# 3. Run clood
+clood ui
+```
+
+That's it. Browser opens, you're chatting with local LLMs.
+
+## What `clood ui` Does
+
+1. Checks Docker and Ollama are running
+2. Starts the multi-host proxy (routes to all your Ollama instances)
+3. Starts Open WebUI (chat interface)
+4. Opens your browser
+
+Stop everything with `clood ui --stop`.
+
+## CLI Quick Start
 
 ```bash
 # Install clood
-cd clood-cli
-go build -o clood ./cmd/clood
-./clood setup
+cd clood-cli && go build -o clood ./cmd/clood
 
-# Check your hosts
-./clood preflight
-./clood hosts
+# Check what's available
+clood preflight
+clood hosts
 
 # Ask a question
-./clood ask "What is the best way to structure a Go CLI?"
+clood ask "What is the best way to structure a Go CLI?"
 
 # Use as MCP server with Claude Code
-./clood mcp
+clood mcp
 ```
 
 See [clood-cli/docs/USAGE_GUIDE.md](clood-cli/docs/USAGE_GUIDE.md) for complete documentation.

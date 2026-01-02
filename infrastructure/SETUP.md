@@ -1,67 +1,140 @@
 # Infrastructure Setup
 
-## Quick Start (Fresh Install)
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   Open WebUI (localhost:3000)                    │
+│  Chat UI │ RAG/Documents │ clood Tools │ Web Search             │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │ OpenAI API
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   clood proxy (localhost:4000)                   │
+│  Routes requests to best available Ollama host                   │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+        ┌──────────────────┼──────────────────┐
+        ▼                  ▼                  ▼
+┌───────────────┐  ┌───────────────┐  ┌───────────────┐
+│  localhost    │  │  mac-mini     │  │  ubuntu25     │
+│  :11434       │  │  :11434       │  │  :11434       │
+└───────────────┘  └───────────────┘  └───────────────┘
+```
+
+## Quick Start
+
+### 1. Start clood proxy (routes to all your Ollama hosts)
 
 ```bash
-cd infrastructure
-cp .env.example .env
+# In one terminal - keeps running
+clood proxy --port 4000
+
+# Or run in background
+clood proxy --port 4000 &
+```
+
+### 2. Create Docker network (first time only)
+
+```bash
+docker network create webui-net
+```
+
+### 3. Start Open WebUI + SearXNG
+
+```bash
+cd ~/Code/clood/infrastructure
 docker compose up -d
 ```
 
-The docker-compose includes all necessary env vars for SearXNG integration.
+### 4. Open the UI
 
-## Configuring Existing Installation
+```
+http://localhost:3000
+```
 
-If you already have open-webui running without the SearXNG env vars, configure via UI:
+All models from all your Ollama hosts will appear in the model dropdown.
 
-### Enable Web Search in open-webui
+## Adding clood Tools
+
+Import the clood tools for codebase exploration:
 
 1. Open http://localhost:3000
-2. Go to **Admin Panel** (gear icon) > **Settings** > **Web Search**
-3. Toggle **Enable Web Search** ON
-4. Set **Web Search Engine** to `searxng`
-5. Set **SearXNG Query URL** to: `http://searxng:8080/search?q=<query>`
-6. Set **Search Result Count** to 5 (or your preference)
-7. Click **Save**
+2. Go to **Workspace** > **Tools**
+3. Click **+** (Add Tool)
+4. Paste contents of `~/Code/clood/skills/open-webui/clood-tools.py`
+5. Click **Save**
 
-### Verify SearXNG is working
+Now you can use in chat:
+- `grep("pattern")` - Search codebase
+- `tree("path")` - Show directory structure
+- `symbols("path")` - Extract functions/types
+- `ask("question")` - Query another model (inception)
 
-Test from command line:
-```bash
-# From host
-curl "http://localhost:8888/search?q=test&format=json" | head -c 200
+## Ports
 
-# From inside open-webui container
-docker exec open-webui curl -s "http://searxng:8080/search?q=test&format=json" | head -c 200
-```
-
-### Using Web Search
-
-In a chat, prefix your message with the web search icon or use a model that has web search enabled by default.
-
-## Container Networks
-
-Both containers must be on the same Docker network to communicate by name:
-
-```bash
-# Check networks
-docker network ls
-
-# Connect existing container to network
-docker network connect clood-net open-webui
-docker network connect clood-net searxng
-```
+| Service | Port | Purpose |
+|---------|------|---------|
+| Open WebUI | 3000 | Chat interface |
+| clood proxy | 4000 | OpenAI-compatible API |
+| SearXNG | 8889 | Web search |
+| Ollama (local) | 11434 | Local LLM |
 
 ## Troubleshooting
 
-### "No search results"
-- Verify SearXNG has `json` format enabled in settings.yml
-- Test SearXNG directly: http://localhost:8888/?q=test
+### "No models available"
 
-### "Connection refused"
-- Containers not on same network
-- Use `docker network inspect clood-net` to verify both containers are connected
+clood proxy not running:
+```bash
+# Check if running
+curl http://localhost:4000/v1/models
 
-### Web search not appearing
-- Check Admin > Settings > Web Search is enabled
-- Some models may need web search explicitly enabled in model settings
+# If not, start it
+clood proxy --port 4000
+```
+
+### "Connection refused to proxy"
+
+From inside Docker, `host.docker.internal` should resolve to host machine.
+Verify:
+```bash
+docker exec open-webui curl http://host.docker.internal:4000/v1/models
+```
+
+### Models not appearing from remote hosts
+
+Check hosts are online:
+```bash
+clood hosts
+```
+
+### Direct Ollama fallback
+
+If proxy isn't running, Open WebUI falls back to `OLLAMA_BASE_URL` (localhost:11434).
+This only sees local models, not network hosts.
+
+## Stopping
+
+```bash
+cd ~/Code/clood/infrastructure
+docker compose down
+
+# Also stop proxy if running
+pkill -f "clood proxy"
+```
+
+## Web Search with SearXNG
+
+Already configured. In chat, click the web search icon or models with web search enabled will auto-search.
+
+Test:
+```bash
+curl "http://localhost:8889/search?q=test&format=json" | head -c 200
+```
+
+## Updating Open WebUI
+
+```bash
+docker compose pull
+docker compose up -d
+```

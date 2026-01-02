@@ -70,6 +70,7 @@ func main() {
 	// ═══════════════════════════════════════════════════════════════
 	// 🚀 GETTING STARTED
 	// ═══════════════════════════════════════════════════════════════
+	addWithGroup(rootCmd, commands.UICmd(), GroupStart)
 	addWithGroup(rootCmd, initCmd(), GroupStart)
 	addWithGroup(rootCmd, commands.SetupCmd(), GroupStart)
 	addWithGroup(rootCmd, commands.VerifyCmd(), GroupStart)
