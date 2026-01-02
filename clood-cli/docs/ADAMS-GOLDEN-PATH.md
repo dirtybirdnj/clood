@@ -192,7 +192,7 @@ ollama pull codestral:22b
 
 ## What's Different for You
 
-You have ONE machine. Bird-san has THREE machines networked together (the "server garden").
+You have ONE machine. The dev environment for clood has THREE machines networked together (the "server garden").
 
 For you, everything is simpler:
 - All commands run locally
