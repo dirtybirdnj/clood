@@ -8,9 +8,16 @@ For agents and power users. No vision, just facts.
 
 ## MCP Tools (for AI Agents)
 
-When clood runs as an MCP server (`clood serve --sse`), these tools are exposed to AI agents like Claude Code:
+When clood runs as an MCP server (`clood serve --sse`), 20 tools are exposed to AI agents like Claude Code:
 
-### Zero-Network Discovery Tools (USE FIRST!)
+### Critical Tools (USE FIRST!)
+
+| Tool | Description | Network | LLM Tokens |
+|------|-------------|---------|------------|
+| `clood_preflight` | Start here - shows capabilities & hosts | 0 | 0 |
+| `clood_should_search_web` | Gate before web searches | 0 | 0 |
+
+### Zero-Network Discovery Tools
 
 | Tool | Description | Network | LLM Tokens |
 |------|-------------|---------|------------|
@@ -19,17 +26,29 @@ When clood runs as an MCP server (`clood serve --sse`), these tools are exposed 
 | `clood_symbols` | Extract functions/types/classes | 0 | 0 |
 | `clood_imports` | Dependency analysis | 0 | 0 |
 | `clood_context` | Project summary | 0 | 0 |
-| `clood_capabilities` | List available tools | 0 | 0 |
+| `clood_analyze` | Static analysis (build, vet, TODOs) | 0 | 0 |
 | `clood_system` | Hardware detection | 0 | 0 |
 
-### Local Ollama Tools (Requires Local LLM)
+### Local Ollama Tools
 
 | Tool | Description | Network | LLM Tokens |
 |------|-------------|---------|------------|
-| `clood_ask` | Query local LLM | Local only | Yes |
-| `clood_hosts` | Check Ollama hosts | Local only | 0 |
-| `clood_models` | List available models | Local only | 0 |
-| `clood_health` | System health check | Local only | 0 |
+| `clood_ask` | Query local LLM (supports --role) | Local only | Yes |
+| `clood_hosts` | Check Ollama hosts & models | Local only | 0 |
+| `clood_catfight` | Compare multiple models | Local only | Yes |
+
+### Other Tools
+
+| Tool | Description | Network | LLM Tokens |
+|------|-------------|---------|------------|
+| `clood_git_diff` | Show git diff | 0 | 0 |
+| `clood_git_log` | Show commit history | 0 | 0 |
+| `clood_git_branches` | List branches | 0 | 0 |
+| `clood_git_create_pr` | Create GitHub PR | GitHub API | 0 |
+| `clood_sqlite_query` | Execute SELECT queries | 0 | 0 |
+| `clood_sqlite_schema` | Show table schemas | 0 | 0 |
+| `clood_clipboard_read` | Read clipboard | 0 | 0 |
+| `clood_clipboard_write` | Write to clipboard | 0 | 0 |
 
 ### MCP Tool Usage Examples
 
@@ -43,8 +62,8 @@ When clood runs as an MCP server (`clood serve --sse`), these tools are exposed 
 // Extract all functions
 {"tool": "clood_symbols", "args": {"path": ".", "kind": "func"}}
 
-// Check what's available locally
-{"tool": "clood_capabilities", "args": {}}
+// Query with a specialized role
+{"tool": "clood_ask", "args": {"prompt": "review this code", "role": "reviewer"}}
 ```
 
 ---
@@ -204,11 +223,11 @@ clood tiers
 # → Which model/host handles each tier
 ```
 
-### clood health
-Full system health check.
+### clood preflight
+Full system check - what's available.
 ```bash
-clood health
-# → Hosts, models, connectivity, versions
+clood preflight
+# → Hosts, models, tools, recommended workflow
 ```
 
 ### clood tune

@@ -753,21 +753,30 @@ clood serve --sse --host 0.0.0.0                # Network access
 clood serve --sse --host 0.0.0.0 --base-url http://192.168.4.64:8765
 ```
 
-**MCP Tools Exposed:**
+**MCP Tools Exposed (20 tools):**
 
 | Tool | Type | Purpose |
 |------|------|---------|
+| `clood_preflight` | Local | Start here - shows capabilities and hosts |
+| `clood_should_search_web` | Local | Gate before web searches |
 | `clood_grep` | Local | Search codebase |
 | `clood_tree` | Local | Directory structure |
 | `clood_symbols` | Local | Extract definitions |
 | `clood_imports` | Local | Dependency analysis |
 | `clood_context` | Local | Project summary |
+| `clood_analyze` | Local | Static analysis (build, vet, TODOs) |
 | `clood_system` | Local | Hardware info |
-| `clood_capabilities` | Local | Available features |
-| `clood_ask` | Ollama | Query LLM |
-| `clood_hosts` | Ollama | Check hosts |
-| `clood_models` | Ollama | List models |
-| `clood_health` | Ollama | Health check |
+| `clood_ask` | Ollama | Query LLM (supports `--role`) |
+| `clood_hosts` | Ollama | Check hosts and models |
+| `clood_git_diff` | Local | Show git diff |
+| `clood_git_log` | Local | Show commit history |
+| `clood_git_branches` | Local | List branches |
+| `clood_git_create_pr` | Local | Create GitHub PR |
+| `clood_sqlite_query` | Local | Execute SELECT queries |
+| `clood_sqlite_schema` | Local | Show table schemas |
+| `clood_clipboard_read` | Local | Read clipboard |
+| `clood_clipboard_write` | Local | Write to clipboard |
+| `clood_catfight` | Ollama | Compare models |
 
 ---
 
@@ -831,8 +840,7 @@ clood completion fish | source     # Fish
 ### Daily Session Start
 
 ```bash
-clood preflight                    # What's available?
-clood health                       # Everything working?
+clood preflight                    # What's available? (includes health status)
 clood chat --goal "today's task"   # Start focused
 ```
 

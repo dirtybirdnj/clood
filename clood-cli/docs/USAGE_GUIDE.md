@@ -755,20 +755,25 @@ clood serve --sse --host 0.0.0.0
 clood serve --sse --port 8080
 ```
 
-**Tools exposed via MCP:**
+**Tools exposed via MCP (20 tools):**
 
 | Tool | Network? | Purpose |
 |------|----------|---------|
+| `clood_preflight` | No | Start here - capabilities & hosts |
+| `clood_should_search_web` | No | Gate before web searches |
 | `clood_grep` | No | Search codebase |
 | `clood_tree` | No | Directory structure |
 | `clood_symbols` | No | Code definitions |
 | `clood_imports` | No | Dependencies |
 | `clood_context` | No | Project summary |
+| `clood_analyze` | No | Static analysis |
 | `clood_system` | No | Hardware info |
-| `clood_ask` | Local LLM | Query model |
-| `clood_hosts` | Local LLM | Check hosts |
-| `clood_models` | Local LLM | List models |
-| `clood_health` | Local LLM | Health check |
+| `clood_ask` | Local LLM | Query model (supports --role) |
+| `clood_hosts` | Local LLM | Check hosts & models |
+| `clood_git_*` | No | Git operations (diff, log, branches, create_pr) |
+| `clood_sqlite_*` | No | SQLite queries & schema |
+| `clood_clipboard_*` | No | Read/write clipboard |
+| `clood_catfight` | Local LLM | Compare models |
 
 ---
 
@@ -777,8 +782,7 @@ clood serve --sse --port 8080
 ### Starting Your Day
 
 ```bash
-clood preflight              # What's available?
-clood health                 # Everything working?
+clood preflight              # What's available? (includes host health)
 clood chat --goal "today's task"  # Start focused session
 ```
 
@@ -868,7 +872,7 @@ clood completion fish | source
 ```bash
 clood doctor    # Diagnose problems
 clood verify    # Check installation
-clood health    # Check all services
+clood preflight # Check hosts and services
 ```
 
 ---
@@ -882,13 +886,14 @@ clood health    # Check all services
 | See project structure | `clood tree` |
 | Find function definitions | `clood symbols` |
 | Ask a quick question | `clood ask "question"` |
+| Ask with a role | `clood ask "review this" --role reviewer` |
 | Have a conversation | `clood chat` |
 | Compare models | `clood catfight "prompt"` |
 | Analyze code | `clood analyze file.go` |
 | Generate commit message | `clood commit-msg` |
 | Review a PR | `clood review-pr 123` |
 | Save session state | `clood handoff "summary"` |
-| Check system status | `clood health` |
+| Check hosts and models | `clood hosts` |
 | Download a model | `clood pull model:tag` |
 
 ---
