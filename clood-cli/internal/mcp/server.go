@@ -444,37 +444,27 @@ func (s *Server) askHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.
 		}
 	}
 
-	// If no host specified, find first online host with the model
-	if targetHost == nil {
-		statuses := s.hostMgr.CheckAllHosts()
-		for _, st := range statuses {
-			if !st.Online {
-				continue
-			}
-			for _, m := range st.Models {
-				if m.Name == targetModel || strings.HasPrefix(m.Name, targetModel) {
-					targetHost = st.Host
-					break
-				}
-			}
-			if targetHost != nil {
-				break
-			}
-		}
+	// Use fallback mechanism for robust host selection and retry
+	var preferredHost string
+	if targetHost != nil {
+		preferredHost = targetHost.Name
 	}
 
-	if targetHost == nil {
-		return mcp.NewToolResultError(fmt.Sprintf("No online host found with model: %s", targetModel)), nil
-	}
-
-	// Call Ollama
-	response, err := callOllama(targetHost.URL, targetModel, prompt)
+	fallbackResult, err := callOllamaWithFallback(s.hostMgr, targetModel, prompt, preferredHost)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Ollama error: %v", err)), nil
+		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	// Return with metadata
-	result := fmt.Sprintf("🐱 %s @ %s\n\n%s", targetModel, targetHost.Name, response)
+	// Return with metadata (show fallback info if we tried multiple hosts)
+	var result string
+	if len(fallbackResult.HostsTried) > 1 {
+		result = fmt.Sprintf("%s @ %s (fallback from: %s)\n\n%s",
+			fallbackResult.Model, fallbackResult.Host,
+			strings.Join(fallbackResult.HostsTried[:len(fallbackResult.HostsTried)-1], ", "),
+			fallbackResult.Response)
+	} else {
+		result = fmt.Sprintf("%s @ %s\n\n%s", fallbackResult.Model, fallbackResult.Host, fallbackResult.Response)
+	}
 	return mcp.NewToolResultText(result), nil
 }
 
@@ -1113,6 +1103,19 @@ func (s *Server) shouldSearchWebHandler(ctx context.Context, req mcp.CallToolReq
 	return mcp.NewToolResultText(string(data)), nil
 }
 
+// OllamaError provides detailed error information for Ollama calls
+type OllamaError struct {
+	Host       string
+	Model      string
+	StatusCode int
+	Message    string
+	Retryable  bool
+}
+
+func (e *OllamaError) Error() string {
+	return fmt.Sprintf("%s @ %s: %s", e.Model, e.Host, e.Message)
+}
+
 // callOllama sends a prompt to Ollama and returns the response
 func callOllama(baseURL, model, prompt string) (string, error) {
 	reqBody := map[string]interface{}{
@@ -1129,12 +1132,24 @@ func callOllama(baseURL, model, prompt string) (string, error) {
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Post(baseURL+"/api/generate", "application/json", bytes.NewReader(body))
 	if err != nil {
-		return "", err
+		return "", &OllamaError{
+			Host:      baseURL,
+			Model:     model,
+			Message:   fmt.Sprintf("connection failed: %v", err),
+			Retryable: true,
+		}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("ollama returned status %d", resp.StatusCode)
+		respBody, _ := io.ReadAll(resp.Body)
+		return "", &OllamaError{
+			Host:       baseURL,
+			Model:      model,
+			StatusCode: resp.StatusCode,
+			Message:    fmt.Sprintf("status %d: %s", resp.StatusCode, string(respBody)),
+			Retryable:  resp.StatusCode >= 500,
+		}
 	}
 
 	respBody, err := io.ReadAll(resp.Body)
@@ -1150,6 +1165,116 @@ func callOllama(baseURL, model, prompt string) (string, error) {
 	}
 
 	return result.Response, nil
+}
+
+// FallbackResult contains the result of a fallback call chain
+type FallbackResult struct {
+	Response   string
+	Host       string
+	Model      string
+	Attempts   int
+	HostsTried []string
+}
+
+// callOllamaWithFallback tries multiple hosts in order, with retry logic
+func callOllamaWithFallback(hostMgr *hosts.Manager, model, prompt string, preferredHost string) (*FallbackResult, error) {
+	var hostsToTry []*hosts.HostStatus
+	var hostsTried []string
+	attempts := 0
+
+	// Get all online hosts
+	allHosts := hostMgr.CheckAllHosts()
+
+	// Build ordered list: preferred host first (if specified and online), then others
+	if preferredHost != "" {
+		for _, st := range allHosts {
+			if st.Host.Name == preferredHost && st.Online {
+				hostsToTry = append(hostsToTry, st)
+				break
+			}
+		}
+	}
+
+	// Add remaining online hosts with the model
+	for _, st := range allHosts {
+		if !st.Online || (preferredHost != "" && st.Host.Name == preferredHost) {
+			continue
+		}
+		// Check if host has the model
+		hasModel := false
+		for _, m := range st.Models {
+			if m.Name == model || strings.HasPrefix(m.Name, model) {
+				hasModel = true
+				break
+			}
+		}
+		if hasModel {
+			hostsToTry = append(hostsToTry, st)
+		}
+	}
+
+	if len(hostsToTry) == 0 {
+		// No hosts have the model - provide helpful error
+		var onlineHosts []string
+		var availableModels []string
+		modelSet := make(map[string]bool)
+		for _, st := range allHosts {
+			if st.Online {
+				onlineHosts = append(onlineHosts, st.Host.Name)
+				for _, m := range st.Models {
+					if !modelSet[m.Name] {
+						modelSet[m.Name] = true
+						availableModels = append(availableModels, m.Name)
+					}
+				}
+			}
+		}
+		if len(onlineHosts) == 0 {
+			return nil, fmt.Errorf("no Ollama hosts online. Check: clood_hosts or run 'ollama serve'")
+		}
+		return nil, fmt.Errorf("model '%s' not found on any host.\nOnline hosts: %s\nAvailable models: %s\nTry: clood_ask with model='%s'",
+			model, strings.Join(onlineHosts, ", "), strings.Join(availableModels[:min(5, len(availableModels))], ", "), availableModels[0])
+	}
+
+	var lastErr error
+	for _, st := range hostsToTry {
+		hostsTried = append(hostsTried, st.Host.Name)
+
+		// Try up to 2 times per host (initial + 1 retry)
+		for retry := 0; retry < 2; retry++ {
+			attempts++
+			response, err := callOllama(st.Host.URL, model, prompt)
+			if err == nil {
+				return &FallbackResult{
+					Response:   response,
+					Host:       st.Host.Name,
+					Model:      model,
+					Attempts:   attempts,
+					HostsTried: hostsTried,
+				}, nil
+			}
+
+			lastErr = err
+			ollamaErr, isOllamaErr := err.(*OllamaError)
+			if !isOllamaErr || !ollamaErr.Retryable {
+				break // Don't retry non-retryable errors
+			}
+
+			// Brief pause before retry
+			time.Sleep(time.Duration(retry+1) * 500 * time.Millisecond)
+		}
+	}
+
+	// All hosts failed
+	return nil, fmt.Errorf("all hosts failed for model '%s'. Tried: %s. Last error: %v",
+		model, strings.Join(hostsTried, " → "), lastErr)
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // =============================================================================
@@ -1560,14 +1685,31 @@ func (s *Server) catfightHandler(ctx context.Context, req mcp.CallToolRequest) (
 	}
 
 	if targetHost == nil {
-		return mcp.NewToolResultError("Host not found: " + hostName), nil
+		// Provide helpful error with available hosts
+		allHosts := mgr.GetAllHosts()
+		var hostNames []string
+		for _, h := range allHosts {
+			hostNames = append(hostNames, h.Name)
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("Host '%s' not found.\nConfigured hosts: %s\nTry: clood_hosts to check status", hostName, strings.Join(hostNames, ", "))), nil
 	}
 
 	// Check host status
 	client := ollama.NewClient(targetHost.URL, 5*time.Minute)
 	availableModels, err := client.ListModels()
 	if err != nil {
-		return mcp.NewToolResultError("Host offline or error: " + err.Error()), nil
+		// Try to find an alternative online host
+		statuses := mgr.CheckAllHosts()
+		var onlineHosts []string
+		for _, st := range statuses {
+			if st.Online {
+				onlineHosts = append(onlineHosts, st.Host.Name)
+			}
+		}
+		if len(onlineHosts) > 0 {
+			return mcp.NewToolResultError(fmt.Sprintf("Host '%s' offline.\nOnline alternatives: %s\nTry: clood_catfight with host='%s'", hostName, strings.Join(onlineHosts, ", "), onlineHosts[0])), nil
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("Host '%s' offline and no alternatives available.\nCheck: 'ollama serve' or clood_hosts", hostName)), nil
 	}
 
 	// Parse models or use defaults
@@ -1599,7 +1741,14 @@ func (s *Server) catfightHandler(ctx context.Context, req mcp.CallToolRequest) (
 	}
 
 	if len(modelsToTest) == 0 {
-		return mcp.NewToolResultError("No models available for catfight"), nil
+		var modelNames []string
+		for _, m := range availableModels {
+			modelNames = append(modelNames, m.Name)
+		}
+		if len(modelNames) > 0 {
+			return mcp.NewToolResultError(fmt.Sprintf("Requested models not found on host.\nAvailable models: %s\nTry: clood_catfight with models='%s'", strings.Join(modelNames[:min(5, len(modelNames))], ","), modelNames[0])), nil
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("No models on host '%s'. Run: ollama pull <model>", hostName)), nil
 	}
 
 	// Run catfight
