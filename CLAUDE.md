@@ -104,6 +104,7 @@ Use these FIRST. They are instant and free:
 | `clood_symbols PATH` | Extract functions/types/classes | WebSearch for "what functions..." |
 | `clood_imports FILE` | Dependency analysis | WebSearch for "what does X import" |
 | `clood_context [PATH]` | Project summary for LLM | Manual file reading |
+| `clood_analyze [PATH]` | Static analysis (build, vet, TODOs) | Manual build/vet commands |
 | `clood_system` | Hardware info and model recommendations | - |
 | `clood_should_search_web` | Gate: checks if web search is needed | - |
 
@@ -114,9 +115,8 @@ Use when Tier 1 doesn't answer the question:
 | Tool | Purpose |
 |------|---------|
 | `clood_ask "question"` | Query local model (check `clood_hosts` first!) |
-| `clood_hosts` | Check which Ollama hosts are online |
-| `clood_models` | List available models |
-| `clood_health` | Full system health check |
+| `clood_ask "question" --role reviewer` | Query with specialized role (reviewer/coder/analyst/documenter) |
+| `clood_hosts` | Check which Ollama hosts are online (also shows available models) |
 
 #### Tier 3: Network (LAST RESORT)
 
@@ -171,24 +171,41 @@ Count your tool usage:
 
 ## MCP Tools Reference
 
-When using clood as an MCP server, these tools are available:
+When using clood as an MCP server, these 20 tools are available:
 
-### Zero-Network Tools (Use First!)
-- `clood_preflight` - **START HERE** - Shows local capabilities
+### Critical (Use First!)
+- `clood_preflight` - **START HERE** - Shows local capabilities and online hosts
+- `clood_should_search_web` - Gate before web searches (redirects to local tools if possible)
+
+### Zero-Network Discovery Tools
 - `clood_grep` - Search codebase with regex
 - `clood_tree` - Directory structure
 - `clood_symbols` - Code symbol extraction
 - `clood_imports` - Dependency analysis
 - `clood_context` - Project summary
+- `clood_analyze` - Static analysis (build, vet, TODOs)
 - `clood_system` - Hardware detection
-- `clood_should_search_web` - Gate before web searches
-- `clood_capabilities` - What's available locally
 
 ### Local Ollama Tools
-- `clood_ask` - Query local LLM
-- `clood_hosts` - Check Ollama hosts
-- `clood_models` - List available models
-- `clood_health` - System health check
+- `clood_ask` - Query local LLM (supports `--role` for reviewer/coder/analyst/documenter)
+- `clood_hosts` - Check Ollama hosts and available models
+
+### Git Tools
+- `clood_git_diff` - Show git diff
+- `clood_git_log` - Show commit history
+- `clood_git_branches` - List branches
+- `clood_git_create_pr` - Create GitHub PR
+
+### SQLite Tools
+- `clood_sqlite_query` - Execute SELECT queries
+- `clood_sqlite_schema` - Show table schemas (or list all tables)
+
+### Clipboard Tools
+- `clood_clipboard_read` - Read clipboard
+- `clood_clipboard_write` - Write to clipboard
+
+### Model Comparison
+- `clood_catfight` - Compare multiple models on same prompt
 
 ---
 
@@ -233,81 +250,6 @@ When running benchmarks on new hardware:
 2. Run all standard models (tinyllama, qwen2.5-coder:3b, llama3.1:8b, qwen2.5-coder:7b)
 3. Add results to `ollama-tuning.md` benchmark table
 4. Include a creative element (haiku, limerick, shanty) about the hardware
-
----
-
-## The Conductor (Ubuntu25 Orchestrator)
-
-Ubuntu25 runs a lightweight **conductor agent** that can orchestrate coding tasks. Use it when you need to:
-- Generate code using the server garden's distributed compute
-- Write files to ubuntu25's workspace
-- Run git operations on ubuntu25
-
-### Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  MAC LAPTOP (you are here)                                       │
-│  ┌─────────────┐         ┌──────────────────────────────────┐   │
-│  │   Claude    │ ──SSH──▶│  Ubuntu25: Conductor             │   │
-│  │   (Crush)   │         │  (llama3-groq-tool-use:8b)       │   │
-│  └─────────────┘         │  - Orchestrates tasks            │   │
-│                          │  - Writes files to /workspace    │   │
-│  ┌─────────────┐         │  - Git operations                │   │
-│  │  Ollama     │◀────────│                                  │   │
-│  │  32B models │ delegate│  Delegates heavy coding BACK     │   │
-│  │  (the beef) │─────────▶  to laptop's big GPU            │   │
-│  └─────────────┘         └──────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### How to Use the Conductor
-
-When the user asks you to create files on ubuntu25 or use the server garden:
-
-```bash
-# Simple task
-ssh ubuntu25 "cd /data/repos/workspace && python3 orchestrator.py 'Create a todo.html with add/remove functionality'"
-
-# Check what was created
-ssh ubuntu25 "ls -la /data/repos/workspace/"
-ssh ubuntu25 "cat /data/repos/workspace/todo.html"
-```
-
-### Conductor Capabilities
-
-The orchestrator on ubuntu25 has these tools:
-
-| Tool | Description |
-|------|-------------|
-| `delegate_coding(prompt, output_file)` | Generate code via mac-laptop's 32B model, auto-save to workspace |
-| `read_file(path)` | Read from workspace |
-| `write_file(path, content)` | Write to workspace |
-| `list_directory(path)` | List files |
-| `git_status()` | Check git state |
-| `git_commit(message)` | Stage and commit |
-| `git_push()` | Push to remote |
-| `task_complete(summary)` | Signal done |
-
-### When to Use the Conductor
-
-Use the conductor when:
-- User says "create on ubuntu25" or "save to the server"
-- User wants to use the server garden's distributed compute
-- Task involves writing files to `/data/repos/workspace/`
-- User explicitly asks to use the orchestrator
-
-Do NOT use the conductor for:
-- Local file operations on the laptop
-- Simple questions that don't need code generation
-- Tasks that should stay on the laptop
-
-### Workspace Location
-
-All files created by the conductor are saved to:
-```
-ubuntu25:/data/repos/workspace/
-```
 
 ---
 

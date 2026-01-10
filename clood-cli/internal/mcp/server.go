@@ -11,7 +11,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -22,9 +21,7 @@ import (
 	"github.com/dirtybirdnj/clood/internal/config"
 	"github.com/dirtybirdnj/clood/internal/git"
 	"github.com/dirtybirdnj/clood/internal/hosts"
-	"github.com/dirtybirdnj/clood/internal/inception"
 	"github.com/dirtybirdnj/clood/internal/ollama"
-	"github.com/dirtybirdnj/clood/internal/memory"
 	"github.com/dirtybirdnj/clood/internal/sqlite"
 	"github.com/dirtybirdnj/clood/internal/system"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -84,9 +81,7 @@ func (s *Server) registerTools() {
 
 	// Infrastructure tools
 	s.mcpServer.AddTool(s.hostsTool(), s.hostsHandler)
-	s.mcpServer.AddTool(s.modelsTool(), s.modelsHandler)
 	s.mcpServer.AddTool(s.systemTool(), s.systemHandler)
-	s.mcpServer.AddTool(s.healthTool(), s.healthHandler)
 
 	// LOCAL DISCOVERY TOOLS (0 network, 0 LLM tokens)
 	// These should be used BEFORE any network requests or LLM calls
@@ -95,48 +90,24 @@ func (s *Server) registerTools() {
 	s.mcpServer.AddTool(s.symbolsTool(), s.symbolsHandler)
 	s.mcpServer.AddTool(s.importsTool(), s.importsHandler)
 	s.mcpServer.AddTool(s.contextTool(), s.contextHandler)
-	s.mcpServer.AddTool(s.capabilitiesTool(), s.capabilitiesHandler)
 	s.mcpServer.AddTool(s.analyzeTool(), s.analyzeHandler)
 
 	// The main event: ask local models
 	s.mcpServer.AddTool(s.askTool(), s.askHandler)
 
-	// INCEPTION: LLM-to-LLM sub-queries
-	s.mcpServer.AddTool(s.inceptionTool(), s.inceptionHandler)
-
-	// MEMORY: Persistent knowledge storage
-	s.mcpServer.AddTool(s.memoryStoreTool(), s.memoryStoreHandler)
-	s.mcpServer.AddTool(s.memoryRecallTool(), s.memoryRecallHandler)
-	s.mcpServer.AddTool(s.memoryListTool(), s.memoryListHandler)
-	s.mcpServer.AddTool(s.memoryForgetTool(), s.memoryForgetHandler)
-
 	// GIT: Enhanced git operations
 	s.mcpServer.AddTool(s.gitDiffTool(), s.gitDiffHandler)
-	s.mcpServer.AddTool(s.gitBlameTool(), s.gitBlameHandler)
 	s.mcpServer.AddTool(s.gitLogTool(), s.gitLogHandler)
 	s.mcpServer.AddTool(s.gitBranchesTool(), s.gitBranchesHandler)
-	s.mcpServer.AddTool(s.gitStashTool(), s.gitStashHandler)
+	s.mcpServer.AddTool(s.gitCreatePRTool(), s.gitCreatePRHandler)
 
 	// SQLITE: Database query tools
 	s.mcpServer.AddTool(s.sqliteQueryTool(), s.sqliteQueryHandler)
 	s.mcpServer.AddTool(s.sqliteSchemaTool(), s.sqliteSchemaHandler)
-	s.mcpServer.AddTool(s.sqliteTablesTool(), s.sqliteTablesHandler)
 
 	// CLIPBOARD: System clipboard access
 	s.mcpServer.AddTool(s.clipboardReadTool(), s.clipboardReadHandler)
 	s.mcpServer.AddTool(s.clipboardWriteTool(), s.clipboardWriteHandler)
-
-	// CONDUCTOR: Remote orchestrator on ubuntu25
-	s.mcpServer.AddTool(s.conductorTool(), s.conductorHandler)
-
-	// THUNDERDOME: Parallel multi-host catfights
-	s.mcpServer.AddTool(s.thunderdomeTool(), s.thunderdomeHandler)
-
-	// WHOAMI: Garden identity
-	s.mcpServer.AddTool(s.whoamiTool(), s.whoamiHandler)
-
-	// DELEGATE: Task delegation to remote hosts
-	s.mcpServer.AddTool(s.delegateTool(), s.delegateHandler)
 
 	// CATFIGHT: Single-host model comparison
 	s.mcpServer.AddTool(s.catfightTool(), s.catfightHandler)
@@ -152,28 +123,29 @@ func (s *Server) registerTools() {
 
 func (s *Server) preflightTool() mcp.Tool {
 	return mcp.NewTool("clood_preflight",
-		mcp.WithDescription(`🚨 START EVERY SESSION WITH THIS TOOL 🚨
+		mcp.WithDescription(`START HERE. Call this first in every session.
 
-Call this BEFORE doing any work. Returns:
-- Available local discovery tools (grep, tree, symbols, imports, context)
-- Online Ollama hosts and models
-- Recommended workflow for this session
+Returns: available tools, online hosts, models, recommended workflow.
 
-This ensures you use local resources before making network requests.
-Cost: ZERO network, ZERO tokens, instant.`),
+WHEN TO USE: At session start, before any other clood tool.
+WHEN NOT TO USE: Never skip this.
+
+Cost: ZERO (instant, no network, no tokens).`),
 	)
 }
 
 func (s *Server) shouldSearchWebTool() mcp.Tool {
 	return mcp.NewTool("clood_should_search_web",
-		mcp.WithDescription(`🛑 REQUIRED: Call this BEFORE any web search 🛑
+		mcp.WithDescription(`GATE: Call before any WebSearch to check if local tools can answer instead.
 
-Analyzes your query and tells you if local tools can answer it instead.
-- If local tools can help → Returns which tool to use instead
-- If web search is needed → Returns "approved" with reason
+Returns: "USE_LOCAL_TOOL" with redirect, or "WEB_SEARCH_APPROVED" if needed.
 
-DO NOT skip this gate. It prevents unnecessary network requests.
-Cost: ZERO network, ZERO tokens, instant.`),
+WHEN TO USE: Before every WebSearch call.
+WHEN NOT TO USE: Never skip - prevents unnecessary network requests.
+
+Example: query="where is auth handled" → redirects to clood_grep
+
+Cost: ZERO (instant, no network, no tokens).`),
 		mcp.WithString("query", mcp.Required(), mcp.Description("The query you were about to search the web for")),
 	)
 }
@@ -184,82 +156,51 @@ Cost: ZERO network, ZERO tokens, instant.`),
 
 func (s *Server) hostsTool() mcp.Tool {
 	return mcp.NewTool("clood_hosts",
-		mcp.WithDescription(`Check Ollama host status. ALWAYS call this before clood_ask.
+		mcp.WithDescription(`Check which Ollama hosts are online and what models they have.
 
-Returns online/offline status, latency, and available models for each host.
-Use this to verify local LLM is available before querying.
+Returns: host status, latency, available models per host.
+
+WHEN TO USE: Before clood_ask, to verify LLM is available.
+WHEN NOT TO USE: If preflight already showed hosts are online.
+
 Cost: Local network only (no internet), ZERO tokens.`),
-	)
-}
-
-func (s *Server) modelsTool() mcp.Tool {
-	return mcp.NewTool("clood_models",
-		mcp.WithDescription(`List available models across all Ollama hosts.
-
-Shows which hosts have each model. Use to pick the right model for your task.
-Cost: Local network only (no internet), ZERO tokens.`),
-		mcp.WithString("host", mcp.Description("Optional: filter to specific host")),
 	)
 }
 
 func (s *Server) systemTool() mcp.Tool {
 	return mcp.NewTool("clood_system",
-		mcp.WithDescription(`Display hardware info and model recommendations.
+		mcp.WithDescription(`Show hardware specs and model recommendations.
 
-Shows CPU, memory, GPU, VRAM, and which models will fit.
-Use to understand local compute capacity.
-Cost: ZERO network, ZERO tokens, instant.`),
-	)
-}
+Returns: CPU, RAM, GPU, VRAM, recommended models for this hardware.
 
-func (s *Server) healthTool() mcp.Tool {
-	return mcp.NewTool("clood_health",
-		mcp.WithDescription(`Full health check of all clood services.
+WHEN TO USE: Choosing which model to use, or diagnosing performance.
+WHEN NOT TO USE: If you already know the hardware capabilities.
 
-Checks hosts, models, config, and tier assignments.
-Use when things aren't working or at session start.
-Cost: Local network only (no internet), ZERO tokens.`),
+Cost: ZERO (instant, no network, no tokens).`),
 	)
 }
 
 func (s *Server) askTool() mcp.Tool {
 	return mcp.NewTool("clood_ask",
-		mcp.WithDescription(`Query LOCAL Ollama LLM. Use INSTEAD of cloud LLM APIs.
+		mcp.WithDescription(`Query local Ollama LLM. Use instead of cloud APIs.
 
-⚠️  BEFORE calling this: Run clood_hosts to verify a host is online.
+PREREQUISITE: Run clood_hosts first to verify a host is online.
 
-Routes to best available local model. Use for:
-- Code generation and analysis
-- Explaining code patterns
-- Best practices questions
+WHEN TO USE: Code questions, explanations, generation - after exhausting grep/symbols/context.
+WHEN NOT TO USE: For codebase questions (use grep/symbols first), external docs (use WebSearch).
 
-Cost: Local LLM tokens only, ZERO cloud API calls, ZERO internet.`),
+ROLES (optional):
+- reviewer: Find bugs, security issues, suggest improvements
+- coder: Generate clean, efficient code
+- analyst: Explain behavior, identify patterns
+- documenter: Write documentation
+
+Cost: Local LLM tokens only, ZERO cloud/internet.`),
 		mcp.WithString("prompt", mcp.Required(), mcp.Description("The prompt to send to the model")),
-		mcp.WithString("model", mcp.Description("Specific model to use (default: routes to best available)")),
-		mcp.WithString("host", mcp.Description("Specific host to use (default: fastest responding)")),
-		mcp.WithBoolean("dialogue", mcp.Description("If true, model will ask clarifying questions before implementing")),
-	)
-}
-
-func (s *Server) inceptionTool() mcp.Tool {
-	return mcp.NewTool("clood_inception",
-		mcp.WithDescription(`🌀 INCEPTION: Query an expert LLM model mid-stream.
-
-Use this when you need specialized knowledge from a different model:
-- science: Physics, chemistry, biology facts
-- math: Calculations, proofs, formulas
-- code: Code review, programming patterns
-- creative: Brainstorming, writing
-
-Example: You're writing simulation code and need orbital velocity.
-Call: clood_inception expert="science" query="What is ISS orbital velocity?"
-Response: "7.66 km/s at 408km altitude"
-Continue your work with the expert knowledge.
-
-This is ONE-LEVEL deep - the expert cannot call other experts.
-Cost: Local LLM tokens only, ZERO cloud API.`),
-		mcp.WithString("query", mcp.Required(), mcp.Description("The question for the expert model")),
-		mcp.WithString("expert", mcp.Required(), mcp.Description("Expert type: science, math, code, creative, or model name")),
+		mcp.WithString("model", mcp.Description("Specific model (default: best available)")),
+		mcp.WithString("host", mcp.Description("Specific host (default: fastest)")),
+		mcp.WithString("role", mcp.Description("Role: reviewer, coder, analyst, documenter")),
+		mcp.WithBoolean("dialogue", mcp.Description("If true, model asks clarifying questions first")),
 	)
 }
 
@@ -270,115 +211,89 @@ Cost: Local LLM tokens only, ZERO cloud API.`),
 
 func (s *Server) grepTool() mcp.Tool {
 	return mcp.NewTool("clood_grep",
-		mcp.WithDescription(`🔍 USE THIS INSTEAD OF WEB SEARCH for codebase questions.
+		mcp.WithDescription(`Search codebase with regex. USE THIS instead of WebSearch for code questions.
 
-Replaces these web searches:
-- "where is X in this codebase" → clood_grep "X" --files_only
-- "what files contain Y" → clood_grep "Y"
-- "how does Z work in this project" → clood_grep "Z"
+WHEN TO USE:
+- "where is X" → grep "X" files_only=true
+- "what files contain Y" → grep "Y"
+- "how does Z work" → grep "Z" then read results
 
-Cost: ZERO network, ZERO tokens, instant.
-ALWAYS use this before considering WebSearch for code-related queries.`),
+WHEN NOT TO USE: External docs, current events (use WebSearch after should_search_web).
+
+Cost: ZERO (instant, no network, no tokens).`),
 		mcp.WithString("pattern", mcp.Required(), mcp.Description("Regex pattern to search for")),
-		mcp.WithString("path", mcp.Description("Directory to search in (default: current directory)")),
-		mcp.WithBoolean("files_only", mcp.Description("Only return file names, not matching lines")),
-		mcp.WithBoolean("ignore_case", mcp.Description("Case insensitive search")),
-		mcp.WithString("type", mcp.Description("Filter by file type: go, py, js, ts, rs, etc.")),
+		mcp.WithString("path", mcp.Description("Directory to search (default: current)")),
+		mcp.WithBoolean("files_only", mcp.Description("Return only file names, not lines")),
+		mcp.WithBoolean("ignore_case", mcp.Description("Case insensitive")),
+		mcp.WithString("type", mcp.Description("File type filter: go, py, js, ts, rs")),
 	)
 }
 
 func (s *Server) treeTool() mcp.Tool {
 	return mcp.NewTool("clood_tree",
-		mcp.WithDescription(`🌳 USE THIS INSTEAD OF WEB SEARCH for project structure.
+		mcp.WithDescription(`Show directory structure. Respects .gitignore.
 
-Replaces these web searches:
-- "project structure"
-- "what directories exist"
-- "codebase layout"
+WHEN TO USE: Understanding project layout, finding where code lives.
+WHEN NOT TO USE: If you already know the structure from preflight.
 
-Respects .gitignore. Shows clean directory tree.
-Cost: ZERO network, ZERO tokens, instant.`),
-		mcp.WithString("path", mcp.Description("Directory to show (default: current directory)")),
-		mcp.WithNumber("depth", mcp.Description("Maximum depth to traverse (default: 3)")),
+Cost: ZERO (instant, no network, no tokens).`),
+		mcp.WithString("path", mcp.Description("Directory to show (default: current)")),
+		mcp.WithNumber("depth", mcp.Description("Max depth (default: 3)")),
 	)
 }
 
 func (s *Server) symbolsTool() mcp.Tool {
 	return mcp.NewTool("clood_symbols",
-		mcp.WithDescription(`📦 USE THIS INSTEAD OF WEB SEARCH for function/type lookups.
+		mcp.WithDescription(`Extract function/type definitions from code. Supports Go, Python, JS/TS.
 
-Replaces these web searches:
-- "what functions are in file.go"
-- "function signature for Foo"
-- "what types does this package define"
+WHEN TO USE: Finding function signatures, listing types in a package.
+WHEN NOT TO USE: Finding usages (use grep instead).
 
-Extracts functions, types, classes from Go, Python, JS/TS.
-Cost: ZERO network, ZERO tokens, instant.`),
+Cost: ZERO (instant, no network, no tokens).`),
 		mcp.WithString("path", mcp.Required(), mcp.Description("File or directory to analyze")),
-		mcp.WithBoolean("exported_only", mcp.Description("Only show exported/public symbols")),
-		mcp.WithString("kind", mcp.Description("Filter by kind: func, type, class, const, var")),
+		mcp.WithBoolean("exported_only", mcp.Description("Only exported/public symbols")),
+		mcp.WithString("kind", mcp.Description("Filter: func, type, class, const, var")),
 	)
 }
 
 func (s *Server) importsTool() mcp.Tool {
 	return mcp.NewTool("clood_imports",
-		mcp.WithDescription(`📎 USE THIS INSTEAD OF WEB SEARCH for dependency questions.
+		mcp.WithDescription(`Analyze Go imports and dependencies.
 
-Replaces these web searches:
-- "what does this file import"
-- "what dependencies does X use"
-- "what packages are used here"
+Returns: internal, external, and stdlib imports categorized.
 
-Shows internal, external, and stdlib imports.
-Cost: ZERO network, ZERO tokens, instant.`),
+WHEN TO USE: Understanding what a file depends on, refactoring.
+WHEN NOT TO USE: Non-Go files (not yet supported).
+
+Cost: ZERO (instant, no network, no tokens).`),
 		mcp.WithString("path", mcp.Required(), mcp.Description("File or directory to analyze")),
 	)
 }
 
 func (s *Server) contextTool() mcp.Tool {
 	return mcp.NewTool("clood_context",
-		mcp.WithDescription(`📋 Generate LLM-ready project summary.
+		mcp.WithDescription(`Generate LLM-ready project summary (README, structure, key files).
 
-Creates a condensed context including:
-- README content
-- Project structure
-- Key files
+WHEN TO USE: Getting oriented in a new project, before asking clood_ask about the codebase.
+WHEN NOT TO USE: If you've already read the specific files you need.
 
-Use to quickly understand a project without reading every file.
-Cost: ZERO network, ZERO tokens, instant.`),
-		mcp.WithString("path", mcp.Description("Directory to analyze (default: current directory)")),
+Cost: ZERO (instant, no network, no tokens).`),
+		mcp.WithString("path", mcp.Description("Directory to analyze (default: current)")),
 		mcp.WithNumber("max_tokens", mcp.Description("Target token count (default: 4000)")),
-	)
-}
-
-func (s *Server) capabilitiesTool() mcp.Tool {
-	return mcp.NewTool("clood_capabilities",
-		mcp.WithDescription(`📊 List what clood can do locally vs what requires network.
-
-Shows:
-- Available local discovery tools
-- Available Ollama tools
-- Whether Ollama is online
-
-Use to plan your approach: local tools first, network last.
-Cost: ZERO network, ZERO tokens, instant.`),
 	)
 }
 
 func (s *Server) analyzeTool() mcp.Tool {
 	return mcp.NewTool("clood_analyze",
-		mcp.WithDescription(`🔬 Run static analysis on Go codebase (like "clood bcbc").
+		mcp.WithDescription(`Run static analysis on Go codebase: build, vet, TODOs, recent commits.
 
-Returns pre-computed analysis including:
-- Build status (pass/fail)
-- Go vet issues
-- TODO/FIXME items
-- Recent commits and hot files
-- Symbol counts (funcs, types, methods)
+WHEN TO USE: Before making changes, to understand codebase health.
+WHEN NOT TO USE: Non-Go projects.
 
-Use this to quickly understand codebase health before making changes.
-Cost: ZERO network, ZERO tokens (runs go build/vet locally).`),
-		mcp.WithString("path", mcp.Description("Directory to analyze (default: current directory)")),
+Returns: build status, vet issues, TODOs, hot files, symbol counts.
+
+Cost: ZERO tokens (runs go build/vet locally, may take a few seconds).`),
+		mcp.WithString("path", mcp.Description("Directory to analyze (default: current)")),
 		mcp.WithBoolean("run_tests", mcp.Description("Also run tests (slower)")),
 	)
 }
@@ -432,41 +347,6 @@ func (s *Server) hostsHandler(ctx context.Context, req mcp.CallToolRequest) (*mc
 	return mcp.NewToolResultText(string(data)), nil
 }
 
-func (s *Server) modelsHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Reload config
-	cfg, _ := config.Load()
-	if cfg != nil {
-		s.hostMgr = hosts.NewManager()
-		s.hostMgr.AddHosts(cfg.Hosts)
-	}
-
-	// Check for host filter
-	args := req.GetArguments()
-	hostFilter, _ := args["host"].(string)
-
-	if hostFilter != "" {
-		host := s.hostMgr.GetHost(hostFilter)
-		if host == nil {
-			return mcp.NewToolResultError(fmt.Sprintf("Host not found: %s", hostFilter)), nil
-		}
-		status := s.hostMgr.CheckHost(host)
-		if !status.Online {
-			return mcp.NewToolResultError(fmt.Sprintf("Host offline: %s", hostFilter)), nil
-		}
-		var models []string
-		for _, m := range status.Models {
-			models = append(models, m.Name)
-		}
-		data, _ := json.MarshalIndent(models, "", "  ")
-		return mcp.NewToolResultText(string(data)), nil
-	}
-
-	// All models across all hosts
-	allModels := s.hostMgr.GetAllModels()
-	data, _ := json.MarshalIndent(allModels, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
-}
-
 func (s *Server) systemHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	hw, err := system.DetectHardware()
 	if err != nil {
@@ -474,52 +354,6 @@ func (s *Server) systemHandler(ctx context.Context, req mcp.CallToolRequest) (*m
 	}
 
 	data, _ := json.MarshalIndent(hw.JSON(), "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
-}
-
-func (s *Server) healthHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Reload config
-	cfg, err := config.Load()
-
-	health := map[string]interface{}{
-		"config_loaded": err == nil,
-	}
-
-	if cfg != nil {
-		s.hostMgr = hosts.NewManager()
-		s.hostMgr.AddHosts(cfg.Hosts)
-
-		statuses := s.hostMgr.CheckAllHosts()
-		online := 0
-		total := len(statuses)
-		var hostStatuses []map[string]interface{}
-
-		for _, st := range statuses {
-			hs := map[string]interface{}{
-				"name":   st.Host.Name,
-				"online": st.Online,
-			}
-			if st.Online {
-				online++
-				hs["latency_ms"] = st.Latency.Milliseconds()
-				hs["model_count"] = len(st.Models)
-			}
-			if st.Error != nil {
-				hs["error"] = st.Error.Error()
-			}
-			hostStatuses = append(hostStatuses, hs)
-		}
-
-		health["hosts"] = hostStatuses
-		health["hosts_online"] = online
-		health["hosts_total"] = total
-		health["tiers"] = map[string]string{
-			"fast": cfg.Tiers.Fast.Model,
-			"deep": cfg.Tiers.Deep.Model,
-		}
-	}
-
-	data, _ := json.MarshalIndent(health, "", "  ")
 	return mcp.NewToolResultText(string(data)), nil
 }
 
@@ -551,11 +385,34 @@ func (s *Server) askHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.
 	// Get model/host preferences
 	modelPref, _ := args["model"].(string)
 	hostPref, _ := args["host"].(string)
+	role, _ := args["role"].(string)
 	dialogue, _ := args["dialogue"].(bool)
 
-	// Add dialogue system prompt if requested
+	// Build system prompt based on role (from delegate functionality)
+	var systemPrompt string
+	switch role {
+	case "reviewer":
+		systemPrompt = "You are a code review specialist. Analyze code for bugs, security issues, and improvements. Be concise and actionable."
+	case "coder":
+		systemPrompt = "You are a code generation specialist. Write clean, efficient code. Include comments where helpful."
+	case "analyst":
+		systemPrompt = "You are a code analysis specialist. Explain code behavior, identify patterns, and provide insights."
+	case "documenter":
+		systemPrompt = "You are a documentation specialist. Write clear, helpful documentation for code and APIs."
+	}
+
+	// Add dialogue system prompt if requested (appends to role prompt)
 	if dialogue {
-		prompt = dialogueSystemPrompt + "\n\nUser request:\n" + prompt
+		if systemPrompt != "" {
+			systemPrompt += "\n\n" + dialogueSystemPrompt
+		} else {
+			systemPrompt = dialogueSystemPrompt
+		}
+	}
+
+	// Prepend system prompt to user prompt if set
+	if systemPrompt != "" {
+		prompt = systemPrompt + "\n\nUser request:\n" + prompt
 	}
 
 	// Reload config for latest host info
@@ -587,83 +444,33 @@ func (s *Server) askHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.
 		}
 	}
 
-	// If no host specified, find first online host with the model
-	if targetHost == nil {
-		statuses := s.hostMgr.CheckAllHosts()
-		for _, st := range statuses {
-			if !st.Online {
-				continue
-			}
-			for _, m := range st.Models {
-				if m.Name == targetModel || strings.HasPrefix(m.Name, targetModel) {
-					targetHost = st.Host
-					break
-				}
-			}
-			if targetHost != nil {
-				break
-			}
-		}
+	// Use fallback mechanism for robust host selection and retry
+	var preferredHost string
+	if targetHost != nil {
+		preferredHost = targetHost.Name
 	}
 
-	if targetHost == nil {
-		return mcp.NewToolResultError(fmt.Sprintf("No online host found with model: %s", targetModel)), nil
-	}
-
-	// Call Ollama
-	response, err := callOllama(targetHost.URL, targetModel, prompt)
+	fallbackResult, err := callOllamaWithFallback(s.hostMgr, targetModel, prompt, preferredHost)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Ollama error: %v", err)), nil
+		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	// Return with metadata
-	result := fmt.Sprintf("🐱 %s @ %s\n\n%s", targetModel, targetHost.Name, response)
+	// Build header with stats
+	var header strings.Builder
+	header.WriteString(fmt.Sprintf("%s @ %s", fallbackResult.Model, fallbackResult.Host))
+
+	// Show fallback info if we tried multiple hosts
+	if len(fallbackResult.HostsTried) > 1 {
+		header.WriteString(fmt.Sprintf(" (fallback from: %s)",
+			strings.Join(fallbackResult.HostsTried[:len(fallbackResult.HostsTried)-1], ", ")))
+	}
+
+	// Add stats line
+	header.WriteString(fmt.Sprintf("\n[%d tokens, %.1f tok/s, %.1fs]",
+		fallbackResult.Tokens, fallbackResult.TokPerSec, fallbackResult.Duration.Seconds()))
+
+	result := fmt.Sprintf("%s\n\n%s", header.String(), fallbackResult.Response)
 	return mcp.NewToolResultText(result), nil
-}
-
-func (s *Server) inceptionHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-
-	query, ok := args["query"].(string)
-	if !ok || query == "" {
-		return mcp.NewToolResultError("query is required"), nil
-	}
-
-	expert, ok := args["expert"].(string)
-	if !ok || expert == "" {
-		return mcp.NewToolResultError("expert is required (science, math, code, creative, or model name)"), nil
-	}
-
-	// Create inception handler
-	handler := inception.NewHandler()
-
-	// Build sub-query
-	subQuery := inception.SubQuery{
-		Model: expert,
-		Query: query,
-	}
-
-	// Execute synchronously
-	result := handler.ExecuteSubQuery(ctx, subQuery)
-
-	if result.Error != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Inception failed: %v", result.Error)), nil
-	}
-
-	// Format response
-	response := fmt.Sprintf("🌀 INCEPTION RESPONSE [%s → %s]\n"+
-		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"+
-		"Query: %s\n"+
-		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"+
-		"%s\n"+
-		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"+
-		"Duration: %.2fs",
-		expert, handler.Registry[expert],
-		query,
-		result.Response,
-		result.Duration.Seconds())
-
-	return mcp.NewToolResultText(response), nil
 }
 
 // =============================================================================
@@ -1082,46 +889,6 @@ func (s *Server) contextHandler(ctx context.Context, req mcp.CallToolRequest) (*
 	return mcp.NewToolResultText(sb.String()), nil
 }
 
-func (s *Server) capabilitiesHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Check if Ollama is available
-	ollamaAvailable := false
-	cfg, _ := config.Load()
-	if cfg != nil {
-		mgr := hosts.NewManager()
-		mgr.AddHosts(cfg.Hosts)
-		statuses := mgr.CheckAllHosts()
-		for _, st := range statuses {
-			if st.Online {
-				ollamaAvailable = true
-				break
-			}
-		}
-	}
-
-	capabilities := map[string]interface{}{
-		"local_tools": []string{
-			"clood_grep - Search codebase with regex (0 network, 0 tokens)",
-			"clood_tree - Directory structure (0 network, 0 tokens)",
-			"clood_symbols - Extract code symbols (0 network, 0 tokens)",
-			"clood_imports - Dependency analysis (0 network, 0 tokens)",
-			"clood_context - Project summary (0 network, 0 tokens)",
-			"clood_system - Hardware detection (0 network, 0 tokens)",
-			"clood_analyze - Static analysis for Go projects (0 network, 0 tokens)",
-		},
-		"local_ollama_tools": []string{
-			"clood_ask - Query local LLM",
-			"clood_hosts - Check Ollama hosts",
-			"clood_models - List available models",
-			"clood_health - System health check",
-		},
-		"ollama_available": ollamaAvailable,
-		"recommendation":   "Use local_tools FIRST before any network requests. Use local_ollama_tools before cloud APIs.",
-	}
-
-	data, _ := json.MarshalIndent(capabilities, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
-}
-
 func (s *Server) analyzeHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
 
@@ -1341,267 +1108,249 @@ func (s *Server) shouldSearchWebHandler(ctx context.Context, req mcp.CallToolReq
 	return mcp.NewToolResultText(string(data)), nil
 }
 
-// callOllama sends a prompt to Ollama and returns the response
+// OllamaError provides detailed error information for Ollama calls
+type OllamaError struct {
+	Host       string
+	Model      string
+	StatusCode int
+	Message    string
+	Retryable  bool
+}
+
+func (e *OllamaError) Error() string {
+	return fmt.Sprintf("%s @ %s: %s", e.Model, e.Host, e.Message)
+}
+
+// OllamaResult contains the response and stats from an Ollama call
+type OllamaResult struct {
+	Response      string
+	Tokens        int
+	TokPerSec     float64
+	Duration      time.Duration
+	PromptTokens  int
+}
+
+// callOllama sends a prompt to Ollama using streaming and returns the response with stats
 func callOllama(baseURL, model, prompt string) (string, error) {
+	result, err := callOllamaWithStats(baseURL, model, prompt)
+	if err != nil {
+		return "", err
+	}
+	return result.Response, nil
+}
+
+// callOllamaWithStats sends a prompt using streaming and returns detailed stats
+func callOllamaWithStats(baseURL, model, prompt string) (*OllamaResult, error) {
 	reqBody := map[string]interface{}{
 		"model":  model,
 		"prompt": prompt,
-		"stream": false,
+		"stream": true, // Use streaming for better timeout handling
 	}
 
 	body, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	client := &http.Client{Timeout: 120 * time.Second}
+	// No timeout - streaming handles its own timing
+	client := &http.Client{}
+	start := time.Now()
+
 	resp, err := client.Post(baseURL+"/api/generate", "application/json", bytes.NewReader(body))
 	if err != nil {
-		return "", err
+		return nil, &OllamaError{
+			Host:      baseURL,
+			Model:     model,
+			Message:   fmt.Sprintf("connection failed: %v", err),
+			Retryable: true,
+		}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("ollama returned status %d", resp.StatusCode)
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, &OllamaError{
+			Host:       baseURL,
+			Model:      model,
+			StatusCode: resp.StatusCode,
+			Message:    fmt.Sprintf("status %d: %s", resp.StatusCode, string(respBody)),
+			Retryable:  resp.StatusCode >= 500,
+		}
 	}
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
+	// Stream and accumulate response
+	scanner := bufio.NewScanner(resp.Body)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+
+	var fullResponse strings.Builder
+	var lastChunk struct {
+		Response           string `json:"response"`
+		Done               bool   `json:"done"`
+		EvalCount          int    `json:"eval_count"`
+		EvalDuration       int64  `json:"eval_duration"`
+		PromptEvalCount    int    `json:"prompt_eval_count"`
 	}
 
-	var result struct {
-		Response string `json:"response"`
-	}
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return "", err
-	}
-
-	return result.Response, nil
-}
-
-// =============================================================================
-// MEMORY TOOLS - Persistent knowledge storage
-// =============================================================================
-
-func (s *Server) memoryStoreTool() mcp.Tool {
-	return mcp.NewTool("clood_memory_store",
-		mcp.WithDescription(`🧠 Store a fact or note in persistent memory.
-
-Memories survive across sessions. Use for:
-- Project decisions and context
-- User preferences
-- Architectural notes
-- Things to remember for later
-
-Cost: ZERO network, ZERO tokens (local JSON storage).`),
-		mcp.WithString("content", mcp.Required(), mcp.Description("The fact or note to remember")),
-		mcp.WithString("tags", mcp.Description("Comma-separated tags for organization (e.g., 'project,decision')")),
-		mcp.WithString("context", mcp.Description("Optional context (e.g., current project or file)")),
-	)
-}
-
-func (s *Server) memoryRecallTool() mcp.Tool {
-	return mcp.NewTool("clood_memory_recall",
-		mcp.WithDescription(`🔎 Search memories by keyword or tag.
-
-Find previously stored facts and notes.
-Returns matching memories sorted by most recent.
-
-Cost: ZERO network, ZERO tokens, instant.`),
-		mcp.WithString("query", mcp.Description("Keyword to search in content")),
-		mcp.WithString("tag", mcp.Description("Filter by specific tag")),
-		mcp.WithNumber("limit", mcp.Description("Max results to return (default: 10)")),
-	)
-}
-
-func (s *Server) memoryListTool() mcp.Tool {
-	return mcp.NewTool("clood_memory_list",
-		mcp.WithDescription(`📋 List recent memories or browse by tag.
-
-Shows what's been remembered. Use to:
-- Review stored knowledge
-- See all tags in use
-- Find specific memories to update or forget
-
-Cost: ZERO network, ZERO tokens, instant.`),
-		mcp.WithString("tag", mcp.Description("Filter by specific tag")),
-		mcp.WithNumber("limit", mcp.Description("Max results to return (default: 20)")),
-	)
-}
-
-func (s *Server) memoryForgetTool() mcp.Tool {
-	return mcp.NewTool("clood_memory_forget",
-		mcp.WithDescription(`🗑️ Remove a memory by ID.
-
-Permanently delete a stored memory.
-Use clood_memory_list to find memory IDs.
-
-Cost: ZERO network, ZERO tokens, instant.`),
-		mcp.WithString("id", mcp.Required(), mcp.Description("The memory ID to forget")),
-	)
-}
-
-// Memory handlers
-
-func (s *Server) memoryStoreHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-
-	content, ok := args["content"].(string)
-	if !ok || content == "" {
-		return mcp.NewToolResultError("content is required"), nil
+	for scanner.Scan() {
+		var chunk struct {
+			Response           string `json:"response"`
+			Done               bool   `json:"done"`
+			EvalCount          int    `json:"eval_count"`
+			EvalDuration       int64  `json:"eval_duration"`
+			PromptEvalCount    int    `json:"prompt_eval_count"`
+		}
+		if err := json.Unmarshal(scanner.Bytes(), &chunk); err != nil {
+			continue // Skip malformed lines
+		}
+		fullResponse.WriteString(chunk.Response)
+		if chunk.Done {
+			lastChunk = chunk
+		}
 	}
 
-	// Parse tags
-	var tags []string
-	if tagsStr, ok := args["tags"].(string); ok && tagsStr != "" {
-		for _, tag := range strings.Split(tagsStr, ",") {
-			tag = strings.TrimSpace(tag)
-			if tag != "" {
-				tags = append(tags, tag)
+	if err := scanner.Err(); err != nil {
+		return nil, &OllamaError{
+			Host:      baseURL,
+			Model:     model,
+			Message:   fmt.Sprintf("stream read error: %v", err),
+			Retryable: true,
+		}
+	}
+
+	duration := time.Since(start)
+	result := &OllamaResult{
+		Response:     fullResponse.String(),
+		Tokens:       lastChunk.EvalCount,
+		Duration:     duration,
+		PromptTokens: lastChunk.PromptEvalCount,
+	}
+
+	// Calculate tokens per second
+	if lastChunk.EvalDuration > 0 {
+		result.TokPerSec = float64(lastChunk.EvalCount) / (float64(lastChunk.EvalDuration) / 1e9)
+	}
+
+	return result, nil
+}
+
+// FallbackResult contains the result of a fallback call chain
+type FallbackResult struct {
+	Response   string
+	Host       string
+	Model      string
+	Attempts   int
+	HostsTried []string
+	// Stats from the successful call
+	Tokens       int
+	TokPerSec    float64
+	Duration     time.Duration
+	PromptTokens int
+}
+
+// callOllamaWithFallback tries multiple hosts in order, with retry logic
+func callOllamaWithFallback(hostMgr *hosts.Manager, model, prompt string, preferredHost string) (*FallbackResult, error) {
+	var hostsToTry []*hosts.HostStatus
+	var hostsTried []string
+	attempts := 0
+
+	// Get all online hosts
+	allHosts := hostMgr.CheckAllHosts()
+
+	// Build ordered list: preferred host first (if specified and online), then others
+	if preferredHost != "" {
+		for _, st := range allHosts {
+			if st.Host.Name == preferredHost && st.Online {
+				hostsToTry = append(hostsToTry, st)
+				break
 			}
 		}
 	}
 
-	context, _ := args["context"].(string)
-
-	// Store the memory
-	store, err := memory.NewStore()
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to open memory store: %v", err)), nil
+	// Add remaining online hosts with the model
+	for _, st := range allHosts {
+		if !st.Online || (preferredHost != "" && st.Host.Name == preferredHost) {
+			continue
+		}
+		// Check if host has the model
+		hasModel := false
+		for _, m := range st.Models {
+			if m.Name == model || strings.HasPrefix(m.Name, model) {
+				hasModel = true
+				break
+			}
+		}
+		if hasModel {
+			hostsToTry = append(hostsToTry, st)
+		}
 	}
 
-	mem, err := store.Store(content, tags, context)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to store memory: %v", err)), nil
+	if len(hostsToTry) == 0 {
+		// No hosts have the model - provide helpful error
+		var onlineHosts []string
+		var availableModels []string
+		modelSet := make(map[string]bool)
+		for _, st := range allHosts {
+			if st.Online {
+				onlineHosts = append(onlineHosts, st.Host.Name)
+				for _, m := range st.Models {
+					if !modelSet[m.Name] {
+						modelSet[m.Name] = true
+						availableModels = append(availableModels, m.Name)
+					}
+				}
+			}
+		}
+		if len(onlineHosts) == 0 {
+			return nil, fmt.Errorf("no Ollama hosts online. Check: clood_hosts or run 'ollama serve'")
+		}
+		return nil, fmt.Errorf("model '%s' not found on any host.\nOnline hosts: %s\nAvailable models: %s\nTry: clood_ask with model='%s'",
+			model, strings.Join(onlineHosts, ", "), strings.Join(availableModels[:min(5, len(availableModels))], ", "), availableModels[0])
 	}
 
-	result := map[string]interface{}{
-		"status":  "stored",
-		"id":      mem.ID,
-		"content": mem.Content,
-		"tags":    mem.Tags,
-		"total":   store.Count(),
+	var lastErr error
+	for _, st := range hostsToTry {
+		hostsTried = append(hostsTried, st.Host.Name)
+
+		// Try up to 2 times per host (initial + 1 retry)
+		for retry := 0; retry < 2; retry++ {
+			attempts++
+			result, err := callOllamaWithStats(st.Host.URL, model, prompt)
+			if err == nil {
+				return &FallbackResult{
+					Response:     result.Response,
+					Host:         st.Host.Name,
+					Model:        model,
+					Attempts:     attempts,
+					HostsTried:   hostsTried,
+					Tokens:       result.Tokens,
+					TokPerSec:    result.TokPerSec,
+					Duration:     result.Duration,
+					PromptTokens: result.PromptTokens,
+				}, nil
+			}
+
+			lastErr = err
+			ollamaErr, isOllamaErr := err.(*OllamaError)
+			if !isOllamaErr || !ollamaErr.Retryable {
+				break // Don't retry non-retryable errors
+			}
+
+			// Brief pause before retry
+			time.Sleep(time.Duration(retry+1) * 500 * time.Millisecond)
+		}
 	}
 
-	data, _ := json.MarshalIndent(result, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
+	// All hosts failed
+	return nil, fmt.Errorf("all hosts failed for model '%s'. Tried: %s. Last error: %v",
+		model, strings.Join(hostsTried, " → "), lastErr)
 }
 
-func (s *Server) memoryRecallHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-
-	query, _ := args["query"].(string)
-	tag, _ := args["tag"].(string)
-
-	limit := 10
-	if l, ok := args["limit"].(float64); ok {
-		limit = int(l)
+func min(a, b int) int {
+	if a < b {
+		return a
 	}
-
-	store, err := memory.NewStore()
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to open memory store: %v", err)), nil
-	}
-
-	memories := store.Recall(query, tag, limit)
-
-	type memResult struct {
-		ID        string   `json:"id"`
-		Content   string   `json:"content"`
-		Tags      []string `json:"tags,omitempty"`
-		Context   string   `json:"context,omitempty"`
-		CreatedAt string   `json:"created_at"`
-	}
-
-	var results []memResult
-	for _, m := range memories {
-		results = append(results, memResult{
-			ID:        m.ID,
-			Content:   m.Content,
-			Tags:      m.Tags,
-			Context:   m.Context,
-			CreatedAt: m.CreatedAt.Format(time.RFC3339),
-		})
-	}
-
-	data, _ := json.MarshalIndent(results, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
-}
-
-func (s *Server) memoryListHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-
-	tag, _ := args["tag"].(string)
-
-	limit := 20
-	if l, ok := args["limit"].(float64); ok {
-		limit = int(l)
-	}
-
-	store, err := memory.NewStore()
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to open memory store: %v", err)), nil
-	}
-
-	memories := store.List(tag, limit)
-	allTags := store.Tags()
-
-	type memResult struct {
-		ID        string   `json:"id"`
-		Content   string   `json:"content"`
-		Tags      []string `json:"tags,omitempty"`
-		Context   string   `json:"context,omitempty"`
-		CreatedAt string   `json:"created_at"`
-	}
-
-	var results []memResult
-	for _, m := range memories {
-		results = append(results, memResult{
-			ID:        m.ID,
-			Content:   m.Content,
-			Tags:      m.Tags,
-			Context:   m.Context,
-			CreatedAt: m.CreatedAt.Format(time.RFC3339),
-		})
-	}
-
-	response := map[string]interface{}{
-		"memories":   results,
-		"count":      len(results),
-		"total":      store.Count(),
-		"all_tags":   allTags,
-	}
-
-	data, _ := json.MarshalIndent(response, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
-}
-
-func (s *Server) memoryForgetHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-
-	id, ok := args["id"].(string)
-	if !ok || id == "" {
-		return mcp.NewToolResultError("id is required"), nil
-	}
-
-	store, err := memory.NewStore()
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to open memory store: %v", err)), nil
-	}
-
-	if err := store.Forget(id); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to forget: %v", err)), nil
-	}
-
-	result := map[string]interface{}{
-		"status":    "forgotten",
-		"id":        id,
-		"remaining": store.Count(),
-	}
-
-	data, _ := json.MarshalIndent(result, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
+	return b
 }
 
 // =============================================================================
@@ -1610,12 +1359,14 @@ func (s *Server) memoryForgetHandler(ctx context.Context, req mcp.CallToolReques
 
 func (s *Server) gitDiffTool() mcp.Tool {
 	return mcp.NewTool("clood_git_diff",
-		mcp.WithDescription(`📝 Show git diff for files, commits, or staged changes.
+		mcp.WithDescription(`Show git diff for files, commits, or staged changes.
 
-View what has changed in the repository.
-Supports specific files, commits, staged vs unstaged.
+WHEN TO USE: Before committing, to review changes. When investigating what changed.
+WHEN NOT TO USE: For commit history (use clood_git_log instead).
 
-Cost: ZERO network, ZERO tokens, instant.`),
+Options: specific file, compare against commit, staged only, summary stats.
+
+Cost: ZERO (local git operation, instant).`),
 		mcp.WithString("path", mcp.Description("Repository path (default: current directory)")),
 		mcp.WithString("file", mcp.Description("Specific file to diff")),
 		mcp.WithString("commit", mcp.Description("Compare against specific commit (e.g., HEAD~1)")),
@@ -1624,29 +1375,16 @@ Cost: ZERO network, ZERO tokens, instant.`),
 	)
 }
 
-func (s *Server) gitBlameTool() mcp.Tool {
-	return mcp.NewTool("clood_git_blame",
-		mcp.WithDescription(`🔍 Annotate file with commit info per line.
-
-Shows who last modified each line, when, and in which commit.
-Useful for understanding code history and ownership.
-
-Cost: ZERO network, ZERO tokens, instant.`),
-		mcp.WithString("file", mcp.Required(), mcp.Description("File to blame")),
-		mcp.WithString("path", mcp.Description("Repository path (default: current directory)")),
-		mcp.WithNumber("start_line", mcp.Description("Start line number")),
-		mcp.WithNumber("end_line", mcp.Description("End line number")),
-	)
-}
-
 func (s *Server) gitLogTool() mcp.Tool {
 	return mcp.NewTool("clood_git_log",
-		mcp.WithDescription(`📜 Show commit history with filtering.
+		mcp.WithDescription(`Show commit history with filtering options.
 
-View recent commits with author, date, message.
-Filter by author, date range, or search in messages.
+WHEN TO USE: To understand recent changes, find who changed what, search commit messages.
+WHEN NOT TO USE: For file contents (use clood_grep). For current changes (use clood_git_diff).
 
-Cost: ZERO network, ZERO tokens, instant.`),
+Filters: author, date range, message search, specific file.
+
+Cost: ZERO (local git operation, instant).`),
 		mcp.WithString("path", mcp.Description("Repository path (default: current directory)")),
 		mcp.WithNumber("count", mcp.Description("Number of commits to show (default: 20)")),
 		mcp.WithString("author", mcp.Description("Filter by author name/email")),
@@ -1658,27 +1396,33 @@ Cost: ZERO network, ZERO tokens, instant.`),
 
 func (s *Server) gitBranchesTool() mcp.Tool {
 	return mcp.NewTool("clood_git_branches",
-		mcp.WithDescription(`🌿 List git branches.
+		mcp.WithDescription(`List git branches (local and optionally remote).
 
-Shows local branches with current marker.
-Optionally includes remote branches.
+WHEN TO USE: To see available branches, check current branch, find feature branches.
+WHEN NOT TO USE: For commit history (use clood_git_log).
 
-Cost: ZERO network, ZERO tokens, instant.`),
+Cost: ZERO (local git operation, instant).`),
 		mcp.WithString("path", mcp.Description("Repository path (default: current directory)")),
 		mcp.WithBoolean("remote", mcp.Description("Include remote branches")),
 	)
 }
 
-func (s *Server) gitStashTool() mcp.Tool {
-	return mcp.NewTool("clood_git_stash",
-		mcp.WithDescription(`📦 List or show stash entries.
+func (s *Server) gitCreatePRTool() mcp.Tool {
+	return mcp.NewTool("clood_git_create_pr",
+		mcp.WithDescription(`Create a GitHub Pull Request from current branch.
 
-View stashed changes without applying them.
-Use index to show specific stash content.
+WHEN TO USE: After committing and pushing changes, to create a PR for review.
+WHEN NOT TO USE: Before pushing (push first). For local-only changes.
 
-Cost: ZERO network, ZERO tokens, instant.`),
+Requires: gh CLI installed and authenticated.
+
+Cost: One GitHub API call.`),
+		mcp.WithString("title", mcp.Required(), mcp.Description("PR title (short, descriptive)")),
+		mcp.WithString("body", mcp.Description("PR description (markdown supported, explain what and why)")),
+		mcp.WithString("base", mcp.Description("Base branch to merge into (default: main)")),
+		mcp.WithString("head", mcp.Description("Head branch (default: current branch)")),
+		mcp.WithBoolean("draft", mcp.Description("Create as draft PR (default: false)")),
 		mcp.WithString("path", mcp.Description("Repository path (default: current directory)")),
-		mcp.WithNumber("show", mcp.Description("Show diff for stash at this index")),
 	)
 }
 
@@ -1719,40 +1463,6 @@ func (s *Server) gitDiffHandler(ctx context.Context, req mcp.CallToolRequest) (*
 	}
 
 	return mcp.NewToolResultText(diff), nil
-}
-
-func (s *Server) gitBlameHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-
-	file, ok := args["file"].(string)
-	if !ok || file == "" {
-		return mcp.NewToolResultError("file is required"), nil
-	}
-
-	path := "."
-	if p, ok := args["path"].(string); ok && p != "" {
-		path = p
-	}
-
-	opts := git.BlameOptions{
-		Path: path,
-		File: file,
-	}
-
-	if start, ok := args["start_line"].(float64); ok {
-		opts.StartLine = int(start)
-	}
-	if end, ok := args["end_line"].(float64); ok {
-		opts.EndLine = int(end)
-	}
-
-	lines, err := git.Blame(opts)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("git blame failed: %v", err)), nil
-	}
-
-	data, _ := json.MarshalIndent(lines, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
 }
 
 func (s *Server) gitLogHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -1814,34 +1524,40 @@ func (s *Server) gitBranchesHandler(ctx context.Context, req mcp.CallToolRequest
 	return mcp.NewToolResultText(string(data)), nil
 }
 
-func (s *Server) gitStashHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func (s *Server) gitCreatePRHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
 
-	path := "."
-	if p, ok := args["path"].(string); ok && p != "" {
-		path = p
+	title, ok := args["title"].(string)
+	if !ok || title == "" {
+		return mcp.NewToolResultError("title is required"), nil
 	}
 
-	// If "show" is specified, show that stash entry's diff
-	if showIdx, ok := args["show"].(float64); ok {
-		diff, err := git.StashShow(path, int(showIdx))
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("git stash show failed: %v", err)), nil
-		}
-		return mcp.NewToolResultText(diff), nil
+	opts := git.CreatePROptions{
+		Title: title,
 	}
 
-	// Otherwise list all stashes
-	entries, err := git.Stash(path)
+	if path, ok := args["path"].(string); ok && path != "" {
+		opts.Path = path
+	}
+	if body, ok := args["body"].(string); ok {
+		opts.Body = body
+	}
+	if base, ok := args["base"].(string); ok && base != "" {
+		opts.Base = base
+	}
+	if head, ok := args["head"].(string); ok && head != "" {
+		opts.Head = head
+	}
+	if draft, ok := args["draft"].(bool); ok {
+		opts.Draft = draft
+	}
+
+	result, err := git.CreatePR(opts)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("git stash list failed: %v", err)), nil
+		return mcp.NewToolResultError(fmt.Sprintf("create PR failed: %v", err)), nil
 	}
 
-	if len(entries) == 0 {
-		return mcp.NewToolResultText("No stash entries"), nil
-	}
-
-	data, _ := json.MarshalIndent(entries, "", "  ")
+	data, _ := json.MarshalIndent(result, "", "  ")
 	return mcp.NewToolResultText(string(data)), nil
 }
 
@@ -1851,12 +1567,14 @@ func (s *Server) gitStashHandler(ctx context.Context, req mcp.CallToolRequest) (
 
 func (s *Server) sqliteQueryTool() mcp.Tool {
 	return mcp.NewTool("clood_sqlite_query",
-		mcp.WithDescription(`🗄️ Execute a SELECT query on a SQLite database.
+		mcp.WithDescription(`Execute a SELECT query on a local SQLite database.
 
-Query local SQLite databases and get JSON results.
-Only SELECT, PRAGMA, and EXPLAIN queries are allowed (read-only).
+WHEN TO USE: Querying app data, browsing local databases, extracting structured data.
+WHEN NOT TO USE: Modifying data (read-only: SELECT, PRAGMA, EXPLAIN only).
 
-Cost: ZERO network, ZERO tokens, instant.`),
+Returns: JSON array of matching rows.
+
+Cost: ZERO (local file access, instant).`),
 		mcp.WithString("database", mcp.Required(), mcp.Description("Path to the SQLite database file")),
 		mcp.WithString("query", mcp.Required(), mcp.Description("SQL SELECT query to execute")),
 	)
@@ -1864,26 +1582,16 @@ Cost: ZERO network, ZERO tokens, instant.`),
 
 func (s *Server) sqliteSchemaTool() mcp.Tool {
 	return mcp.NewTool("clood_sqlite_schema",
-		mcp.WithDescription(`📋 Show schema for a SQLite table.
+		mcp.WithDescription(`Show schema for a SQLite database or specific table.
 
-Returns column names, types, constraints for a specific table.
-Use clood_sqlite_tables first to list available tables.
+WHEN TO USE: Before querying, to understand table structure and column types.
+WHEN NOT TO USE: If you already know the schema.
 
-Cost: ZERO network, ZERO tokens, instant.`),
+Returns: Column names, types, and constraints. Omit table param to list all tables.
+
+Cost: ZERO (local file access, instant).`),
 		mcp.WithString("database", mcp.Required(), mcp.Description("Path to the SQLite database file")),
-		mcp.WithString("table", mcp.Description("Table name (omit to show all tables)")),
-	)
-}
-
-func (s *Server) sqliteTablesTool() mcp.Tool {
-	return mcp.NewTool("clood_sqlite_tables",
-		mcp.WithDescription(`📊 List all tables in a SQLite database.
-
-Shows table names in the database.
-Use before clood_sqlite_schema or clood_sqlite_query.
-
-Cost: ZERO network, ZERO tokens, instant.`),
-		mcp.WithString("database", mcp.Required(), mcp.Description("Path to the SQLite database file")),
+		mcp.WithString("table", mcp.Description("Table name (omit to show all tables and schemas)")),
 	)
 }
 
@@ -1941,50 +1649,31 @@ func (s *Server) sqliteSchemaHandler(ctx context.Context, req mcp.CallToolReques
 	return mcp.NewToolResultText(string(data)), nil
 }
 
-func (s *Server) sqliteTablesHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-
-	dbPath, ok := args["database"].(string)
-	if !ok || dbPath == "" {
-		return mcp.NewToolResultError("database path is required"), nil
-	}
-
-	tables, err := sqlite.Tables(dbPath)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("tables failed: %v", err)), nil
-	}
-
-	if len(tables) == 0 {
-		return mcp.NewToolResultText("No tables found"), nil
-	}
-
-	data, _ := json.MarshalIndent(tables, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
-}
-
 // =============================================================================
 // CLIPBOARD TOOLS - System clipboard access
 // =============================================================================
 
 func (s *Server) clipboardReadTool() mcp.Tool {
 	return mcp.NewTool("clood_clipboard_read",
-		mcp.WithDescription(`📋 Read current clipboard contents.
+		mcp.WithDescription(`Read current system clipboard contents.
 
-Get text currently in the system clipboard.
-Useful for quickly grabbing copied code, URLs, or text.
+WHEN TO USE: When user says "use what I copied" or references clipboard content.
+WHEN NOT TO USE: For reading files (use file tools instead).
 
-Cost: ZERO network, ZERO tokens, instant.`),
+Returns: Text currently in clipboard.
+
+Cost: ZERO (local system call, instant).`),
 	)
 }
 
 func (s *Server) clipboardWriteTool() mcp.Tool {
 	return mcp.NewTool("clood_clipboard_write",
-		mcp.WithDescription(`📝 Write text to the clipboard.
+		mcp.WithDescription(`Write text to the system clipboard.
 
-Set the system clipboard contents.
-Useful for sharing code snippets, results, or prepared text.
+WHEN TO USE: When user asks to copy something, or to share generated code/results.
+WHEN NOT TO USE: For saving to files (use file tools instead).
 
-Cost: ZERO network, ZERO tokens, instant.`),
+Cost: ZERO (local system call, instant).`),
 		mcp.WithString("text", mcp.Required(), mcp.Description("Text to copy to clipboard")),
 	)
 }
@@ -2020,482 +1709,19 @@ func (s *Server) clipboardWriteHandler(ctx context.Context, req mcp.CallToolRequ
 }
 
 // =============================================================================
-// CONDUCTOR TOOL - Remote orchestrator on ubuntu25
-// =============================================================================
-
-func (s *Server) conductorTool() mcp.Tool {
-	return mcp.NewTool("clood_conductor",
-		mcp.WithDescription(`🎭 Invoke the Conductor agent on ubuntu25 to create files.
-
-The Conductor is an orchestrator that:
-- Runs on ubuntu25 (the server garden)
-- Uses llama3-groq-tool-use:8b for task planning
-- Delegates heavy coding to mac-laptop's 32B model
-- Can write files to /data/repos/workspace/
-
-Use this to CREATE FILES on the server without manual SSH.
-
-Example: clood_conductor task="Create a todo list HTML file"
-
-Cost: Uses local LLMs (ubuntu25 + mac-laptop), ZERO cloud API.`),
-		mcp.WithString("task", mcp.Required(), mcp.Description("The task for the conductor to perform (e.g., 'Create a todo list HTML file')")),
-		mcp.WithString("conductor_model", mcp.Description("Conductor model (default: llama3-groq-tool-use:8b)")),
-		mcp.WithNumber("max_iterations", mcp.Description("Max agent iterations (default: 10)")),
-	)
-}
-
-func (s *Server) conductorHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-
-	task, ok := args["task"].(string)
-	if !ok || task == "" {
-		return mcp.NewToolResultError("task is required"), nil
-	}
-
-	conductorModel := "llama3-groq-tool-use:8b"
-	if cm, ok := args["conductor_model"].(string); ok && cm != "" {
-		conductorModel = cm
-	}
-
-	maxIterations := 10
-	if mi, ok := args["max_iterations"].(float64); ok {
-		maxIterations = int(mi)
-	}
-
-	// Build SSH command to run orchestrator on ubuntu25
-	sshCmd := fmt.Sprintf(
-		"cd /data/repos/workspace && python3 orchestrator.py --conductor %s --max-iterations %d %q",
-		conductorModel,
-		maxIterations,
-		task,
-	)
-
-	// Execute via SSH
-	cmd := exec.CommandContext(ctx, "ssh", "ubuntu25", sshCmd)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		// Still return output even if command failed (might have partial results)
-		if len(output) > 0 {
-			return mcp.NewToolResultText(fmt.Sprintf("⚠️ Conductor finished with error: %v\n\nOutput:\n%s", err, string(output))), nil
-		}
-		return mcp.NewToolResultError(fmt.Sprintf("SSH to ubuntu25 failed: %v", err)), nil
-	}
-
-	// Check workspace for created files
-	lsCmd := exec.CommandContext(ctx, "ssh", "ubuntu25", "ls -la /data/repos/workspace/")
-	lsOutput, _ := lsCmd.CombinedOutput()
-
-	result := fmt.Sprintf("🎭 CONDUCTOR RESULT\n"+
-		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"+
-		"Task: %s\n"+
-		"Conductor: %s\n"+
-		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"+
-		"%s\n\n"+
-		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"+
-		"📁 Workspace contents:\n%s",
-		task,
-		conductorModel,
-		string(output),
-		string(lsOutput),
-	)
-
-	return mcp.NewToolResultText(result), nil
-}
-
-// =============================================================================
-// THUNDERDOME TOOL - Parallel multi-host catfights
-// =============================================================================
-
-func (s *Server) thunderdomeTool() mcp.Tool {
-	return mcp.NewTool("clood_thunderdome",
-		mcp.WithDescription(`⚔️ Run parallel catfights across ALL Ollama hosts!
-
-THUNDERDOME auto-discovers online hosts and runs the same prompt
-against all available models IN PARALLEL, then crowns a champion.
-
-Use this for:
-- Quick model comparisons across your entire server garden
-- Finding the fastest model for a specific task
-- Benchmarking before delegating heavy work
-
-Returns: Unified leaderboard with model@host rankings and champion.
-Cost: Uses local Ollama hosts, ZERO cloud API.`),
-		mcp.WithString("prompt", mcp.Required(), mcp.Description("The prompt to test across all hosts")),
-		mcp.WithString("hosts", mcp.Description("Comma-separated host names (default: all online hosts)")),
-		mcp.WithBoolean("fast", mcp.Description("Fast mode: only top 3 models per host")),
-		mcp.WithNumber("top", mcp.Description("Show only top N results (default: 10)")),
-	)
-}
-
-func (s *Server) thunderdomeHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-
-	prompt, ok := args["prompt"].(string)
-	if !ok || prompt == "" {
-		return mcp.NewToolResultError("prompt is required"), nil
-	}
-
-	// Build command args
-	cmdArgs := []string{"thunderdome", "--json"}
-
-	if hostFilter, ok := args["hosts"].(string); ok && hostFilter != "" {
-		cmdArgs = append(cmdArgs, "--hosts", hostFilter)
-	}
-
-	if fast, ok := args["fast"].(bool); ok && fast {
-		cmdArgs = append(cmdArgs, "--fast")
-	}
-
-	topN := 10
-	if t, ok := args["top"].(float64); ok && t > 0 {
-		topN = int(t)
-	}
-	cmdArgs = append(cmdArgs, "--top", fmt.Sprintf("%d", topN))
-
-	cmdArgs = append(cmdArgs, prompt)
-
-	// Get executable path (same as current process)
-	executable, err := os.Executable()
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to get executable: %v", err)), nil
-	}
-
-	// Run thunderdome
-	cmd := exec.CommandContext(ctx, executable, cmdArgs...)
-	output, err := cmd.Output()
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Thunderdome failed: %v", err)), nil
-	}
-
-	// Parse JSON output
-	var thunderResult struct {
-		Hosts    []string `json:"hosts"`
-		Champion *struct {
-			ModelHost   string  `json:"model_host"`
-			DurationSec float64 `json:"duration_sec"`
-			Tokens      int     `json:"tokens"`
-			TokSec      float64 `json:"tokens_per_sec"`
-		} `json:"champion"`
-		Summary struct {
-			OnlineHosts    int     `json:"online_hosts"`
-			TotalRuns      int     `json:"total_runs"`
-			Successful     int     `json:"successful"`
-			ParallelFactor float64 `json:"parallel_factor"`
-		} `json:"summary"`
-		Results []struct {
-			ModelHost   string  `json:"model_host"`
-			DurationSec float64 `json:"duration_sec"`
-			Tokens      int     `json:"tokens"`
-			TokSec      float64 `json:"tokens_per_sec"`
-			Error       string  `json:"error,omitempty"`
-		} `json:"results"`
-	}
-
-	if err := json.Unmarshal(output, &thunderResult); err != nil {
-		// Return raw output if JSON parse fails
-		return mcp.NewToolResultText(string(output)), nil
-	}
-
-	// Format nice summary
-	var sb strings.Builder
-	sb.WriteString("⚔️ THUNDERDOME RESULTS\n")
-	sb.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
-
-	if thunderResult.Champion != nil {
-		sb.WriteString(fmt.Sprintf("🏆 CHAMPION: %s\n", thunderResult.Champion.ModelHost))
-		sb.WriteString(fmt.Sprintf("   Time: %.1fs | Tokens: %d | Speed: %.1f tok/s\n\n",
-			thunderResult.Champion.DurationSec, thunderResult.Champion.Tokens, thunderResult.Champion.TokSec))
-	}
-
-	sb.WriteString("📊 LEADERBOARD:\n")
-	for i, r := range thunderResult.Results {
-		if i >= topN {
-			break
-		}
-		if r.Error != "" {
-			sb.WriteString(fmt.Sprintf("%2d. %-30s ERROR\n", i+1, r.ModelHost))
-		} else {
-			sb.WriteString(fmt.Sprintf("%2d. %-30s %6.1fs  %5d tok  %6.1f tok/s\n",
-				i+1, r.ModelHost, r.DurationSec, r.Tokens, r.TokSec))
-		}
-	}
-
-	sb.WriteString(fmt.Sprintf("\n📈 Summary: %d runs across %d hosts (%.1fx parallel speedup)\n",
-		thunderResult.Summary.TotalRuns, thunderResult.Summary.OnlineHosts, thunderResult.Summary.ParallelFactor))
-
-	return mcp.NewToolResultText(sb.String()), nil
-}
-
-// =============================================================================
-// WHOAMI TOOL - Garden identity
-// =============================================================================
-
-func (s *Server) whoamiTool() mcp.Tool {
-	return mcp.NewTool("clood_whoami",
-		mcp.WithDescription(`🌿 Identify which machine you're on in the server garden.
-
-Returns:
-- Hostname and lore name (e.g., "Iron Keep")
-- Role (commander/sentinel/worker)
-- Local Ollama status and model count
-- Sibling hosts and their status
-
-Use this to understand your current context in a multi-machine setup.
-Cost: ZERO network for local info, fast pings for siblings.`),
-		mcp.WithBoolean("verbose", mcp.Description("Show detailed hardware and model list")),
-	)
-}
-
-func (s *Server) whoamiHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-	verbose := false
-	if v, ok := args["verbose"].(bool); ok {
-		verbose = v
-	}
-
-	// Get hostname
-	hostname, _ := os.Hostname()
-	hostname = strings.ToLower(strings.Split(hostname, ".")[0])
-
-	// Lore names map
-	loreNames := map[string]struct {
-		Name   string
-		Spirit string
-	}{
-		"ubuntu25":         {"Iron Keep", "Heavy lifting, background processing, the patient work."},
-		"mac-mini":         {"Sentinel Tower", "Always watching, always ready."},
-		"macbook-air":      {"Jade Palace", "Mobile command, agile decisions."},
-		"mgilberts-air":    {"Jade Palace", "Mobile command, agile decisions."},
-		"mgilberts-laptop": {"Jade Palace", "Mobile command, agile decisions."},
-	}
-
-	loreName := hostname
-	spirit := "A node in the garden."
-	if lore, ok := loreNames[hostname]; ok {
-		loreName = lore.Name
-		spirit = lore.Spirit
-	}
-
-	// Determine role
-	role := "node"
-	switch {
-	case strings.Contains(hostname, "ubuntu"):
-		role = "worker"
-	case strings.Contains(hostname, "mini"):
-		role = "sentinel"
-	case strings.Contains(hostname, "air") || strings.Contains(hostname, "laptop"):
-		role = "commander"
-	}
-
-	// Check local Ollama
-	client := ollama.NewClient("http://localhost:11434", 10e9)
-	models, err := client.ListModels()
-	ollamaOnline := err == nil
-	modelCount := len(models)
-
-	// Check siblings
-	mgr := hosts.NewManager()
-	mgr.AddHosts(hosts.DefaultHosts())
-	statuses := mgr.CheckAllHosts()
-
-	var whoamiSb strings.Builder
-	whoamiSb.WriteString("🌿 GARDEN IDENTITY\n")
-	whoamiSb.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
-	whoamiSb.WriteString(fmt.Sprintf("Machine:  %s (%s)\n", loreName, hostname))
-	whoamiSb.WriteString(fmt.Sprintf("Role:     %s\n", role))
-
-	if ollamaOnline {
-		whoamiSb.WriteString(fmt.Sprintf("Ollama:   ● Online (%d models)\n", modelCount))
-	} else {
-		whoamiSb.WriteString("Ollama:   ○ Offline\n")
-	}
-
-	// Siblings
-	whoamiSb.WriteString("\nSiblings:\n")
-	for _, s := range statuses {
-		if s.Host.Name == "localhost" || strings.EqualFold(s.Host.Name, hostname) {
-			continue
-		}
-		if s.Online {
-			whoamiSb.WriteString(fmt.Sprintf("  ● %s (%d models)\n", s.Host.Name, len(s.Models)))
-		} else {
-			whoamiSb.WriteString(fmt.Sprintf("  ○ %s (offline)\n", s.Host.Name))
-		}
-	}
-
-	whoamiSb.WriteString(fmt.Sprintf("\nSpirit:   \"%s\"\n", spirit))
-
-	if verbose && ollamaOnline {
-		whoamiSb.WriteString("\nModels:\n")
-		for _, m := range models {
-			whoamiSb.WriteString(fmt.Sprintf("  • %s\n", m.Name))
-		}
-	}
-
-	return mcp.NewToolResultText(whoamiSb.String()), nil
-}
-
-// =============================================================================
-// DELEGATE: Task delegation to remote hosts
-// =============================================================================
-
-func (s *Server) delegateTool() mcp.Tool {
-	return mcp.NewTool("clood_delegate",
-		mcp.WithDescription(`🤖 Delegate a task to a remote LLM agent in the server garden.
-
-Unlike clood_ask which runs a raw prompt, delegate is task-oriented:
-- Routes to specific hosts by name
-- Supports agent roles (reviewer, coder, analyst, documenter)
-- Returns structured results with metadata
-
-Use this to distribute work across the server garden during Chimborazo experiments.
-
-Examples:
-- "Review this code for bugs" → delegate to reviewer agent
-- "Generate unit tests" → delegate to coder agent on ubuntu25
-- "Summarize this function" → delegate to analyst on mac-mini`),
-		mcp.WithString("task", mcp.Required(), mcp.Description("The task to delegate")),
-		mcp.WithString("host", mcp.Description("Target host (e.g., 'ubuntu25', 'mac-mini'). If not specified, uses best available.")),
-		mcp.WithString("agent", mcp.Description("Agent role: reviewer, coder, analyst, documenter. Each has specialized system prompts.")),
-		mcp.WithString("model", mcp.Description("Model to use (e.g., 'qwen2.5-coder:7b'). If not specified, uses agent default or tier config.")),
-		mcp.WithString("context", mcp.Description("Additional context to include with the task (e.g., code snippet, file content)")),
-	)
-}
-
-func (s *Server) delegateHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-	task, _ := args["task"].(string)
-	hostName, _ := args["host"].(string)
-	agentName, _ := args["agent"].(string)
-	model, _ := args["model"].(string)
-	contextStr, _ := args["context"].(string)
-
-	if task == "" {
-		return mcp.NewToolResultError("task is required"), nil
-	}
-
-	// Load config
-	cfg, err := config.Load()
-	if err != nil {
-		return mcp.NewToolResultError("Error loading config: " + err.Error()), nil
-	}
-
-	// Setup host manager
-	mgr := hosts.NewManager()
-	mgr.AddHosts(cfg.Hosts)
-
-	// Find host
-	var targetHost *hosts.Host
-	if hostName != "" {
-		targetHost = mgr.GetHost(hostName)
-		if targetHost == nil {
-			return mcp.NewToolResultError("Host not found: " + hostName), nil
-		}
-	} else {
-		best := mgr.GetBestHost()
-		if best == nil {
-			return mcp.NewToolResultError("No hosts available"), nil
-		}
-		targetHost = best.Host
-		hostName = targetHost.Name
-	}
-
-	status := mgr.CheckHost(targetHost)
-	if !status.Online {
-		return mcp.NewToolResultError("Host is offline: " + hostName), nil
-	}
-
-	// Get client
-	client := mgr.GetClient(hostName)
-	if client == nil {
-		return mcp.NewToolResultError("Could not get client for host: " + hostName), nil
-	}
-
-	// Build system prompt based on agent
-	var systemPrompt string
-	switch agentName {
-	case "reviewer":
-		systemPrompt = "You are a code review specialist. Analyze code for bugs, security issues, and improvements. Be concise and actionable."
-	case "coder":
-		systemPrompt = "You are a code generation specialist. Write clean, efficient code. Include comments where helpful."
-	case "analyst":
-		systemPrompt = "You are a code analysis specialist. Explain code behavior, identify patterns, and provide insights."
-	case "documenter":
-		systemPrompt = "You are a documentation specialist. Write clear, helpful documentation for code and APIs."
-	default:
-		systemPrompt = "You are a helpful AI assistant."
-	}
-
-	// Select model
-	if model == "" {
-		model = cfg.Tiers.Fast.Model
-		// Verify model exists on host
-		hasModel := false
-		for _, m := range status.Models {
-			if m.Name == model {
-				hasModel = true
-				break
-			}
-		}
-		if !hasModel && len(status.Models) > 0 {
-			model = status.Models[0].Name
-		}
-	}
-
-	// Build prompt with context
-	var fullPrompt strings.Builder
-	if contextStr != "" {
-		fullPrompt.WriteString("Context:\n")
-		fullPrompt.WriteString(contextStr)
-		fullPrompt.WriteString("\n\n")
-	}
-	fullPrompt.WriteString("Task: ")
-	fullPrompt.WriteString(task)
-
-	// Execute
-	start := time.Now()
-	resp, err := client.GenerateWithSystem(model, systemPrompt, fullPrompt.String())
-	duration := time.Since(start)
-
-	if err != nil {
-		return mcp.NewToolResultError("Delegation failed: " + err.Error()), nil
-	}
-
-	// Build result
-	var result strings.Builder
-	result.WriteString("🤖 DELEGATION RESULT\n")
-	result.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
-	result.WriteString(resp.Response)
-	result.WriteString("\n\n")
-	result.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-	if agentName != "" {
-		result.WriteString(fmt.Sprintf("Agent: %s | ", agentName))
-	}
-	result.WriteString(fmt.Sprintf("Model: %s | Host: %s | Time: %.1fs | Tokens: %d\n",
-		model, hostName, duration.Seconds(), resp.EvalCount))
-
-	return mcp.NewToolResultText(result.String()), nil
-}
-
-// =============================================================================
 // CATFIGHT: Single-host model comparison
 // =============================================================================
 
 func (s *Server) catfightTool() mcp.Tool {
 	return mcp.NewTool("clood_catfight",
-		mcp.WithDescription(`🐱 Run a catfight - compare multiple models on the same prompt.
+		mcp.WithDescription(`Compare 2-5 models head-to-head on the same prompt.
 
-Unlike thunderdome (which runs across ALL hosts in parallel), catfight is focused:
-- Runs on a single host (or localhost by default)
-- Compares 2-5 models head-to-head
-- Returns responses with timing metrics
+WHEN TO USE: Testing which model handles a prompt best. Benchmarking local models.
+WHEN NOT TO USE: For single queries (use clood_ask). When speed matters more than comparison.
 
-Use for quick model comparisons during development.
+Returns: All model responses with timing metrics for comparison.
 
-Examples:
-- Compare coding models on a task
-- Test which model handles a specific prompt best
-- Benchmark model performance on your hardware`),
+Cost: Runs on LOCAL Ollama only. Tokens used per model queried.`),
 		mcp.WithString("prompt", mcp.Required(), mcp.Description("The prompt to send to all models")),
 		mcp.WithString("models", mcp.Description("Comma-separated models to compare (default: qwen2.5-coder:3b,mistral:7b,llama3.1:8b)")),
 		mcp.WithString("host", mcp.Description("Target host (default: localhost)")),
@@ -2535,14 +1761,31 @@ func (s *Server) catfightHandler(ctx context.Context, req mcp.CallToolRequest) (
 	}
 
 	if targetHost == nil {
-		return mcp.NewToolResultError("Host not found: " + hostName), nil
+		// Provide helpful error with available hosts
+		allHosts := mgr.GetAllHosts()
+		var hostNames []string
+		for _, h := range allHosts {
+			hostNames = append(hostNames, h.Name)
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("Host '%s' not found.\nConfigured hosts: %s\nTry: clood_hosts to check status", hostName, strings.Join(hostNames, ", "))), nil
 	}
 
 	// Check host status
 	client := ollama.NewClient(targetHost.URL, 5*time.Minute)
 	availableModels, err := client.ListModels()
 	if err != nil {
-		return mcp.NewToolResultError("Host offline or error: " + err.Error()), nil
+		// Try to find an alternative online host
+		statuses := mgr.CheckAllHosts()
+		var onlineHosts []string
+		for _, st := range statuses {
+			if st.Online {
+				onlineHosts = append(onlineHosts, st.Host.Name)
+			}
+		}
+		if len(onlineHosts) > 0 {
+			return mcp.NewToolResultError(fmt.Sprintf("Host '%s' offline.\nOnline alternatives: %s\nTry: clood_catfight with host='%s'", hostName, strings.Join(onlineHosts, ", "), onlineHosts[0])), nil
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("Host '%s' offline and no alternatives available.\nCheck: 'ollama serve' or clood_hosts", hostName)), nil
 	}
 
 	// Parse models or use defaults
@@ -2574,7 +1817,14 @@ func (s *Server) catfightHandler(ctx context.Context, req mcp.CallToolRequest) (
 	}
 
 	if len(modelsToTest) == 0 {
-		return mcp.NewToolResultError("No models available for catfight"), nil
+		var modelNames []string
+		for _, m := range availableModels {
+			modelNames = append(modelNames, m.Name)
+		}
+		if len(modelNames) > 0 {
+			return mcp.NewToolResultError(fmt.Sprintf("Requested models not found on host.\nAvailable models: %s\nTry: clood_catfight with models='%s'", strings.Join(modelNames[:min(5, len(modelNames))], ","), modelNames[0])), nil
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("No models on host '%s'. Run: ollama pull <model>", hostName)), nil
 	}
 
 	// Run catfight
