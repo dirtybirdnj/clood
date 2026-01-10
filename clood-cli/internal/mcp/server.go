@@ -455,16 +455,21 @@ func (s *Server) askHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	// Return with metadata (show fallback info if we tried multiple hosts)
-	var result string
+	// Build header with stats
+	var header strings.Builder
+	header.WriteString(fmt.Sprintf("%s @ %s", fallbackResult.Model, fallbackResult.Host))
+
+	// Show fallback info if we tried multiple hosts
 	if len(fallbackResult.HostsTried) > 1 {
-		result = fmt.Sprintf("%s @ %s (fallback from: %s)\n\n%s",
-			fallbackResult.Model, fallbackResult.Host,
-			strings.Join(fallbackResult.HostsTried[:len(fallbackResult.HostsTried)-1], ", "),
-			fallbackResult.Response)
-	} else {
-		result = fmt.Sprintf("%s @ %s\n\n%s", fallbackResult.Model, fallbackResult.Host, fallbackResult.Response)
+		header.WriteString(fmt.Sprintf(" (fallback from: %s)",
+			strings.Join(fallbackResult.HostsTried[:len(fallbackResult.HostsTried)-1], ", ")))
 	}
+
+	// Add stats line
+	header.WriteString(fmt.Sprintf("\n[%d tokens, %.1f tok/s, %.1fs]",
+		fallbackResult.Tokens, fallbackResult.TokPerSec, fallbackResult.Duration.Seconds()))
+
+	result := fmt.Sprintf("%s\n\n%s", header.String(), fallbackResult.Response)
 	return mcp.NewToolResultText(result), nil
 }
 
@@ -1116,23 +1121,44 @@ func (e *OllamaError) Error() string {
 	return fmt.Sprintf("%s @ %s: %s", e.Model, e.Host, e.Message)
 }
 
-// callOllama sends a prompt to Ollama and returns the response
+// OllamaResult contains the response and stats from an Ollama call
+type OllamaResult struct {
+	Response      string
+	Tokens        int
+	TokPerSec     float64
+	Duration      time.Duration
+	PromptTokens  int
+}
+
+// callOllama sends a prompt to Ollama using streaming and returns the response with stats
 func callOllama(baseURL, model, prompt string) (string, error) {
+	result, err := callOllamaWithStats(baseURL, model, prompt)
+	if err != nil {
+		return "", err
+	}
+	return result.Response, nil
+}
+
+// callOllamaWithStats sends a prompt using streaming and returns detailed stats
+func callOllamaWithStats(baseURL, model, prompt string) (*OllamaResult, error) {
 	reqBody := map[string]interface{}{
 		"model":  model,
 		"prompt": prompt,
-		"stream": false,
+		"stream": true, // Use streaming for better timeout handling
 	}
 
 	body, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	client := &http.Client{Timeout: 120 * time.Second}
+	// No timeout - streaming handles its own timing
+	client := &http.Client{}
+	start := time.Now()
+
 	resp, err := client.Post(baseURL+"/api/generate", "application/json", bytes.NewReader(body))
 	if err != nil {
-		return "", &OllamaError{
+		return nil, &OllamaError{
 			Host:      baseURL,
 			Model:     model,
 			Message:   fmt.Sprintf("connection failed: %v", err),
@@ -1143,7 +1169,7 @@ func callOllama(baseURL, model, prompt string) (string, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		return "", &OllamaError{
+		return nil, &OllamaError{
 			Host:       baseURL,
 			Model:      model,
 			StatusCode: resp.StatusCode,
@@ -1152,19 +1178,60 @@ func callOllama(baseURL, model, prompt string) (string, error) {
 		}
 	}
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
+	// Stream and accumulate response
+	scanner := bufio.NewScanner(resp.Body)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+
+	var fullResponse strings.Builder
+	var lastChunk struct {
+		Response           string `json:"response"`
+		Done               bool   `json:"done"`
+		EvalCount          int    `json:"eval_count"`
+		EvalDuration       int64  `json:"eval_duration"`
+		PromptEvalCount    int    `json:"prompt_eval_count"`
 	}
 
-	var result struct {
-		Response string `json:"response"`
-	}
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return "", err
+	for scanner.Scan() {
+		var chunk struct {
+			Response           string `json:"response"`
+			Done               bool   `json:"done"`
+			EvalCount          int    `json:"eval_count"`
+			EvalDuration       int64  `json:"eval_duration"`
+			PromptEvalCount    int    `json:"prompt_eval_count"`
+		}
+		if err := json.Unmarshal(scanner.Bytes(), &chunk); err != nil {
+			continue // Skip malformed lines
+		}
+		fullResponse.WriteString(chunk.Response)
+		if chunk.Done {
+			lastChunk = chunk
+		}
 	}
 
-	return result.Response, nil
+	if err := scanner.Err(); err != nil {
+		return nil, &OllamaError{
+			Host:      baseURL,
+			Model:     model,
+			Message:   fmt.Sprintf("stream read error: %v", err),
+			Retryable: true,
+		}
+	}
+
+	duration := time.Since(start)
+	result := &OllamaResult{
+		Response:     fullResponse.String(),
+		Tokens:       lastChunk.EvalCount,
+		Duration:     duration,
+		PromptTokens: lastChunk.PromptEvalCount,
+	}
+
+	// Calculate tokens per second
+	if lastChunk.EvalDuration > 0 {
+		result.TokPerSec = float64(lastChunk.EvalCount) / (float64(lastChunk.EvalDuration) / 1e9)
+	}
+
+	return result, nil
 }
 
 // FallbackResult contains the result of a fallback call chain
@@ -1174,6 +1241,11 @@ type FallbackResult struct {
 	Model      string
 	Attempts   int
 	HostsTried []string
+	// Stats from the successful call
+	Tokens       int
+	TokPerSec    float64
+	Duration     time.Duration
+	PromptTokens int
 }
 
 // callOllamaWithFallback tries multiple hosts in order, with retry logic
@@ -1243,14 +1315,18 @@ func callOllamaWithFallback(hostMgr *hosts.Manager, model, prompt string, prefer
 		// Try up to 2 times per host (initial + 1 retry)
 		for retry := 0; retry < 2; retry++ {
 			attempts++
-			response, err := callOllama(st.Host.URL, model, prompt)
+			result, err := callOllamaWithStats(st.Host.URL, model, prompt)
 			if err == nil {
 				return &FallbackResult{
-					Response:   response,
-					Host:       st.Host.Name,
-					Model:      model,
-					Attempts:   attempts,
-					HostsTried: hostsTried,
+					Response:     result.Response,
+					Host:         st.Host.Name,
+					Model:        model,
+					Attempts:     attempts,
+					HostsTried:   hostsTried,
+					Tokens:       result.Tokens,
+					TokPerSec:    result.TokPerSec,
+					Duration:     result.Duration,
+					PromptTokens: result.PromptTokens,
 				}, nil
 			}
 
