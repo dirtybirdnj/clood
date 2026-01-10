@@ -11,7 +11,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -22,9 +21,7 @@ import (
 	"github.com/dirtybirdnj/clood/internal/config"
 	"github.com/dirtybirdnj/clood/internal/git"
 	"github.com/dirtybirdnj/clood/internal/hosts"
-	"github.com/dirtybirdnj/clood/internal/inception"
 	"github.com/dirtybirdnj/clood/internal/ollama"
-	"github.com/dirtybirdnj/clood/internal/memory"
 	"github.com/dirtybirdnj/clood/internal/sqlite"
 	"github.com/dirtybirdnj/clood/internal/system"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -101,21 +98,11 @@ func (s *Server) registerTools() {
 	// The main event: ask local models
 	s.mcpServer.AddTool(s.askTool(), s.askHandler)
 
-	// INCEPTION: LLM-to-LLM sub-queries
-	s.mcpServer.AddTool(s.inceptionTool(), s.inceptionHandler)
-
-	// MEMORY: Persistent knowledge storage
-	s.mcpServer.AddTool(s.memoryStoreTool(), s.memoryStoreHandler)
-	s.mcpServer.AddTool(s.memoryRecallTool(), s.memoryRecallHandler)
-	s.mcpServer.AddTool(s.memoryListTool(), s.memoryListHandler)
-	s.mcpServer.AddTool(s.memoryForgetTool(), s.memoryForgetHandler)
-
 	// GIT: Enhanced git operations
 	s.mcpServer.AddTool(s.gitDiffTool(), s.gitDiffHandler)
-	s.mcpServer.AddTool(s.gitBlameTool(), s.gitBlameHandler)
 	s.mcpServer.AddTool(s.gitLogTool(), s.gitLogHandler)
 	s.mcpServer.AddTool(s.gitBranchesTool(), s.gitBranchesHandler)
-	s.mcpServer.AddTool(s.gitStashTool(), s.gitStashHandler)
+	s.mcpServer.AddTool(s.gitCreatePRTool(), s.gitCreatePRHandler)
 
 	// SQLITE: Database query tools
 	s.mcpServer.AddTool(s.sqliteQueryTool(), s.sqliteQueryHandler)
@@ -125,15 +112,6 @@ func (s *Server) registerTools() {
 	// CLIPBOARD: System clipboard access
 	s.mcpServer.AddTool(s.clipboardReadTool(), s.clipboardReadHandler)
 	s.mcpServer.AddTool(s.clipboardWriteTool(), s.clipboardWriteHandler)
-
-	// CONDUCTOR: Remote orchestrator on ubuntu25
-	s.mcpServer.AddTool(s.conductorTool(), s.conductorHandler)
-
-	// THUNDERDOME: Parallel multi-host catfights
-	s.mcpServer.AddTool(s.thunderdomeTool(), s.thunderdomeHandler)
-
-	// WHOAMI: Garden identity
-	s.mcpServer.AddTool(s.whoamiTool(), s.whoamiHandler)
 
 	// DELEGATE: Task delegation to remote hosts
 	s.mcpServer.AddTool(s.delegateTool(), s.delegateHandler)
@@ -238,28 +216,6 @@ Cost: Local LLM tokens only, ZERO cloud API calls, ZERO internet.`),
 		mcp.WithString("model", mcp.Description("Specific model to use (default: routes to best available)")),
 		mcp.WithString("host", mcp.Description("Specific host to use (default: fastest responding)")),
 		mcp.WithBoolean("dialogue", mcp.Description("If true, model will ask clarifying questions before implementing")),
-	)
-}
-
-func (s *Server) inceptionTool() mcp.Tool {
-	return mcp.NewTool("clood_inception",
-		mcp.WithDescription(`🌀 INCEPTION: Query an expert LLM model mid-stream.
-
-Use this when you need specialized knowledge from a different model:
-- science: Physics, chemistry, biology facts
-- math: Calculations, proofs, formulas
-- code: Code review, programming patterns
-- creative: Brainstorming, writing
-
-Example: You're writing simulation code and need orbital velocity.
-Call: clood_inception expert="science" query="What is ISS orbital velocity?"
-Response: "7.66 km/s at 408km altitude"
-Continue your work with the expert knowledge.
-
-This is ONE-LEVEL deep - the expert cannot call other experts.
-Cost: Local LLM tokens only, ZERO cloud API.`),
-		mcp.WithString("query", mcp.Required(), mcp.Description("The question for the expert model")),
-		mcp.WithString("expert", mcp.Required(), mcp.Description("Expert type: science, math, code, creative, or model name")),
 	)
 }
 
@@ -619,51 +575,6 @@ func (s *Server) askHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.
 	// Return with metadata
 	result := fmt.Sprintf("🐱 %s @ %s\n\n%s", targetModel, targetHost.Name, response)
 	return mcp.NewToolResultText(result), nil
-}
-
-func (s *Server) inceptionHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-
-	query, ok := args["query"].(string)
-	if !ok || query == "" {
-		return mcp.NewToolResultError("query is required"), nil
-	}
-
-	expert, ok := args["expert"].(string)
-	if !ok || expert == "" {
-		return mcp.NewToolResultError("expert is required (science, math, code, creative, or model name)"), nil
-	}
-
-	// Create inception handler
-	handler := inception.NewHandler()
-
-	// Build sub-query
-	subQuery := inception.SubQuery{
-		Model: expert,
-		Query: query,
-	}
-
-	// Execute synchronously
-	result := handler.ExecuteSubQuery(ctx, subQuery)
-
-	if result.Error != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Inception failed: %v", result.Error)), nil
-	}
-
-	// Format response
-	response := fmt.Sprintf("🌀 INCEPTION RESPONSE [%s → %s]\n"+
-		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"+
-		"Query: %s\n"+
-		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"+
-		"%s\n"+
-		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"+
-		"Duration: %.2fs",
-		expert, handler.Registry[expert],
-		query,
-		result.Response,
-		result.Duration.Seconds())
-
-	return mcp.NewToolResultText(response), nil
 }
 
 // =============================================================================
@@ -1381,230 +1292,6 @@ func callOllama(baseURL, model, prompt string) (string, error) {
 }
 
 // =============================================================================
-// MEMORY TOOLS - Persistent knowledge storage
-// =============================================================================
-
-func (s *Server) memoryStoreTool() mcp.Tool {
-	return mcp.NewTool("clood_memory_store",
-		mcp.WithDescription(`🧠 Store a fact or note in persistent memory.
-
-Memories survive across sessions. Use for:
-- Project decisions and context
-- User preferences
-- Architectural notes
-- Things to remember for later
-
-Cost: ZERO network, ZERO tokens (local JSON storage).`),
-		mcp.WithString("content", mcp.Required(), mcp.Description("The fact or note to remember")),
-		mcp.WithString("tags", mcp.Description("Comma-separated tags for organization (e.g., 'project,decision')")),
-		mcp.WithString("context", mcp.Description("Optional context (e.g., current project or file)")),
-	)
-}
-
-func (s *Server) memoryRecallTool() mcp.Tool {
-	return mcp.NewTool("clood_memory_recall",
-		mcp.WithDescription(`🔎 Search memories by keyword or tag.
-
-Find previously stored facts and notes.
-Returns matching memories sorted by most recent.
-
-Cost: ZERO network, ZERO tokens, instant.`),
-		mcp.WithString("query", mcp.Description("Keyword to search in content")),
-		mcp.WithString("tag", mcp.Description("Filter by specific tag")),
-		mcp.WithNumber("limit", mcp.Description("Max results to return (default: 10)")),
-	)
-}
-
-func (s *Server) memoryListTool() mcp.Tool {
-	return mcp.NewTool("clood_memory_list",
-		mcp.WithDescription(`📋 List recent memories or browse by tag.
-
-Shows what's been remembered. Use to:
-- Review stored knowledge
-- See all tags in use
-- Find specific memories to update or forget
-
-Cost: ZERO network, ZERO tokens, instant.`),
-		mcp.WithString("tag", mcp.Description("Filter by specific tag")),
-		mcp.WithNumber("limit", mcp.Description("Max results to return (default: 20)")),
-	)
-}
-
-func (s *Server) memoryForgetTool() mcp.Tool {
-	return mcp.NewTool("clood_memory_forget",
-		mcp.WithDescription(`🗑️ Remove a memory by ID.
-
-Permanently delete a stored memory.
-Use clood_memory_list to find memory IDs.
-
-Cost: ZERO network, ZERO tokens, instant.`),
-		mcp.WithString("id", mcp.Required(), mcp.Description("The memory ID to forget")),
-	)
-}
-
-// Memory handlers
-
-func (s *Server) memoryStoreHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-
-	content, ok := args["content"].(string)
-	if !ok || content == "" {
-		return mcp.NewToolResultError("content is required"), nil
-	}
-
-	// Parse tags
-	var tags []string
-	if tagsStr, ok := args["tags"].(string); ok && tagsStr != "" {
-		for _, tag := range strings.Split(tagsStr, ",") {
-			tag = strings.TrimSpace(tag)
-			if tag != "" {
-				tags = append(tags, tag)
-			}
-		}
-	}
-
-	context, _ := args["context"].(string)
-
-	// Store the memory
-	store, err := memory.NewStore()
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to open memory store: %v", err)), nil
-	}
-
-	mem, err := store.Store(content, tags, context)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to store memory: %v", err)), nil
-	}
-
-	result := map[string]interface{}{
-		"status":  "stored",
-		"id":      mem.ID,
-		"content": mem.Content,
-		"tags":    mem.Tags,
-		"total":   store.Count(),
-	}
-
-	data, _ := json.MarshalIndent(result, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
-}
-
-func (s *Server) memoryRecallHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-
-	query, _ := args["query"].(string)
-	tag, _ := args["tag"].(string)
-
-	limit := 10
-	if l, ok := args["limit"].(float64); ok {
-		limit = int(l)
-	}
-
-	store, err := memory.NewStore()
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to open memory store: %v", err)), nil
-	}
-
-	memories := store.Recall(query, tag, limit)
-
-	type memResult struct {
-		ID        string   `json:"id"`
-		Content   string   `json:"content"`
-		Tags      []string `json:"tags,omitempty"`
-		Context   string   `json:"context,omitempty"`
-		CreatedAt string   `json:"created_at"`
-	}
-
-	var results []memResult
-	for _, m := range memories {
-		results = append(results, memResult{
-			ID:        m.ID,
-			Content:   m.Content,
-			Tags:      m.Tags,
-			Context:   m.Context,
-			CreatedAt: m.CreatedAt.Format(time.RFC3339),
-		})
-	}
-
-	data, _ := json.MarshalIndent(results, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
-}
-
-func (s *Server) memoryListHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-
-	tag, _ := args["tag"].(string)
-
-	limit := 20
-	if l, ok := args["limit"].(float64); ok {
-		limit = int(l)
-	}
-
-	store, err := memory.NewStore()
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to open memory store: %v", err)), nil
-	}
-
-	memories := store.List(tag, limit)
-	allTags := store.Tags()
-
-	type memResult struct {
-		ID        string   `json:"id"`
-		Content   string   `json:"content"`
-		Tags      []string `json:"tags,omitempty"`
-		Context   string   `json:"context,omitempty"`
-		CreatedAt string   `json:"created_at"`
-	}
-
-	var results []memResult
-	for _, m := range memories {
-		results = append(results, memResult{
-			ID:        m.ID,
-			Content:   m.Content,
-			Tags:      m.Tags,
-			Context:   m.Context,
-			CreatedAt: m.CreatedAt.Format(time.RFC3339),
-		})
-	}
-
-	response := map[string]interface{}{
-		"memories":   results,
-		"count":      len(results),
-		"total":      store.Count(),
-		"all_tags":   allTags,
-	}
-
-	data, _ := json.MarshalIndent(response, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
-}
-
-func (s *Server) memoryForgetHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-
-	id, ok := args["id"].(string)
-	if !ok || id == "" {
-		return mcp.NewToolResultError("id is required"), nil
-	}
-
-	store, err := memory.NewStore()
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to open memory store: %v", err)), nil
-	}
-
-	if err := store.Forget(id); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to forget: %v", err)), nil
-	}
-
-	result := map[string]interface{}{
-		"status":    "forgotten",
-		"id":        id,
-		"remaining": store.Count(),
-	}
-
-	data, _ := json.MarshalIndent(result, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
-}
-
-// =============================================================================
 // GIT TOOLS - Enhanced git operations
 // =============================================================================
 
@@ -1621,21 +1308,6 @@ Cost: ZERO network, ZERO tokens, instant.`),
 		mcp.WithString("commit", mcp.Description("Compare against specific commit (e.g., HEAD~1)")),
 		mcp.WithBoolean("staged", mcp.Description("Show only staged changes")),
 		mcp.WithBoolean("stat", mcp.Description("Show summary stats instead of full diff")),
-	)
-}
-
-func (s *Server) gitBlameTool() mcp.Tool {
-	return mcp.NewTool("clood_git_blame",
-		mcp.WithDescription(`🔍 Annotate file with commit info per line.
-
-Shows who last modified each line, when, and in which commit.
-Useful for understanding code history and ownership.
-
-Cost: ZERO network, ZERO tokens, instant.`),
-		mcp.WithString("file", mcp.Required(), mcp.Description("File to blame")),
-		mcp.WithString("path", mcp.Description("Repository path (default: current directory)")),
-		mcp.WithNumber("start_line", mcp.Description("Start line number")),
-		mcp.WithNumber("end_line", mcp.Description("End line number")),
 	)
 }
 
@@ -1669,16 +1341,24 @@ Cost: ZERO network, ZERO tokens, instant.`),
 	)
 }
 
-func (s *Server) gitStashTool() mcp.Tool {
-	return mcp.NewTool("clood_git_stash",
-		mcp.WithDescription(`📦 List or show stash entries.
+func (s *Server) gitCreatePRTool() mcp.Tool {
+	return mcp.NewTool("clood_git_create_pr",
+		mcp.WithDescription(`🚀 Create a GitHub Pull Request.
 
-View stashed changes without applying them.
-Use index to show specific stash content.
+Creates a PR from the current branch to the target base branch.
+Requires gh CLI to be installed and authenticated.
 
-Cost: ZERO network, ZERO tokens, instant.`),
+Use this after committing and pushing your changes.
+The coder model can generate the title and body content,
+then the tool-use model can execute this to create the PR.
+
+Cost: One GitHub API call via gh CLI.`),
+		mcp.WithString("title", mcp.Required(), mcp.Description("PR title (short, descriptive)")),
+		mcp.WithString("body", mcp.Description("PR description (markdown supported, explain what and why)")),
+		mcp.WithString("base", mcp.Description("Base branch to merge into (default: main)")),
+		mcp.WithString("head", mcp.Description("Head branch (default: current branch)")),
+		mcp.WithBoolean("draft", mcp.Description("Create as draft PR (default: false)")),
 		mcp.WithString("path", mcp.Description("Repository path (default: current directory)")),
-		mcp.WithNumber("show", mcp.Description("Show diff for stash at this index")),
 	)
 }
 
@@ -1719,40 +1399,6 @@ func (s *Server) gitDiffHandler(ctx context.Context, req mcp.CallToolRequest) (*
 	}
 
 	return mcp.NewToolResultText(diff), nil
-}
-
-func (s *Server) gitBlameHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-
-	file, ok := args["file"].(string)
-	if !ok || file == "" {
-		return mcp.NewToolResultError("file is required"), nil
-	}
-
-	path := "."
-	if p, ok := args["path"].(string); ok && p != "" {
-		path = p
-	}
-
-	opts := git.BlameOptions{
-		Path: path,
-		File: file,
-	}
-
-	if start, ok := args["start_line"].(float64); ok {
-		opts.StartLine = int(start)
-	}
-	if end, ok := args["end_line"].(float64); ok {
-		opts.EndLine = int(end)
-	}
-
-	lines, err := git.Blame(opts)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("git blame failed: %v", err)), nil
-	}
-
-	data, _ := json.MarshalIndent(lines, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
 }
 
 func (s *Server) gitLogHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -1814,34 +1460,40 @@ func (s *Server) gitBranchesHandler(ctx context.Context, req mcp.CallToolRequest
 	return mcp.NewToolResultText(string(data)), nil
 }
 
-func (s *Server) gitStashHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func (s *Server) gitCreatePRHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
 
-	path := "."
-	if p, ok := args["path"].(string); ok && p != "" {
-		path = p
+	title, ok := args["title"].(string)
+	if !ok || title == "" {
+		return mcp.NewToolResultError("title is required"), nil
 	}
 
-	// If "show" is specified, show that stash entry's diff
-	if showIdx, ok := args["show"].(float64); ok {
-		diff, err := git.StashShow(path, int(showIdx))
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("git stash show failed: %v", err)), nil
-		}
-		return mcp.NewToolResultText(diff), nil
+	opts := git.CreatePROptions{
+		Title: title,
 	}
 
-	// Otherwise list all stashes
-	entries, err := git.Stash(path)
+	if path, ok := args["path"].(string); ok && path != "" {
+		opts.Path = path
+	}
+	if body, ok := args["body"].(string); ok {
+		opts.Body = body
+	}
+	if base, ok := args["base"].(string); ok && base != "" {
+		opts.Base = base
+	}
+	if head, ok := args["head"].(string); ok && head != "" {
+		opts.Head = head
+	}
+	if draft, ok := args["draft"].(bool); ok {
+		opts.Draft = draft
+	}
+
+	result, err := git.CreatePR(opts)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("git stash list failed: %v", err)), nil
+		return mcp.NewToolResultError(fmt.Sprintf("create PR failed: %v", err)), nil
 	}
 
-	if len(entries) == 0 {
-		return mcp.NewToolResultText("No stash entries"), nil
-	}
-
-	data, _ := json.MarshalIndent(entries, "", "  ")
+	data, _ := json.MarshalIndent(result, "", "  ")
 	return mcp.NewToolResultText(string(data)), nil
 }
 
@@ -2017,322 +1669,6 @@ func (s *Server) clipboardWriteHandler(ctx context.Context, req mcp.CallToolRequ
 	}
 
 	return mcp.NewToolResultText(fmt.Sprintf("Copied %d characters to clipboard", len(text))), nil
-}
-
-// =============================================================================
-// CONDUCTOR TOOL - Remote orchestrator on ubuntu25
-// =============================================================================
-
-func (s *Server) conductorTool() mcp.Tool {
-	return mcp.NewTool("clood_conductor",
-		mcp.WithDescription(`🎭 Invoke the Conductor agent on ubuntu25 to create files.
-
-The Conductor is an orchestrator that:
-- Runs on ubuntu25 (the server garden)
-- Uses llama3-groq-tool-use:8b for task planning
-- Delegates heavy coding to mac-laptop's 32B model
-- Can write files to /data/repos/workspace/
-
-Use this to CREATE FILES on the server without manual SSH.
-
-Example: clood_conductor task="Create a todo list HTML file"
-
-Cost: Uses local LLMs (ubuntu25 + mac-laptop), ZERO cloud API.`),
-		mcp.WithString("task", mcp.Required(), mcp.Description("The task for the conductor to perform (e.g., 'Create a todo list HTML file')")),
-		mcp.WithString("conductor_model", mcp.Description("Conductor model (default: llama3-groq-tool-use:8b)")),
-		mcp.WithNumber("max_iterations", mcp.Description("Max agent iterations (default: 10)")),
-	)
-}
-
-func (s *Server) conductorHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-
-	task, ok := args["task"].(string)
-	if !ok || task == "" {
-		return mcp.NewToolResultError("task is required"), nil
-	}
-
-	conductorModel := "llama3-groq-tool-use:8b"
-	if cm, ok := args["conductor_model"].(string); ok && cm != "" {
-		conductorModel = cm
-	}
-
-	maxIterations := 10
-	if mi, ok := args["max_iterations"].(float64); ok {
-		maxIterations = int(mi)
-	}
-
-	// Build SSH command to run orchestrator on ubuntu25
-	sshCmd := fmt.Sprintf(
-		"cd /data/repos/workspace && python3 orchestrator.py --conductor %s --max-iterations %d %q",
-		conductorModel,
-		maxIterations,
-		task,
-	)
-
-	// Execute via SSH
-	cmd := exec.CommandContext(ctx, "ssh", "ubuntu25", sshCmd)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		// Still return output even if command failed (might have partial results)
-		if len(output) > 0 {
-			return mcp.NewToolResultText(fmt.Sprintf("⚠️ Conductor finished with error: %v\n\nOutput:\n%s", err, string(output))), nil
-		}
-		return mcp.NewToolResultError(fmt.Sprintf("SSH to ubuntu25 failed: %v", err)), nil
-	}
-
-	// Check workspace for created files
-	lsCmd := exec.CommandContext(ctx, "ssh", "ubuntu25", "ls -la /data/repos/workspace/")
-	lsOutput, _ := lsCmd.CombinedOutput()
-
-	result := fmt.Sprintf("🎭 CONDUCTOR RESULT\n"+
-		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"+
-		"Task: %s\n"+
-		"Conductor: %s\n"+
-		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"+
-		"%s\n\n"+
-		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"+
-		"📁 Workspace contents:\n%s",
-		task,
-		conductorModel,
-		string(output),
-		string(lsOutput),
-	)
-
-	return mcp.NewToolResultText(result), nil
-}
-
-// =============================================================================
-// THUNDERDOME TOOL - Parallel multi-host catfights
-// =============================================================================
-
-func (s *Server) thunderdomeTool() mcp.Tool {
-	return mcp.NewTool("clood_thunderdome",
-		mcp.WithDescription(`⚔️ Run parallel catfights across ALL Ollama hosts!
-
-THUNDERDOME auto-discovers online hosts and runs the same prompt
-against all available models IN PARALLEL, then crowns a champion.
-
-Use this for:
-- Quick model comparisons across your entire server garden
-- Finding the fastest model for a specific task
-- Benchmarking before delegating heavy work
-
-Returns: Unified leaderboard with model@host rankings and champion.
-Cost: Uses local Ollama hosts, ZERO cloud API.`),
-		mcp.WithString("prompt", mcp.Required(), mcp.Description("The prompt to test across all hosts")),
-		mcp.WithString("hosts", mcp.Description("Comma-separated host names (default: all online hosts)")),
-		mcp.WithBoolean("fast", mcp.Description("Fast mode: only top 3 models per host")),
-		mcp.WithNumber("top", mcp.Description("Show only top N results (default: 10)")),
-	)
-}
-
-func (s *Server) thunderdomeHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-
-	prompt, ok := args["prompt"].(string)
-	if !ok || prompt == "" {
-		return mcp.NewToolResultError("prompt is required"), nil
-	}
-
-	// Build command args
-	cmdArgs := []string{"thunderdome", "--json"}
-
-	if hostFilter, ok := args["hosts"].(string); ok && hostFilter != "" {
-		cmdArgs = append(cmdArgs, "--hosts", hostFilter)
-	}
-
-	if fast, ok := args["fast"].(bool); ok && fast {
-		cmdArgs = append(cmdArgs, "--fast")
-	}
-
-	topN := 10
-	if t, ok := args["top"].(float64); ok && t > 0 {
-		topN = int(t)
-	}
-	cmdArgs = append(cmdArgs, "--top", fmt.Sprintf("%d", topN))
-
-	cmdArgs = append(cmdArgs, prompt)
-
-	// Get executable path (same as current process)
-	executable, err := os.Executable()
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to get executable: %v", err)), nil
-	}
-
-	// Run thunderdome
-	cmd := exec.CommandContext(ctx, executable, cmdArgs...)
-	output, err := cmd.Output()
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Thunderdome failed: %v", err)), nil
-	}
-
-	// Parse JSON output
-	var thunderResult struct {
-		Hosts    []string `json:"hosts"`
-		Champion *struct {
-			ModelHost   string  `json:"model_host"`
-			DurationSec float64 `json:"duration_sec"`
-			Tokens      int     `json:"tokens"`
-			TokSec      float64 `json:"tokens_per_sec"`
-		} `json:"champion"`
-		Summary struct {
-			OnlineHosts    int     `json:"online_hosts"`
-			TotalRuns      int     `json:"total_runs"`
-			Successful     int     `json:"successful"`
-			ParallelFactor float64 `json:"parallel_factor"`
-		} `json:"summary"`
-		Results []struct {
-			ModelHost   string  `json:"model_host"`
-			DurationSec float64 `json:"duration_sec"`
-			Tokens      int     `json:"tokens"`
-			TokSec      float64 `json:"tokens_per_sec"`
-			Error       string  `json:"error,omitempty"`
-		} `json:"results"`
-	}
-
-	if err := json.Unmarshal(output, &thunderResult); err != nil {
-		// Return raw output if JSON parse fails
-		return mcp.NewToolResultText(string(output)), nil
-	}
-
-	// Format nice summary
-	var sb strings.Builder
-	sb.WriteString("⚔️ THUNDERDOME RESULTS\n")
-	sb.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
-
-	if thunderResult.Champion != nil {
-		sb.WriteString(fmt.Sprintf("🏆 CHAMPION: %s\n", thunderResult.Champion.ModelHost))
-		sb.WriteString(fmt.Sprintf("   Time: %.1fs | Tokens: %d | Speed: %.1f tok/s\n\n",
-			thunderResult.Champion.DurationSec, thunderResult.Champion.Tokens, thunderResult.Champion.TokSec))
-	}
-
-	sb.WriteString("📊 LEADERBOARD:\n")
-	for i, r := range thunderResult.Results {
-		if i >= topN {
-			break
-		}
-		if r.Error != "" {
-			sb.WriteString(fmt.Sprintf("%2d. %-30s ERROR\n", i+1, r.ModelHost))
-		} else {
-			sb.WriteString(fmt.Sprintf("%2d. %-30s %6.1fs  %5d tok  %6.1f tok/s\n",
-				i+1, r.ModelHost, r.DurationSec, r.Tokens, r.TokSec))
-		}
-	}
-
-	sb.WriteString(fmt.Sprintf("\n📈 Summary: %d runs across %d hosts (%.1fx parallel speedup)\n",
-		thunderResult.Summary.TotalRuns, thunderResult.Summary.OnlineHosts, thunderResult.Summary.ParallelFactor))
-
-	return mcp.NewToolResultText(sb.String()), nil
-}
-
-// =============================================================================
-// WHOAMI TOOL - Garden identity
-// =============================================================================
-
-func (s *Server) whoamiTool() mcp.Tool {
-	return mcp.NewTool("clood_whoami",
-		mcp.WithDescription(`🌿 Identify which machine you're on in the server garden.
-
-Returns:
-- Hostname and lore name (e.g., "Iron Keep")
-- Role (commander/sentinel/worker)
-- Local Ollama status and model count
-- Sibling hosts and their status
-
-Use this to understand your current context in a multi-machine setup.
-Cost: ZERO network for local info, fast pings for siblings.`),
-		mcp.WithBoolean("verbose", mcp.Description("Show detailed hardware and model list")),
-	)
-}
-
-func (s *Server) whoamiHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-	verbose := false
-	if v, ok := args["verbose"].(bool); ok {
-		verbose = v
-	}
-
-	// Get hostname
-	hostname, _ := os.Hostname()
-	hostname = strings.ToLower(strings.Split(hostname, ".")[0])
-
-	// Lore names map
-	loreNames := map[string]struct {
-		Name   string
-		Spirit string
-	}{
-		"ubuntu25":         {"Iron Keep", "Heavy lifting, background processing, the patient work."},
-		"mac-mini":         {"Sentinel Tower", "Always watching, always ready."},
-		"macbook-air":      {"Jade Palace", "Mobile command, agile decisions."},
-		"mgilberts-air":    {"Jade Palace", "Mobile command, agile decisions."},
-		"mgilberts-laptop": {"Jade Palace", "Mobile command, agile decisions."},
-	}
-
-	loreName := hostname
-	spirit := "A node in the garden."
-	if lore, ok := loreNames[hostname]; ok {
-		loreName = lore.Name
-		spirit = lore.Spirit
-	}
-
-	// Determine role
-	role := "node"
-	switch {
-	case strings.Contains(hostname, "ubuntu"):
-		role = "worker"
-	case strings.Contains(hostname, "mini"):
-		role = "sentinel"
-	case strings.Contains(hostname, "air") || strings.Contains(hostname, "laptop"):
-		role = "commander"
-	}
-
-	// Check local Ollama
-	client := ollama.NewClient("http://localhost:11434", 10e9)
-	models, err := client.ListModels()
-	ollamaOnline := err == nil
-	modelCount := len(models)
-
-	// Check siblings
-	mgr := hosts.NewManager()
-	mgr.AddHosts(hosts.DefaultHosts())
-	statuses := mgr.CheckAllHosts()
-
-	var whoamiSb strings.Builder
-	whoamiSb.WriteString("🌿 GARDEN IDENTITY\n")
-	whoamiSb.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
-	whoamiSb.WriteString(fmt.Sprintf("Machine:  %s (%s)\n", loreName, hostname))
-	whoamiSb.WriteString(fmt.Sprintf("Role:     %s\n", role))
-
-	if ollamaOnline {
-		whoamiSb.WriteString(fmt.Sprintf("Ollama:   ● Online (%d models)\n", modelCount))
-	} else {
-		whoamiSb.WriteString("Ollama:   ○ Offline\n")
-	}
-
-	// Siblings
-	whoamiSb.WriteString("\nSiblings:\n")
-	for _, s := range statuses {
-		if s.Host.Name == "localhost" || strings.EqualFold(s.Host.Name, hostname) {
-			continue
-		}
-		if s.Online {
-			whoamiSb.WriteString(fmt.Sprintf("  ● %s (%d models)\n", s.Host.Name, len(s.Models)))
-		} else {
-			whoamiSb.WriteString(fmt.Sprintf("  ○ %s (offline)\n", s.Host.Name))
-		}
-	}
-
-	whoamiSb.WriteString(fmt.Sprintf("\nSpirit:   \"%s\"\n", spirit))
-
-	if verbose && ollamaOnline {
-		whoamiSb.WriteString("\nModels:\n")
-		for _, m := range models {
-			whoamiSb.WriteString(fmt.Sprintf("  • %s\n", m.Name))
-		}
-	}
-
-	return mcp.NewToolResultText(whoamiSb.String()), nil
 }
 
 // =============================================================================

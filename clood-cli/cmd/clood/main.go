@@ -106,7 +106,6 @@ func main() {
 	// ═══════════════════════════════════════════════════════════════
 	addWithGroup(rootCmd, commands.CatfightCmd(), GroupCompare)
 	addWithGroup(rootCmd, commands.CatfightLiveCmd(), GroupCompare)
-	addWithGroup(rootCmd, commands.ThunderdomeCmd(), GroupCompare)
 	addWithGroup(rootCmd, commands.TriageCmd(), GroupCompare)
 	addWithGroup(rootCmd, commands.WatchCmd(), GroupCompare)
 	addWithGroup(rootCmd, commands.BenchCmd(), GroupCompare)
@@ -170,7 +169,6 @@ func main() {
 	addWithGroup(rootCmd, commands.ATCCmd(), GroupExperimental)
 	addWithGroup(rootCmd, commands.BonsaiCmd(), GroupExperimental)
 	addWithGroup(rootCmd, commands.FlyingCatsCmd(), GroupExperimental)
-	addWithGroup(rootCmd, commands.InceptionCmd(), GroupExperimental)
 	addWithGroup(rootCmd, commands.SnakewayProtoCmd(), GroupExperimental)
 	addWithGroup(rootCmd, commands.OutputMapCmd(), GroupExperimental)
 
