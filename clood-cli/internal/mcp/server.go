@@ -81,9 +81,7 @@ func (s *Server) registerTools() {
 
 	// Infrastructure tools
 	s.mcpServer.AddTool(s.hostsTool(), s.hostsHandler)
-	s.mcpServer.AddTool(s.modelsTool(), s.modelsHandler)
 	s.mcpServer.AddTool(s.systemTool(), s.systemHandler)
-	s.mcpServer.AddTool(s.healthTool(), s.healthHandler)
 
 	// LOCAL DISCOVERY TOOLS (0 network, 0 LLM tokens)
 	// These should be used BEFORE any network requests or LLM calls
@@ -92,7 +90,6 @@ func (s *Server) registerTools() {
 	s.mcpServer.AddTool(s.symbolsTool(), s.symbolsHandler)
 	s.mcpServer.AddTool(s.importsTool(), s.importsHandler)
 	s.mcpServer.AddTool(s.contextTool(), s.contextHandler)
-	s.mcpServer.AddTool(s.capabilitiesTool(), s.capabilitiesHandler)
 	s.mcpServer.AddTool(s.analyzeTool(), s.analyzeHandler)
 
 	// The main event: ask local models
@@ -107,14 +104,10 @@ func (s *Server) registerTools() {
 	// SQLITE: Database query tools
 	s.mcpServer.AddTool(s.sqliteQueryTool(), s.sqliteQueryHandler)
 	s.mcpServer.AddTool(s.sqliteSchemaTool(), s.sqliteSchemaHandler)
-	s.mcpServer.AddTool(s.sqliteTablesTool(), s.sqliteTablesHandler)
 
 	// CLIPBOARD: System clipboard access
 	s.mcpServer.AddTool(s.clipboardReadTool(), s.clipboardReadHandler)
 	s.mcpServer.AddTool(s.clipboardWriteTool(), s.clipboardWriteHandler)
-
-	// DELEGATE: Task delegation to remote hosts
-	s.mcpServer.AddTool(s.delegateTool(), s.delegateHandler)
 
 	// CATFIGHT: Single-host model comparison
 	s.mcpServer.AddTool(s.catfightTool(), s.catfightHandler)
@@ -170,16 +163,6 @@ Cost: Local network only (no internet), ZERO tokens.`),
 	)
 }
 
-func (s *Server) modelsTool() mcp.Tool {
-	return mcp.NewTool("clood_models",
-		mcp.WithDescription(`List available models across all Ollama hosts.
-
-Shows which hosts have each model. Use to pick the right model for your task.
-Cost: Local network only (no internet), ZERO tokens.`),
-		mcp.WithString("host", mcp.Description("Optional: filter to specific host")),
-	)
-}
-
 func (s *Server) systemTool() mcp.Tool {
 	return mcp.NewTool("clood_system",
 		mcp.WithDescription(`Display hardware info and model recommendations.
@@ -187,16 +170,6 @@ func (s *Server) systemTool() mcp.Tool {
 Shows CPU, memory, GPU, VRAM, and which models will fit.
 Use to understand local compute capacity.
 Cost: ZERO network, ZERO tokens, instant.`),
-	)
-}
-
-func (s *Server) healthTool() mcp.Tool {
-	return mcp.NewTool("clood_health",
-		mcp.WithDescription(`Full health check of all clood services.
-
-Checks hosts, models, config, and tier assignments.
-Use when things aren't working or at session start.
-Cost: Local network only (no internet), ZERO tokens.`),
 	)
 }
 
@@ -211,10 +184,17 @@ Routes to best available local model. Use for:
 - Explaining code patterns
 - Best practices questions
 
+Supports specialized roles for task-oriented queries:
+- reviewer: Code review specialist (bugs, security, improvements)
+- coder: Code generation specialist
+- analyst: Code analysis and explanation
+- documenter: Documentation specialist
+
 Cost: Local LLM tokens only, ZERO cloud API calls, ZERO internet.`),
 		mcp.WithString("prompt", mcp.Required(), mcp.Description("The prompt to send to the model")),
 		mcp.WithString("model", mcp.Description("Specific model to use (default: routes to best available)")),
 		mcp.WithString("host", mcp.Description("Specific host to use (default: fastest responding)")),
+		mcp.WithString("role", mcp.Description("Agent role: reviewer, coder, analyst, documenter. Applies specialized system prompt.")),
 		mcp.WithBoolean("dialogue", mcp.Description("If true, model will ask clarifying questions before implementing")),
 	)
 }
@@ -307,20 +287,6 @@ Cost: ZERO network, ZERO tokens, instant.`),
 	)
 }
 
-func (s *Server) capabilitiesTool() mcp.Tool {
-	return mcp.NewTool("clood_capabilities",
-		mcp.WithDescription(`📊 List what clood can do locally vs what requires network.
-
-Shows:
-- Available local discovery tools
-- Available Ollama tools
-- Whether Ollama is online
-
-Use to plan your approach: local tools first, network last.
-Cost: ZERO network, ZERO tokens, instant.`),
-	)
-}
-
 func (s *Server) analyzeTool() mcp.Tool {
 	return mcp.NewTool("clood_analyze",
 		mcp.WithDescription(`🔬 Run static analysis on Go codebase (like "clood bcbc").
@@ -388,41 +354,6 @@ func (s *Server) hostsHandler(ctx context.Context, req mcp.CallToolRequest) (*mc
 	return mcp.NewToolResultText(string(data)), nil
 }
 
-func (s *Server) modelsHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Reload config
-	cfg, _ := config.Load()
-	if cfg != nil {
-		s.hostMgr = hosts.NewManager()
-		s.hostMgr.AddHosts(cfg.Hosts)
-	}
-
-	// Check for host filter
-	args := req.GetArguments()
-	hostFilter, _ := args["host"].(string)
-
-	if hostFilter != "" {
-		host := s.hostMgr.GetHost(hostFilter)
-		if host == nil {
-			return mcp.NewToolResultError(fmt.Sprintf("Host not found: %s", hostFilter)), nil
-		}
-		status := s.hostMgr.CheckHost(host)
-		if !status.Online {
-			return mcp.NewToolResultError(fmt.Sprintf("Host offline: %s", hostFilter)), nil
-		}
-		var models []string
-		for _, m := range status.Models {
-			models = append(models, m.Name)
-		}
-		data, _ := json.MarshalIndent(models, "", "  ")
-		return mcp.NewToolResultText(string(data)), nil
-	}
-
-	// All models across all hosts
-	allModels := s.hostMgr.GetAllModels()
-	data, _ := json.MarshalIndent(allModels, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
-}
-
 func (s *Server) systemHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	hw, err := system.DetectHardware()
 	if err != nil {
@@ -430,52 +361,6 @@ func (s *Server) systemHandler(ctx context.Context, req mcp.CallToolRequest) (*m
 	}
 
 	data, _ := json.MarshalIndent(hw.JSON(), "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
-}
-
-func (s *Server) healthHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Reload config
-	cfg, err := config.Load()
-
-	health := map[string]interface{}{
-		"config_loaded": err == nil,
-	}
-
-	if cfg != nil {
-		s.hostMgr = hosts.NewManager()
-		s.hostMgr.AddHosts(cfg.Hosts)
-
-		statuses := s.hostMgr.CheckAllHosts()
-		online := 0
-		total := len(statuses)
-		var hostStatuses []map[string]interface{}
-
-		for _, st := range statuses {
-			hs := map[string]interface{}{
-				"name":   st.Host.Name,
-				"online": st.Online,
-			}
-			if st.Online {
-				online++
-				hs["latency_ms"] = st.Latency.Milliseconds()
-				hs["model_count"] = len(st.Models)
-			}
-			if st.Error != nil {
-				hs["error"] = st.Error.Error()
-			}
-			hostStatuses = append(hostStatuses, hs)
-		}
-
-		health["hosts"] = hostStatuses
-		health["hosts_online"] = online
-		health["hosts_total"] = total
-		health["tiers"] = map[string]string{
-			"fast": cfg.Tiers.Fast.Model,
-			"deep": cfg.Tiers.Deep.Model,
-		}
-	}
-
-	data, _ := json.MarshalIndent(health, "", "  ")
 	return mcp.NewToolResultText(string(data)), nil
 }
 
@@ -507,11 +392,34 @@ func (s *Server) askHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.
 	// Get model/host preferences
 	modelPref, _ := args["model"].(string)
 	hostPref, _ := args["host"].(string)
+	role, _ := args["role"].(string)
 	dialogue, _ := args["dialogue"].(bool)
 
-	// Add dialogue system prompt if requested
+	// Build system prompt based on role (from delegate functionality)
+	var systemPrompt string
+	switch role {
+	case "reviewer":
+		systemPrompt = "You are a code review specialist. Analyze code for bugs, security issues, and improvements. Be concise and actionable."
+	case "coder":
+		systemPrompt = "You are a code generation specialist. Write clean, efficient code. Include comments where helpful."
+	case "analyst":
+		systemPrompt = "You are a code analysis specialist. Explain code behavior, identify patterns, and provide insights."
+	case "documenter":
+		systemPrompt = "You are a documentation specialist. Write clear, helpful documentation for code and APIs."
+	}
+
+	// Add dialogue system prompt if requested (appends to role prompt)
 	if dialogue {
-		prompt = dialogueSystemPrompt + "\n\nUser request:\n" + prompt
+		if systemPrompt != "" {
+			systemPrompt += "\n\n" + dialogueSystemPrompt
+		} else {
+			systemPrompt = dialogueSystemPrompt
+		}
+	}
+
+	// Prepend system prompt to user prompt if set
+	if systemPrompt != "" {
+		prompt = systemPrompt + "\n\nUser request:\n" + prompt
 	}
 
 	// Reload config for latest host info
@@ -991,46 +899,6 @@ func (s *Server) contextHandler(ctx context.Context, req mcp.CallToolRequest) (*
 	}
 
 	return mcp.NewToolResultText(sb.String()), nil
-}
-
-func (s *Server) capabilitiesHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Check if Ollama is available
-	ollamaAvailable := false
-	cfg, _ := config.Load()
-	if cfg != nil {
-		mgr := hosts.NewManager()
-		mgr.AddHosts(cfg.Hosts)
-		statuses := mgr.CheckAllHosts()
-		for _, st := range statuses {
-			if st.Online {
-				ollamaAvailable = true
-				break
-			}
-		}
-	}
-
-	capabilities := map[string]interface{}{
-		"local_tools": []string{
-			"clood_grep - Search codebase with regex (0 network, 0 tokens)",
-			"clood_tree - Directory structure (0 network, 0 tokens)",
-			"clood_symbols - Extract code symbols (0 network, 0 tokens)",
-			"clood_imports - Dependency analysis (0 network, 0 tokens)",
-			"clood_context - Project summary (0 network, 0 tokens)",
-			"clood_system - Hardware detection (0 network, 0 tokens)",
-			"clood_analyze - Static analysis for Go projects (0 network, 0 tokens)",
-		},
-		"local_ollama_tools": []string{
-			"clood_ask - Query local LLM",
-			"clood_hosts - Check Ollama hosts",
-			"clood_models - List available models",
-			"clood_health - System health check",
-		},
-		"ollama_available": ollamaAvailable,
-		"recommendation":   "Use local_tools FIRST before any network requests. Use local_ollama_tools before cloud APIs.",
-	}
-
-	data, _ := json.MarshalIndent(capabilities, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
 }
 
 func (s *Server) analyzeHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -1516,26 +1384,14 @@ Cost: ZERO network, ZERO tokens, instant.`),
 
 func (s *Server) sqliteSchemaTool() mcp.Tool {
 	return mcp.NewTool("clood_sqlite_schema",
-		mcp.WithDescription(`📋 Show schema for a SQLite table.
+		mcp.WithDescription(`📋 Show schema for a SQLite database or table.
 
-Returns column names, types, constraints for a specific table.
-Use clood_sqlite_tables first to list available tables.
-
-Cost: ZERO network, ZERO tokens, instant.`),
-		mcp.WithString("database", mcp.Required(), mcp.Description("Path to the SQLite database file")),
-		mcp.WithString("table", mcp.Description("Table name (omit to show all tables)")),
-	)
-}
-
-func (s *Server) sqliteTablesTool() mcp.Tool {
-	return mcp.NewTool("clood_sqlite_tables",
-		mcp.WithDescription(`📊 List all tables in a SQLite database.
-
-Shows table names in the database.
-Use before clood_sqlite_schema or clood_sqlite_query.
+If table is specified: Returns column names, types, constraints for that table.
+If table is omitted: Lists all tables and their schemas in the database.
 
 Cost: ZERO network, ZERO tokens, instant.`),
 		mcp.WithString("database", mcp.Required(), mcp.Description("Path to the SQLite database file")),
+		mcp.WithString("table", mcp.Description("Table name (omit to show all tables and schemas)")),
 	)
 }
 
@@ -1590,27 +1446,6 @@ func (s *Server) sqliteSchemaHandler(ctx context.Context, req mcp.CallToolReques
 	}
 
 	data, _ := json.MarshalIndent(infos, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
-}
-
-func (s *Server) sqliteTablesHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-
-	dbPath, ok := args["database"].(string)
-	if !ok || dbPath == "" {
-		return mcp.NewToolResultError("database path is required"), nil
-	}
-
-	tables, err := sqlite.Tables(dbPath)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("tables failed: %v", err)), nil
-	}
-
-	if len(tables) == 0 {
-		return mcp.NewToolResultText("No tables found"), nil
-	}
-
-	data, _ := json.MarshalIndent(tables, "", "  ")
 	return mcp.NewToolResultText(string(data)), nil
 }
 
@@ -1669,148 +1504,6 @@ func (s *Server) clipboardWriteHandler(ctx context.Context, req mcp.CallToolRequ
 	}
 
 	return mcp.NewToolResultText(fmt.Sprintf("Copied %d characters to clipboard", len(text))), nil
-}
-
-// =============================================================================
-// DELEGATE: Task delegation to remote hosts
-// =============================================================================
-
-func (s *Server) delegateTool() mcp.Tool {
-	return mcp.NewTool("clood_delegate",
-		mcp.WithDescription(`🤖 Delegate a task to a remote LLM agent in the server garden.
-
-Unlike clood_ask which runs a raw prompt, delegate is task-oriented:
-- Routes to specific hosts by name
-- Supports agent roles (reviewer, coder, analyst, documenter)
-- Returns structured results with metadata
-
-Use this to distribute work across the server garden during Chimborazo experiments.
-
-Examples:
-- "Review this code for bugs" → delegate to reviewer agent
-- "Generate unit tests" → delegate to coder agent on ubuntu25
-- "Summarize this function" → delegate to analyst on mac-mini`),
-		mcp.WithString("task", mcp.Required(), mcp.Description("The task to delegate")),
-		mcp.WithString("host", mcp.Description("Target host (e.g., 'ubuntu25', 'mac-mini'). If not specified, uses best available.")),
-		mcp.WithString("agent", mcp.Description("Agent role: reviewer, coder, analyst, documenter. Each has specialized system prompts.")),
-		mcp.WithString("model", mcp.Description("Model to use (e.g., 'qwen2.5-coder:7b'). If not specified, uses agent default or tier config.")),
-		mcp.WithString("context", mcp.Description("Additional context to include with the task (e.g., code snippet, file content)")),
-	)
-}
-
-func (s *Server) delegateHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := req.GetArguments()
-	task, _ := args["task"].(string)
-	hostName, _ := args["host"].(string)
-	agentName, _ := args["agent"].(string)
-	model, _ := args["model"].(string)
-	contextStr, _ := args["context"].(string)
-
-	if task == "" {
-		return mcp.NewToolResultError("task is required"), nil
-	}
-
-	// Load config
-	cfg, err := config.Load()
-	if err != nil {
-		return mcp.NewToolResultError("Error loading config: " + err.Error()), nil
-	}
-
-	// Setup host manager
-	mgr := hosts.NewManager()
-	mgr.AddHosts(cfg.Hosts)
-
-	// Find host
-	var targetHost *hosts.Host
-	if hostName != "" {
-		targetHost = mgr.GetHost(hostName)
-		if targetHost == nil {
-			return mcp.NewToolResultError("Host not found: " + hostName), nil
-		}
-	} else {
-		best := mgr.GetBestHost()
-		if best == nil {
-			return mcp.NewToolResultError("No hosts available"), nil
-		}
-		targetHost = best.Host
-		hostName = targetHost.Name
-	}
-
-	status := mgr.CheckHost(targetHost)
-	if !status.Online {
-		return mcp.NewToolResultError("Host is offline: " + hostName), nil
-	}
-
-	// Get client
-	client := mgr.GetClient(hostName)
-	if client == nil {
-		return mcp.NewToolResultError("Could not get client for host: " + hostName), nil
-	}
-
-	// Build system prompt based on agent
-	var systemPrompt string
-	switch agentName {
-	case "reviewer":
-		systemPrompt = "You are a code review specialist. Analyze code for bugs, security issues, and improvements. Be concise and actionable."
-	case "coder":
-		systemPrompt = "You are a code generation specialist. Write clean, efficient code. Include comments where helpful."
-	case "analyst":
-		systemPrompt = "You are a code analysis specialist. Explain code behavior, identify patterns, and provide insights."
-	case "documenter":
-		systemPrompt = "You are a documentation specialist. Write clear, helpful documentation for code and APIs."
-	default:
-		systemPrompt = "You are a helpful AI assistant."
-	}
-
-	// Select model
-	if model == "" {
-		model = cfg.Tiers.Fast.Model
-		// Verify model exists on host
-		hasModel := false
-		for _, m := range status.Models {
-			if m.Name == model {
-				hasModel = true
-				break
-			}
-		}
-		if !hasModel && len(status.Models) > 0 {
-			model = status.Models[0].Name
-		}
-	}
-
-	// Build prompt with context
-	var fullPrompt strings.Builder
-	if contextStr != "" {
-		fullPrompt.WriteString("Context:\n")
-		fullPrompt.WriteString(contextStr)
-		fullPrompt.WriteString("\n\n")
-	}
-	fullPrompt.WriteString("Task: ")
-	fullPrompt.WriteString(task)
-
-	// Execute
-	start := time.Now()
-	resp, err := client.GenerateWithSystem(model, systemPrompt, fullPrompt.String())
-	duration := time.Since(start)
-
-	if err != nil {
-		return mcp.NewToolResultError("Delegation failed: " + err.Error()), nil
-	}
-
-	// Build result
-	var result strings.Builder
-	result.WriteString("🤖 DELEGATION RESULT\n")
-	result.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
-	result.WriteString(resp.Response)
-	result.WriteString("\n\n")
-	result.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-	if agentName != "" {
-		result.WriteString(fmt.Sprintf("Agent: %s | ", agentName))
-	}
-	result.WriteString(fmt.Sprintf("Model: %s | Host: %s | Time: %.1fs | Tokens: %d\n",
-		model, hostName, duration.Seconds(), resp.EvalCount))
-
-	return mcp.NewToolResultText(result.String()), nil
 }
 
 // =============================================================================
