@@ -123,28 +123,29 @@ func (s *Server) registerTools() {
 
 func (s *Server) preflightTool() mcp.Tool {
 	return mcp.NewTool("clood_preflight",
-		mcp.WithDescription(`🚨 START EVERY SESSION WITH THIS TOOL 🚨
+		mcp.WithDescription(`START HERE. Call this first in every session.
 
-Call this BEFORE doing any work. Returns:
-- Available local discovery tools (grep, tree, symbols, imports, context)
-- Online Ollama hosts and models
-- Recommended workflow for this session
+Returns: available tools, online hosts, models, recommended workflow.
 
-This ensures you use local resources before making network requests.
-Cost: ZERO network, ZERO tokens, instant.`),
+WHEN TO USE: At session start, before any other clood tool.
+WHEN NOT TO USE: Never skip this.
+
+Cost: ZERO (instant, no network, no tokens).`),
 	)
 }
 
 func (s *Server) shouldSearchWebTool() mcp.Tool {
 	return mcp.NewTool("clood_should_search_web",
-		mcp.WithDescription(`🛑 REQUIRED: Call this BEFORE any web search 🛑
+		mcp.WithDescription(`GATE: Call before any WebSearch to check if local tools can answer instead.
 
-Analyzes your query and tells you if local tools can answer it instead.
-- If local tools can help → Returns which tool to use instead
-- If web search is needed → Returns "approved" with reason
+Returns: "USE_LOCAL_TOOL" with redirect, or "WEB_SEARCH_APPROVED" if needed.
 
-DO NOT skip this gate. It prevents unnecessary network requests.
-Cost: ZERO network, ZERO tokens, instant.`),
+WHEN TO USE: Before every WebSearch call.
+WHEN NOT TO USE: Never skip - prevents unnecessary network requests.
+
+Example: query="where is auth handled" → redirects to clood_grep
+
+Cost: ZERO (instant, no network, no tokens).`),
 		mcp.WithString("query", mcp.Required(), mcp.Description("The query you were about to search the web for")),
 	)
 }
@@ -155,47 +156,51 @@ Cost: ZERO network, ZERO tokens, instant.`),
 
 func (s *Server) hostsTool() mcp.Tool {
 	return mcp.NewTool("clood_hosts",
-		mcp.WithDescription(`Check Ollama host status. ALWAYS call this before clood_ask.
+		mcp.WithDescription(`Check which Ollama hosts are online and what models they have.
 
-Returns online/offline status, latency, and available models for each host.
-Use this to verify local LLM is available before querying.
+Returns: host status, latency, available models per host.
+
+WHEN TO USE: Before clood_ask, to verify LLM is available.
+WHEN NOT TO USE: If preflight already showed hosts are online.
+
 Cost: Local network only (no internet), ZERO tokens.`),
 	)
 }
 
 func (s *Server) systemTool() mcp.Tool {
 	return mcp.NewTool("clood_system",
-		mcp.WithDescription(`Display hardware info and model recommendations.
+		mcp.WithDescription(`Show hardware specs and model recommendations.
 
-Shows CPU, memory, GPU, VRAM, and which models will fit.
-Use to understand local compute capacity.
-Cost: ZERO network, ZERO tokens, instant.`),
+Returns: CPU, RAM, GPU, VRAM, recommended models for this hardware.
+
+WHEN TO USE: Choosing which model to use, or diagnosing performance.
+WHEN NOT TO USE: If you already know the hardware capabilities.
+
+Cost: ZERO (instant, no network, no tokens).`),
 	)
 }
 
 func (s *Server) askTool() mcp.Tool {
 	return mcp.NewTool("clood_ask",
-		mcp.WithDescription(`Query LOCAL Ollama LLM. Use INSTEAD of cloud LLM APIs.
+		mcp.WithDescription(`Query local Ollama LLM. Use instead of cloud APIs.
 
-⚠️  BEFORE calling this: Run clood_hosts to verify a host is online.
+PREREQUISITE: Run clood_hosts first to verify a host is online.
 
-Routes to best available local model. Use for:
-- Code generation and analysis
-- Explaining code patterns
-- Best practices questions
+WHEN TO USE: Code questions, explanations, generation - after exhausting grep/symbols/context.
+WHEN NOT TO USE: For codebase questions (use grep/symbols first), external docs (use WebSearch).
 
-Supports specialized roles for task-oriented queries:
-- reviewer: Code review specialist (bugs, security, improvements)
-- coder: Code generation specialist
-- analyst: Code analysis and explanation
-- documenter: Documentation specialist
+ROLES (optional):
+- reviewer: Find bugs, security issues, suggest improvements
+- coder: Generate clean, efficient code
+- analyst: Explain behavior, identify patterns
+- documenter: Write documentation
 
-Cost: Local LLM tokens only, ZERO cloud API calls, ZERO internet.`),
+Cost: Local LLM tokens only, ZERO cloud/internet.`),
 		mcp.WithString("prompt", mcp.Required(), mcp.Description("The prompt to send to the model")),
-		mcp.WithString("model", mcp.Description("Specific model to use (default: routes to best available)")),
-		mcp.WithString("host", mcp.Description("Specific host to use (default: fastest responding)")),
-		mcp.WithString("role", mcp.Description("Agent role: reviewer, coder, analyst, documenter. Applies specialized system prompt.")),
-		mcp.WithBoolean("dialogue", mcp.Description("If true, model will ask clarifying questions before implementing")),
+		mcp.WithString("model", mcp.Description("Specific model (default: best available)")),
+		mcp.WithString("host", mcp.Description("Specific host (default: fastest)")),
+		mcp.WithString("role", mcp.Description("Role: reviewer, coder, analyst, documenter")),
+		mcp.WithBoolean("dialogue", mcp.Description("If true, model asks clarifying questions first")),
 	)
 }
 
@@ -206,101 +211,89 @@ Cost: Local LLM tokens only, ZERO cloud API calls, ZERO internet.`),
 
 func (s *Server) grepTool() mcp.Tool {
 	return mcp.NewTool("clood_grep",
-		mcp.WithDescription(`🔍 USE THIS INSTEAD OF WEB SEARCH for codebase questions.
+		mcp.WithDescription(`Search codebase with regex. USE THIS instead of WebSearch for code questions.
 
-Replaces these web searches:
-- "where is X in this codebase" → clood_grep "X" --files_only
-- "what files contain Y" → clood_grep "Y"
-- "how does Z work in this project" → clood_grep "Z"
+WHEN TO USE:
+- "where is X" → grep "X" files_only=true
+- "what files contain Y" → grep "Y"
+- "how does Z work" → grep "Z" then read results
 
-Cost: ZERO network, ZERO tokens, instant.
-ALWAYS use this before considering WebSearch for code-related queries.`),
+WHEN NOT TO USE: External docs, current events (use WebSearch after should_search_web).
+
+Cost: ZERO (instant, no network, no tokens).`),
 		mcp.WithString("pattern", mcp.Required(), mcp.Description("Regex pattern to search for")),
-		mcp.WithString("path", mcp.Description("Directory to search in (default: current directory)")),
-		mcp.WithBoolean("files_only", mcp.Description("Only return file names, not matching lines")),
-		mcp.WithBoolean("ignore_case", mcp.Description("Case insensitive search")),
-		mcp.WithString("type", mcp.Description("Filter by file type: go, py, js, ts, rs, etc.")),
+		mcp.WithString("path", mcp.Description("Directory to search (default: current)")),
+		mcp.WithBoolean("files_only", mcp.Description("Return only file names, not lines")),
+		mcp.WithBoolean("ignore_case", mcp.Description("Case insensitive")),
+		mcp.WithString("type", mcp.Description("File type filter: go, py, js, ts, rs")),
 	)
 }
 
 func (s *Server) treeTool() mcp.Tool {
 	return mcp.NewTool("clood_tree",
-		mcp.WithDescription(`🌳 USE THIS INSTEAD OF WEB SEARCH for project structure.
+		mcp.WithDescription(`Show directory structure. Respects .gitignore.
 
-Replaces these web searches:
-- "project structure"
-- "what directories exist"
-- "codebase layout"
+WHEN TO USE: Understanding project layout, finding where code lives.
+WHEN NOT TO USE: If you already know the structure from preflight.
 
-Respects .gitignore. Shows clean directory tree.
-Cost: ZERO network, ZERO tokens, instant.`),
-		mcp.WithString("path", mcp.Description("Directory to show (default: current directory)")),
-		mcp.WithNumber("depth", mcp.Description("Maximum depth to traverse (default: 3)")),
+Cost: ZERO (instant, no network, no tokens).`),
+		mcp.WithString("path", mcp.Description("Directory to show (default: current)")),
+		mcp.WithNumber("depth", mcp.Description("Max depth (default: 3)")),
 	)
 }
 
 func (s *Server) symbolsTool() mcp.Tool {
 	return mcp.NewTool("clood_symbols",
-		mcp.WithDescription(`📦 USE THIS INSTEAD OF WEB SEARCH for function/type lookups.
+		mcp.WithDescription(`Extract function/type definitions from code. Supports Go, Python, JS/TS.
 
-Replaces these web searches:
-- "what functions are in file.go"
-- "function signature for Foo"
-- "what types does this package define"
+WHEN TO USE: Finding function signatures, listing types in a package.
+WHEN NOT TO USE: Finding usages (use grep instead).
 
-Extracts functions, types, classes from Go, Python, JS/TS.
-Cost: ZERO network, ZERO tokens, instant.`),
+Cost: ZERO (instant, no network, no tokens).`),
 		mcp.WithString("path", mcp.Required(), mcp.Description("File or directory to analyze")),
-		mcp.WithBoolean("exported_only", mcp.Description("Only show exported/public symbols")),
-		mcp.WithString("kind", mcp.Description("Filter by kind: func, type, class, const, var")),
+		mcp.WithBoolean("exported_only", mcp.Description("Only exported/public symbols")),
+		mcp.WithString("kind", mcp.Description("Filter: func, type, class, const, var")),
 	)
 }
 
 func (s *Server) importsTool() mcp.Tool {
 	return mcp.NewTool("clood_imports",
-		mcp.WithDescription(`📎 USE THIS INSTEAD OF WEB SEARCH for dependency questions.
+		mcp.WithDescription(`Analyze Go imports and dependencies.
 
-Replaces these web searches:
-- "what does this file import"
-- "what dependencies does X use"
-- "what packages are used here"
+Returns: internal, external, and stdlib imports categorized.
 
-Shows internal, external, and stdlib imports.
-Cost: ZERO network, ZERO tokens, instant.`),
+WHEN TO USE: Understanding what a file depends on, refactoring.
+WHEN NOT TO USE: Non-Go files (not yet supported).
+
+Cost: ZERO (instant, no network, no tokens).`),
 		mcp.WithString("path", mcp.Required(), mcp.Description("File or directory to analyze")),
 	)
 }
 
 func (s *Server) contextTool() mcp.Tool {
 	return mcp.NewTool("clood_context",
-		mcp.WithDescription(`📋 Generate LLM-ready project summary.
+		mcp.WithDescription(`Generate LLM-ready project summary (README, structure, key files).
 
-Creates a condensed context including:
-- README content
-- Project structure
-- Key files
+WHEN TO USE: Getting oriented in a new project, before asking clood_ask about the codebase.
+WHEN NOT TO USE: If you've already read the specific files you need.
 
-Use to quickly understand a project without reading every file.
-Cost: ZERO network, ZERO tokens, instant.`),
-		mcp.WithString("path", mcp.Description("Directory to analyze (default: current directory)")),
+Cost: ZERO (instant, no network, no tokens).`),
+		mcp.WithString("path", mcp.Description("Directory to analyze (default: current)")),
 		mcp.WithNumber("max_tokens", mcp.Description("Target token count (default: 4000)")),
 	)
 }
 
 func (s *Server) analyzeTool() mcp.Tool {
 	return mcp.NewTool("clood_analyze",
-		mcp.WithDescription(`🔬 Run static analysis on Go codebase (like "clood bcbc").
+		mcp.WithDescription(`Run static analysis on Go codebase: build, vet, TODOs, recent commits.
 
-Returns pre-computed analysis including:
-- Build status (pass/fail)
-- Go vet issues
-- TODO/FIXME items
-- Recent commits and hot files
-- Symbol counts (funcs, types, methods)
+WHEN TO USE: Before making changes, to understand codebase health.
+WHEN NOT TO USE: Non-Go projects.
 
-Use this to quickly understand codebase health before making changes.
-Cost: ZERO network, ZERO tokens (runs go build/vet locally).`),
-		mcp.WithString("path", mcp.Description("Directory to analyze (default: current directory)")),
+Returns: build status, vet issues, TODOs, hot files, symbol counts.
+
+Cost: ZERO tokens (runs go build/vet locally, may take a few seconds).`),
+		mcp.WithString("path", mcp.Description("Directory to analyze (default: current)")),
 		mcp.WithBoolean("run_tests", mcp.Description("Also run tests (slower)")),
 	)
 }
@@ -1165,12 +1158,14 @@ func callOllama(baseURL, model, prompt string) (string, error) {
 
 func (s *Server) gitDiffTool() mcp.Tool {
 	return mcp.NewTool("clood_git_diff",
-		mcp.WithDescription(`📝 Show git diff for files, commits, or staged changes.
+		mcp.WithDescription(`Show git diff for files, commits, or staged changes.
 
-View what has changed in the repository.
-Supports specific files, commits, staged vs unstaged.
+WHEN TO USE: Before committing, to review changes. When investigating what changed.
+WHEN NOT TO USE: For commit history (use clood_git_log instead).
 
-Cost: ZERO network, ZERO tokens, instant.`),
+Options: specific file, compare against commit, staged only, summary stats.
+
+Cost: ZERO (local git operation, instant).`),
 		mcp.WithString("path", mcp.Description("Repository path (default: current directory)")),
 		mcp.WithString("file", mcp.Description("Specific file to diff")),
 		mcp.WithString("commit", mcp.Description("Compare against specific commit (e.g., HEAD~1)")),
@@ -1181,12 +1176,14 @@ Cost: ZERO network, ZERO tokens, instant.`),
 
 func (s *Server) gitLogTool() mcp.Tool {
 	return mcp.NewTool("clood_git_log",
-		mcp.WithDescription(`📜 Show commit history with filtering.
+		mcp.WithDescription(`Show commit history with filtering options.
 
-View recent commits with author, date, message.
-Filter by author, date range, or search in messages.
+WHEN TO USE: To understand recent changes, find who changed what, search commit messages.
+WHEN NOT TO USE: For file contents (use clood_grep). For current changes (use clood_git_diff).
 
-Cost: ZERO network, ZERO tokens, instant.`),
+Filters: author, date range, message search, specific file.
+
+Cost: ZERO (local git operation, instant).`),
 		mcp.WithString("path", mcp.Description("Repository path (default: current directory)")),
 		mcp.WithNumber("count", mcp.Description("Number of commits to show (default: 20)")),
 		mcp.WithString("author", mcp.Description("Filter by author name/email")),
@@ -1198,12 +1195,12 @@ Cost: ZERO network, ZERO tokens, instant.`),
 
 func (s *Server) gitBranchesTool() mcp.Tool {
 	return mcp.NewTool("clood_git_branches",
-		mcp.WithDescription(`🌿 List git branches.
+		mcp.WithDescription(`List git branches (local and optionally remote).
 
-Shows local branches with current marker.
-Optionally includes remote branches.
+WHEN TO USE: To see available branches, check current branch, find feature branches.
+WHEN NOT TO USE: For commit history (use clood_git_log).
 
-Cost: ZERO network, ZERO tokens, instant.`),
+Cost: ZERO (local git operation, instant).`),
 		mcp.WithString("path", mcp.Description("Repository path (default: current directory)")),
 		mcp.WithBoolean("remote", mcp.Description("Include remote branches")),
 	)
@@ -1211,16 +1208,14 @@ Cost: ZERO network, ZERO tokens, instant.`),
 
 func (s *Server) gitCreatePRTool() mcp.Tool {
 	return mcp.NewTool("clood_git_create_pr",
-		mcp.WithDescription(`🚀 Create a GitHub Pull Request.
+		mcp.WithDescription(`Create a GitHub Pull Request from current branch.
 
-Creates a PR from the current branch to the target base branch.
-Requires gh CLI to be installed and authenticated.
+WHEN TO USE: After committing and pushing changes, to create a PR for review.
+WHEN NOT TO USE: Before pushing (push first). For local-only changes.
 
-Use this after committing and pushing your changes.
-The coder model can generate the title and body content,
-then the tool-use model can execute this to create the PR.
+Requires: gh CLI installed and authenticated.
 
-Cost: One GitHub API call via gh CLI.`),
+Cost: One GitHub API call.`),
 		mcp.WithString("title", mcp.Required(), mcp.Description("PR title (short, descriptive)")),
 		mcp.WithString("body", mcp.Description("PR description (markdown supported, explain what and why)")),
 		mcp.WithString("base", mcp.Description("Base branch to merge into (default: main)")),
@@ -1371,12 +1366,14 @@ func (s *Server) gitCreatePRHandler(ctx context.Context, req mcp.CallToolRequest
 
 func (s *Server) sqliteQueryTool() mcp.Tool {
 	return mcp.NewTool("clood_sqlite_query",
-		mcp.WithDescription(`🗄️ Execute a SELECT query on a SQLite database.
+		mcp.WithDescription(`Execute a SELECT query on a local SQLite database.
 
-Query local SQLite databases and get JSON results.
-Only SELECT, PRAGMA, and EXPLAIN queries are allowed (read-only).
+WHEN TO USE: Querying app data, browsing local databases, extracting structured data.
+WHEN NOT TO USE: Modifying data (read-only: SELECT, PRAGMA, EXPLAIN only).
 
-Cost: ZERO network, ZERO tokens, instant.`),
+Returns: JSON array of matching rows.
+
+Cost: ZERO (local file access, instant).`),
 		mcp.WithString("database", mcp.Required(), mcp.Description("Path to the SQLite database file")),
 		mcp.WithString("query", mcp.Required(), mcp.Description("SQL SELECT query to execute")),
 	)
@@ -1384,12 +1381,14 @@ Cost: ZERO network, ZERO tokens, instant.`),
 
 func (s *Server) sqliteSchemaTool() mcp.Tool {
 	return mcp.NewTool("clood_sqlite_schema",
-		mcp.WithDescription(`📋 Show schema for a SQLite database or table.
+		mcp.WithDescription(`Show schema for a SQLite database or specific table.
 
-If table is specified: Returns column names, types, constraints for that table.
-If table is omitted: Lists all tables and their schemas in the database.
+WHEN TO USE: Before querying, to understand table structure and column types.
+WHEN NOT TO USE: If you already know the schema.
 
-Cost: ZERO network, ZERO tokens, instant.`),
+Returns: Column names, types, and constraints. Omit table param to list all tables.
+
+Cost: ZERO (local file access, instant).`),
 		mcp.WithString("database", mcp.Required(), mcp.Description("Path to the SQLite database file")),
 		mcp.WithString("table", mcp.Description("Table name (omit to show all tables and schemas)")),
 	)
@@ -1455,23 +1454,25 @@ func (s *Server) sqliteSchemaHandler(ctx context.Context, req mcp.CallToolReques
 
 func (s *Server) clipboardReadTool() mcp.Tool {
 	return mcp.NewTool("clood_clipboard_read",
-		mcp.WithDescription(`📋 Read current clipboard contents.
+		mcp.WithDescription(`Read current system clipboard contents.
 
-Get text currently in the system clipboard.
-Useful for quickly grabbing copied code, URLs, or text.
+WHEN TO USE: When user says "use what I copied" or references clipboard content.
+WHEN NOT TO USE: For reading files (use file tools instead).
 
-Cost: ZERO network, ZERO tokens, instant.`),
+Returns: Text currently in clipboard.
+
+Cost: ZERO (local system call, instant).`),
 	)
 }
 
 func (s *Server) clipboardWriteTool() mcp.Tool {
 	return mcp.NewTool("clood_clipboard_write",
-		mcp.WithDescription(`📝 Write text to the clipboard.
+		mcp.WithDescription(`Write text to the system clipboard.
 
-Set the system clipboard contents.
-Useful for sharing code snippets, results, or prepared text.
+WHEN TO USE: When user asks to copy something, or to share generated code/results.
+WHEN NOT TO USE: For saving to files (use file tools instead).
 
-Cost: ZERO network, ZERO tokens, instant.`),
+Cost: ZERO (local system call, instant).`),
 		mcp.WithString("text", mcp.Required(), mcp.Description("Text to copy to clipboard")),
 	)
 }
@@ -1512,19 +1513,14 @@ func (s *Server) clipboardWriteHandler(ctx context.Context, req mcp.CallToolRequ
 
 func (s *Server) catfightTool() mcp.Tool {
 	return mcp.NewTool("clood_catfight",
-		mcp.WithDescription(`🐱 Run a catfight - compare multiple models on the same prompt.
+		mcp.WithDescription(`Compare 2-5 models head-to-head on the same prompt.
 
-Unlike thunderdome (which runs across ALL hosts in parallel), catfight is focused:
-- Runs on a single host (or localhost by default)
-- Compares 2-5 models head-to-head
-- Returns responses with timing metrics
+WHEN TO USE: Testing which model handles a prompt best. Benchmarking local models.
+WHEN NOT TO USE: For single queries (use clood_ask). When speed matters more than comparison.
 
-Use for quick model comparisons during development.
+Returns: All model responses with timing metrics for comparison.
 
-Examples:
-- Compare coding models on a task
-- Test which model handles a specific prompt best
-- Benchmark model performance on your hardware`),
+Cost: Runs on LOCAL Ollama only. Tokens used per model queried.`),
 		mcp.WithString("prompt", mcp.Required(), mcp.Description("The prompt to send to all models")),
 		mcp.WithString("models", mcp.Description("Comma-separated models to compare (default: qwen2.5-coder:3b,mistral:7b,llama3.1:8b)")),
 		mcp.WithString("host", mcp.Description("Target host (default: localhost)")),
